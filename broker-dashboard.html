@@ -28,93 +28,93 @@
 <div id="mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-[55] hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
 
 <!-- SideNavBar -->
-<nav id="broker-sidebar" class="h-screen w-64 border-r fixed left-0 top-0 border-slate-200 bg-slate-50 flex flex-col p-4 gap-2 text-slate-900 font-['Outfit'] text-sm font-medium transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0 z-[60]">
+<nav id="broker-sidebar" class="h-screen w-16 lg:w-64 border-r fixed left-0 top-0 border-slate-200 bg-slate-50 flex flex-col p-2 lg:p-4 gap-2 text-slate-900 font-['Outfit'] text-sm font-medium transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0 z-[60]">
 <!-- Header -->
-<a href="/profile.html" class="flex items-center gap-4 px-2 py-4 mb-4 hover:bg-slate-100/80 rounded-xl transition-all duration-200 group cursor-pointer active:scale-[0.98]">
+<a href="/profile.html" class="flex items-center gap-4 px-2 py-4 mb-4 hover:bg-slate-100/80 rounded-xl transition-all duration-200 group cursor-pointer active:scale-[0.98] justify-center lg:justify-start">
 <img loading="lazy" decoding="async" id="broker-profile-img" alt="Broker Profile" class="w-10 h-10 rounded-full object-cover border border-slate-200 group-hover:scale-105 transition-transform duration-200" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80"/>
-<div class="group-hover:translate-x-0.5 transition-transform duration-200">
+<div class="hidden lg:block group-hover:translate-x-0.5 transition-transform duration-200">
 <h2 id="broker-company-name" class="text-lg font-bold text-slate-900">Premier Realty</h2>
 <p class="text-xs text-slate-500 font-normal">Broker Dashboard</p>
 </div>
 </a>
 <!-- Navigation Links -->
-<a id="nav-overview" class="flex items-center gap-3 px-3 py-2.5 bg-white text-slate-900 shadow-sm ring-1 ring-slate-200 rounded-lg" href="#overview-section">
+<a id="nav-overview" class="flex items-center gap-3 px-3 py-2.5 bg-white text-slate-900 shadow-sm ring-1 ring-slate-200 rounded-lg justify-center lg:justify-start" href="#overview-section">
 <span class="material-symbols-outlined text-[20px]">dashboard</span>
-            Overview
+            <span class="hidden lg:inline">Overview</span>
         </a>
-<a id="nav-listings" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors" href="#listings-section">
+<a id="nav-listings" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#listings-section">
 <span class="material-symbols-outlined text-[20px]">domain</span>
-            Listings
+            <span class="hidden lg:inline">Listings</span>
         </a>
-<a id="nav-leads" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors" href="#leads-section">
+<a id="nav-leads" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#leads-section">
 <span class="material-symbols-outlined text-[20px]">person_search</span>
-            Leads
+            <span class="hidden lg:inline">Leads</span>
         </a>
-<a id="nav-analytics" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors" href="#analytics-section">
+<a id="nav-analytics" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#analytics-section">
 <span class="material-symbols-outlined text-[20px]">insights</span>
-            Analytics
+            <span class="hidden lg:inline">Analytics</span>
         </a>
-<a id="nav-messages" class="flex items-center justify-between px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors w-full" href="#messages-section">
+<a id="nav-messages" class="flex items-center justify-center lg:justify-between px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors w-full" href="#messages-section">
     <div class="flex items-center gap-3">
         <span class="material-symbols-outlined text-[20px]">forum</span>
-        Messages
+        <span class="hidden lg:inline">Messages</span>
     </div>
     <span id="unread-messages-badge" class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full hidden">0</span>
 </a>
-<a id="nav-notifications" class="flex items-center justify-between px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors w-full" href="#notifications-section">
+<a id="nav-notifications" class="flex items-center justify-center lg:justify-between px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors w-full" href="#notifications-section">
     <div class="flex items-center gap-3">
         <span class="material-symbols-outlined text-[20px]">notifications</span>
-        Notifications
+        <span class="hidden lg:inline">Notifications</span>
     </div>
     <span id="unread-notifications-badge" class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full hidden">0</span>
 </a>
-<a id="nav-settings" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors" href="#settings-section">
+<a id="nav-settings" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#settings-section">
 <span class="material-symbols-outlined text-[20px]">settings</span>
-            Settings
+            <span class="hidden lg:inline">Settings</span>
         </a>
 <!-- CTA -->
 <div class="mt-4 px-2">
 <button id="sidebar-add-listing-btn" class="w-full bg-primary text-on-primary py-2.5 rounded-lg font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-sm">
 <span class="material-symbols-outlined text-[18px]">add</span>
-                Add Listing
+                <span class="hidden lg:inline">Add Listing</span>
             </button>
 </div>
 <div class="mt-auto flex flex-col gap-2 pt-4 border-t border-slate-200">
-<a class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors" href="#settings-section">
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#settings-section">
 <span class="material-symbols-outlined text-[20px]">help</span>
-                Support
+                <span class="hidden lg:inline">Support</span>
             </a>
-<button id="sidebar-logout-btn" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors w-full text-left">
+<button id="sidebar-logout-btn" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors w-full justify-center lg:justify-start">
 <span class="material-symbols-outlined text-[20px]">logout</span>
-                Logout
+                <span class="hidden lg:inline">Logout</span>
             </button>
 </div>
 </nav>
 <!-- Mobile Bottom Navigation Bar -->
-<nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 flex items-center justify-around px-2 py-2 safe-area-inset-bottom">
-  <button data-tab="#overview-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 transition-colors active-mobile-tab">
+<nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-[200] bg-white border-t border-slate-200 flex items-center justify-around px-1 py-2 safe-area-inset-bottom">
+  <button data-tab="#overview-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors active-mobile-tab">
     <span class="material-symbols-outlined text-[22px]">dashboard</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Overview</span>
   </button>
-  <button data-tab="#listings-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 transition-colors">
+  <button data-tab="#listings-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">domain</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Listings</span>
   </button>
-  <button data-tab="#leads-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 transition-colors">
+  <button data-tab="#leads-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">person_search</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Leads</span>
   </button>
-  <button data-tab="#messages-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 transition-colors relative">
+  <button data-tab="#messages-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors relative">
     <span class="material-symbols-outlined text-[22px]">forum</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Messages</span>
     <span id="mobile-unread-badge" class="absolute top-0 right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full items-center justify-center hidden">!</span>
   </button>
-  <button data-tab="#notifications-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 transition-colors relative">
+  <button data-tab="#notifications-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors relative">
     <span class="material-symbols-outlined text-[22px]">notifications</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Alerts</span>
     <span id="mobile-unread-notifications-badge" class="absolute top-0 right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full items-center justify-center hidden">!</span>
   </button>
-  <button data-tab="#settings-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 transition-colors">
+  <button data-tab="#settings-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">settings</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Settings</span>
   </button>
@@ -123,19 +123,24 @@
 <header class="md:hidden sticky top-0 bg-white border-b border-slate-200 z-40 flex items-center justify-between px-4 py-3">
     <div class="flex items-center gap-2">
         <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80" alt="Profile" class="w-8 h-8 rounded-full object-cover">
-        <span class="font-bold text-slate-900 text-sm">Premier Realty</span>
+        <span class="font-bold text-slate-900 text-sm" id="mobile-broker-name">Premier Realty</span>
     </div>
-    <button id="mobile-menu-btn" class="text-slate-500 hover:text-slate-900 transition-colors bg-slate-100 p-2 rounded-lg flex items-center justify-center">
-        <span class="material-symbols-outlined text-[20px]">menu</span>
-    </button>
+    <div class="flex items-center gap-2">
+        <button id="mobile-logout-btn" class="text-slate-500 hover:text-red-600 transition-colors bg-slate-100 hover:bg-red-50 p-2 rounded-lg flex items-center justify-center" title="Logout">
+            <span class="material-symbols-outlined text-[20px]">logout</span>
+        </button>
+        <button id="mobile-menu-btn" class="text-slate-500 hover:text-slate-900 transition-colors bg-slate-100 p-2 rounded-lg flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">menu</span>
+        </button>
+    </div>
 </header>
 
 <!-- Main Content Area -->
-<main class="flex-1 ml-0 md:ml-64 p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full pb-20 md:pb-0">
+<main class="flex-1 ml-0 md:ml-16 lg:ml-64 p-margin-mobile md:p-6 lg:p-margin-desktop max-w-container-max mx-auto w-full pb-20 md:pb-0">
     <!-- TAB: OVERVIEW -->
     <div id="tab-overview" class="tab-content block">
         <!-- Header Section -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-stack-lg gap-4">
+        <header class="flex flex-col justify-between items-start mb-4 gap-3 lg:flex-row lg:items-center lg:mb-stack-lg">
             <div>
                 <h1 class="font-h2 text-h2 text-primary">Overview</h1>
                 <p class="font-body-sm text-body-sm text-on-surface-variant mt-unit">Welcome back. Here is your portfolio performance.</p>
@@ -159,7 +164,7 @@
         </header>
 
         <!-- KPI Bento Grid -->
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-stack-lg">
+        <section class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-stack-lg">
             <!-- KPI Card 1 -->
             <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
                 <div class="flex justify-between items-start mb-stack-md">
@@ -228,8 +233,8 @@
                     </h3>
                     <p class="text-xs text-on-surface-variant mt-1">Share your unique referral link with clients to invite them to ProjectX and track your referrals.</p>
                 </div>
-                <div class="flex items-center gap-2 w-full md:w-auto">
-                    <input type="text" id="referral-link-input" readonly value="Loading..." class="flex-1 md:w-80 bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-xs font-mono text-on-surface-variant focus:outline-none">
+                <div class="flex items-center gap-2 w-full md:w-auto min-w-0">
+                    <input type="text" id="referral-link-input" readonly value="Loading..." class="flex-1 md:w-80 bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-xs font-mono text-on-surface-variant focus:outline-none min-w-0 truncate">
                     <button id="copy-referral-btn" class="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 active:scale-95">
                         <span class="material-symbols-outlined text-[16px]">content_copy</span>
                         Copy Link
@@ -243,22 +248,22 @@
         </section>
 
         <!-- Dashboard Widgets -->
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-gutter">
+        <div class="grid grid-cols-1 gap-4">
             <!-- Recent Listings Widget -->
-            <section class="xl:col-span-2 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col">
+            <section class="xl:col-span-2 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col min-w-0">
                 <div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
                     <h3 class="font-h3 text-h3 text-primary">Recent Listings</h3>
                     <button id="view-all-listings-btn" class="text-primary font-body-sm text-body-sm hover:underline">View All</button>
                 </div>
-                <div class="overflow-x-auto flex-1">
-                    <table class="w-full text-left border-collapse min-w-[700px]">
+                <div class="overflow-x-auto flex-1" style="-webkit-overflow-scrolling: touch;">
+                    <table class="w-full text-left border-collapse min-w-[560px]">
                         <thead>
                             <tr class="bg-surface-container-low border-b border-outline-variant">
-                                <th class="p-4 font-label-caps text-label-caps text-on-surface-variant">PROPERTY</th>
-                                <th class="p-4 font-label-caps text-label-caps text-on-surface-variant">STATUS</th>
-                                <th class="p-4 font-label-caps text-label-caps text-on-surface-variant">PRICE</th>
-                                <th class="p-4 font-label-caps text-label-caps text-on-surface-variant">LISTED</th>
-                                <th class="p-4 font-label-caps text-label-caps text-on-surface-variant text-right">ACTIONS</th>
+                                <th class="p-3 font-label-caps text-label-caps text-on-surface-variant">PROPERTY</th>
+                                <th class="p-3 font-label-caps text-label-caps text-on-surface-variant">STATUS</th>
+                                <th class="p-3 font-label-caps text-label-caps text-on-surface-variant hidden lg:table-cell">PRICE</th>
+                                <th class="p-3 font-label-caps text-label-caps text-on-surface-variant">LISTED</th>
+                                <th class="p-3 font-label-caps text-label-caps text-on-surface-variant text-right">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody id="listings-tbody-widget" class="font-body-sm text-body-sm text-on-surface">
@@ -490,14 +495,21 @@
   document.addEventListener('DOMContentLoaded', () => {
     const mobileBtns = document.querySelectorAll('.mobile-nav-btn');
     mobileBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const hash = btn.dataset.tab;
-        // Trigger the same sidebar link click
         const sidebarLink = document.querySelector(`#broker-sidebar a[href="${hash}"]`);
-        if (sidebarLink) sidebarLink.click();
-        // Update active state
+        if (sidebarLink) {
+          sidebarLink.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        }
         mobileBtns.forEach(b => b.classList.remove('active-mobile-tab'));
         btn.classList.add('active-mobile-tab');
+      });
+      // Add touch event explicitly
+      btn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        btn.click();
       });
     });
 
@@ -582,6 +594,18 @@
             toggleSidebar();
           }
         });
+      });
+    }
+
+    // Mobile logout button
+    const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
+    if (mobileLogoutBtn) {
+      mobileLogoutBtn.addEventListener('click', () => {
+        if (typeof window.logout === 'function') window.logout();
+      });
+      mobileLogoutBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        if (typeof window.logout === 'function') window.logout();
       });
     }
   });

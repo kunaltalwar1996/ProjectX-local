@@ -4,10 +4,10 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <title>ProjectX - Search Your Home</title>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/style.css">
   <!-- Leaflet Map CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -23,7 +23,7 @@
     /* Custom Pin Styles */
     .custom-price-pin {
         background: white;
-        border: 2px solid #0f172a; /* slate-900 */
+        border: 2px solid #0f172a;
         color: #0f172a;
         font-weight: 800;
         font-size: 12px;
@@ -56,28 +56,66 @@
     .custom-price-pin.active-pin::after {
         border-color: #0f172a transparent transparent transparent;
     }
-    #map-pane { transition: all 0.3s ease; }
-    #list-pane { transition: all 0.3s ease; }
+    #map-pane { transition: height 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
     .view-toggle-btn.active {
       background: #0f172a;
       color: white;
     }
+
+    /* ── Bottom Sheet (mobile only) ── */
+    #list-pane {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+      transition: height 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    @media (min-width: 768px) {
+      #list-pane {
+        position: relative;
+        border-radius: 0;
+        box-shadow: none;
+        height: auto !important;
+        transition: none;
+        flex: 0 0 420px;
+      }
+    }
+    #drag-handle {
+      cursor: grab;
+      flex-shrink: 0;
+      padding: 12px 0 6px;
+      touch-action: none;
+    }
+    #drag-handle-pill {
+      width: 36px;
+      height: 4px;
+      background: #cbd5e1;
+      border-radius: 2px;
+      margin: 0 auto;
+    }
+    #list-pane .list-scroll-area {
+      flex: 1;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
+    }
   </style>
 </head>
 <body class="bg-white text-slate-900 font-['Outfit'] antialiased h-screen overflow-hidden flex flex-col">
-  <!-- Top Navigation (Standardized) -->
+  <!-- Top Navigation -->
   <nav class="w-full z-50 bg-white border-b border-slate-200 shadow-sm h-16 shrink-0 flex items-center">
     <div class="max-w-[1280px] mx-auto px-6 w-full flex items-center justify-between gap-8">
-      <!-- Brand -->
       <div class="flex items-center gap-2">
         <a href="/index.html" class="text-xl font-black tracking-tighter text-slate-900">ProjectX</a>
       </div>
-      <!-- Navigation Links -->
       <div class="hidden md:flex items-center gap-8">
-        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
-          href="/map.html">Search Your Home</a>
-
-        <!-- Services Dropdown -->
+        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1" href="/map.html">Search Your Home</a>
         <div class="relative group">
           <button class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1 flex items-center gap-1">
             Services
@@ -95,43 +133,38 @@
           </div>
         </div>
       </div>
-      <!-- Trailing Actions -->
       <div class="flex items-center gap-4">
         <button class="text-slate-500 hover:text-slate-900 transition-colors">
           <span class="material-symbols-outlined text-[24px]">account_circle</span>
         </button>
-        <button class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider ml-2">
-          Dashboard
-        </button>
+        <button class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider ml-2">Dashboard</button>
       </div>
     </div>
   </nav>
 
   <!-- View Toggle Toolbar -->
-  <div class="shrink-0 bg-white border-b border-slate-200 px-6 py-2 flex items-center justify-between gap-4 z-40">
+  <div class="shrink-0 bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between gap-2 z-40">
     <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-      <button id="toggle-split" class="view-toggle-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-widest transition-all">
+      <button id="toggle-split" class="view-toggle-btn active flex items-center gap-1 px-2 md:px-3 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest transition-all" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
         <span class="material-symbols-outlined text-[16px]">view_sidebar</span>
-        Split
+        <span class="hidden sm:inline">Split</span>
       </button>
-      <button id="toggle-map" class="view-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-widest text-slate-500 transition-all">
+      <button id="toggle-map" class="view-toggle-btn flex items-center gap-1 px-2 md:px-3 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest text-slate-500 transition-all" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
         <span class="material-symbols-outlined text-[16px]">map</span>
-        Map
+        <span class="hidden sm:inline">Map</span>
       </button>
-      <button id="toggle-list" class="view-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-widest text-slate-500 transition-all">
+      <button id="toggle-list" class="view-toggle-btn flex items-center gap-1 px-2 md:px-3 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest text-slate-500 transition-all" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
         <span class="material-symbols-outlined text-[16px]">view_list</span>
-        List
+        <span class="hidden sm:inline">List</span>
       </button>
     </div>
-    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest" id="map-listings-count-toolbar">Loading...</p>
+    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" id="map-listings-count-toolbar">Loading...</p>
   </div>
 
-  <main id="main-split" class="flex-grow flex flex-col lg:flex-row overflow-hidden">
-    <!-- Left Pane: Map -->
-    <section id="map-pane" class="flex-1 shrink-0 bg-slate-100 relative min-h-[300px]">
-      <!-- OpenStreetMap Container -->
+  <main id="main-split" class="flex-grow flex flex-col md:flex-row overflow-hidden min-h-0">
+    <!-- Map Pane -->
+    <section id="map-pane" class="w-full bg-slate-100 relative shrink-0 md:flex-1" style="height: calc(100vh - 112px);">
       <div id="map" class="absolute inset-0 z-0"></div>
-      
       <!-- Map Search Bar -->
       <div class="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-sm">
         <div class="bg-white rounded-full shadow-lg border border-slate-200 flex items-center p-1">
@@ -145,8 +178,12 @@
       </div>
     </section>
 
-    <!-- Right Pane: Listings Sidebar -->
-    <section id="list-pane" class="w-full lg:w-[420px] bg-white border-l border-slate-100 flex flex-col overflow-hidden shadow-2xl z-10 shrink-0">
+    <!-- List Pane (bottom sheet on mobile, sidebar on desktop) -->
+    <section id="list-pane" class="w-full md:w-[420px] bg-white border-l border-slate-100 flex flex-col overflow-hidden shadow-2xl z-10 shrink-0">
+      <!-- Drag handle (mobile only) -->
+      <div id="drag-handle" aria-label="Drag to resize">
+        <div id="drag-handle-pill"></div>
+      </div>
       <div class="shrink-0 border-b border-slate-100">
         <!-- Filter bar -->
         <div class="px-4 pt-4 pb-3 space-y-3">
@@ -178,12 +215,13 @@
         </div>
       </div>
 
-      <div class="flex-grow overflow-y-auto p-6 space-y-6">
-        <!-- Injected dynamically by JS -->
+      <!-- Scrollable listings — class must contain 'overflow-y-auto' and 'p-6' for auth.js selector -->
+      <div class="list-scroll-area overflow-y-auto p-6 space-y-6">
+        <!-- Injected dynamically by JS (auth.js queries .overflow-y-auto.p-6) -->
       </div>
-
     </section>
   </main>
+
 <script type="module">
   import { supabase } from './lib/supabase.js';
 
@@ -235,16 +273,11 @@
         lat = latlng.lat;
         lng = latlng.lng;
       }
-      
-      // Find if there is any active listing matching these coordinates that is filtered out
       for (const listing of allListingsMap.values()) {
         if (Math.abs(listing.lat - lat) < 0.0001 && Math.abs(listing.lng - lng) < 0.0001) {
-          if (isFilteredOut(listing)) {
-            return false;
-          }
+          if (isFilteredOut(listing)) return false;
         }
       }
-      
       return originalContains.call(this, latlng);
     };
   }
@@ -258,21 +291,13 @@
 
   function isFilteredOut(listing) {
     if (!listingsLoaded) return false;
-    if (window._mapIntentFilter && listing.intent !== window._mapIntentFilter) {
-      return true;
-    }
-    if (window._mapTypeFilter && listing.type !== window._mapTypeFilter) {
-      return true;
-    }
+    if (window._mapIntentFilter && listing.intent !== window._mapIntentFilter) return true;
+    if (window._mapTypeFilter && listing.type !== window._mapTypeFilter) return true;
     if (window._mapPriceMin !== null && window._mapPriceMin !== undefined && !isNaN(window._mapPriceMin)) {
-      if (listing.price < window._mapPriceMin) {
-        return true;
-      }
+      if (listing.price < window._mapPriceMin) return true;
     }
     if (window._mapPriceMax !== null && window._mapPriceMax !== undefined && !isNaN(window._mapPriceMax)) {
-      if (listing.price > window._mapPriceMax) {
-        return true;
-      }
+      if (listing.price > window._mapPriceMax) return true;
     }
     return false;
   }
@@ -315,101 +340,304 @@
         }
       }
     });
-
-    if (mapInstance) {
-      mapInstance.fire('moveend');
-    }
+    if (mapInstance) mapInstance.fire('moveend');
   };
 
-  // Initial load
   loadListings();
 
   document.addEventListener('DOMContentLoaded', () => {
-    const mapPane = document.getElementById('map-pane');
-    const listPane = document.getElementById('list-pane');
-    const btnSplit = document.getElementById('toggle-split');
-    const btnMap = document.getElementById('toggle-map');
-    const btnList = document.getElementById('toggle-list');
-    const allToggleBtns = [btnSplit, btnMap, btnList];
 
-    function setActive(btn) {
-      allToggleBtns.forEach(b => {
-        b.classList.remove('active');
-        b.classList.add('text-slate-500');
-        b.classList.remove('text-white');
+    // ── View toggle ──
+    function setView(mode) {
+      const mapPane  = document.getElementById('map-pane');
+      const listPane = document.getElementById('list-pane');
+      ['split','map','list'].forEach(m => {
+        const btn = document.getElementById(`toggle-${m}`);
+        if (!btn) return;
+        btn.classList.toggle('active', m === mode);
+        btn.classList.toggle('text-slate-500', m !== mode);
       });
-      btn.classList.add('active');
-      btn.classList.remove('text-slate-500');
+
+      if (mode === 'split') {
+        if (mapPane)  { mapPane.style.display  = ''; }
+        if (listPane) { listPane.style.display = ''; }
+      } else if (mode === 'map') {
+        if (mapPane)  { mapPane.style.display  = ''; }
+        if (listPane) { listPane.style.display = 'none'; }
+      } else if (mode === 'list') {
+        if (mapPane)  { mapPane.style.display  = ''; } // keep map alive for getBounds()
+        if (listPane) { listPane.style.display = ''; }
+      }
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 350);
     }
 
-    btnSplit.addEventListener('click', () => {
-      setActive(btnSplit);
-      mapPane.style.display = '';
-      listPane.style.display = '';
-      mapPane.className = 'flex-1 shrink-0 bg-slate-100 relative min-h-[300px]';
-      listPane.className = 'w-full lg:w-[420px] bg-white border-l border-slate-100 flex flex-col overflow-hidden shadow-2xl z-10 shrink-0';
-      setTimeout(() => window.dispatchEvent(new Event('resize')), 350);
+    ['split','map','list'].forEach(mode => {
+      const btn = document.getElementById(`toggle-${mode}`);
+      if (btn) {
+        btn.addEventListener('click',    (e) => { e.preventDefault(); setView(mode); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); setView(mode); });
+      }
     });
 
-    btnMap.addEventListener('click', () => {
-      setActive(btnMap);
-      mapPane.style.display = '';
-      listPane.style.display = 'none';
-      mapPane.className = 'flex-1 bg-slate-100 relative';
-      setTimeout(() => window.dispatchEvent(new Event('resize')), 350);
-    });
-
-    btnList.addEventListener('click', () => {
-      setActive(btnList);
-      mapPane.style.display = 'none';
-      listPane.style.display = '';
-      listPane.className = 'flex-1 bg-white flex flex-col overflow-hidden';
-      setTimeout(() => window.dispatchEvent(new Event('resize')), 350);
-    });
-
-    // Sync toolbar count with sidebar count
+    // Sync toolbar count
     const sidebarCount = document.getElementById('map-listings-count');
     const toolbarCount = document.getElementById('map-listings-count-toolbar');
     if (sidebarCount && toolbarCount) {
-      const observer = new MutationObserver(() => {
-        toolbarCount.textContent = sidebarCount.textContent;
-      });
+      const observer = new MutationObserver(() => { toolbarCount.textContent = sidebarCount.textContent; });
       observer.observe(sidebarCount, { childList: true, characterData: true, subtree: true });
     }
 
-    // Intent filter buttons
+    // Intent filter
     document.querySelectorAll('.intent-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      const handler = () => {
         document.querySelectorAll('.intent-btn').forEach(b => {
-          b.classList.remove('bg-slate-900', 'text-white');
-          b.classList.add('bg-slate-100', 'text-slate-500');
+          b.classList.remove('bg-slate-900','text-white');
+          b.classList.add('bg-slate-100','text-slate-500');
         });
-        btn.classList.add('bg-slate-900', 'text-white');
-        btn.classList.remove('bg-slate-100', 'text-slate-500');
+        btn.classList.add('bg-slate-900','text-white');
+        btn.classList.remove('bg-slate-100','text-slate-500');
         window._mapIntentFilter = btn.dataset.intent === 'all' ? null : btn.dataset.intent;
-        window._applyMapFilters();
-      });
+        if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
+      };
+      btn.addEventListener('click', (e) => { e.preventDefault(); handler(); });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); handler(); });
     });
 
-    // Type filter chips
+    // Type filter
     document.querySelectorAll('.type-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      const handler = () => {
         document.querySelectorAll('.type-btn').forEach(b => {
-          b.classList.remove('bg-slate-900', 'text-white');
-          b.classList.add('bg-slate-100', 'text-slate-500');
+          b.classList.remove('bg-slate-900','text-white');
+          b.classList.add('bg-slate-100','text-slate-500');
         });
-        btn.classList.add('bg-slate-900', 'text-white');
-        btn.classList.remove('bg-slate-100', 'text-slate-500');
+        btn.classList.add('bg-slate-900','text-white');
+        btn.classList.remove('bg-slate-100','text-slate-500');
         window._mapTypeFilter = btn.dataset.type === 'all' ? null : btn.dataset.type;
-        window._applyMapFilters();
-      });
+        if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
+      };
+      btn.addEventListener('click', (e) => { e.preventDefault(); handler(); });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); handler(); });
     });
 
     // Price filter
-    document.getElementById('list-apply-filters')?.addEventListener('click', () => {
-      window._mapPriceMin = parseFloat(document.getElementById('list-price-min').value) || null;
-      window._mapPriceMax = parseFloat(document.getElementById('list-price-max').value) || null;
-      window._applyMapFilters();
+    const applyBtn = document.getElementById('list-apply-filters');
+    if (applyBtn) {
+      const priceHandler = () => {
+        window._mapPriceMin = parseFloat(document.getElementById('list-price-min').value) || null;
+        window._mapPriceMax = parseFloat(document.getElementById('list-price-max').value) || null;
+        if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
+      };
+      applyBtn.addEventListener('click', priceHandler);
+      applyBtn.addEventListener('touchend', (e) => { e.preventDefault(); priceHandler(); });
+    }
+
+    // ── Bottom Sheet Logic (mobile only, < 768px) ──
+    const SNAP_PEEK = 80;
+    const SNAP_HALF = Math.round(window.innerHeight * 0.52);
+    const SNAP_FULL = window.innerHeight - 56; // minus toolbar
+
+    let currentSnap = SNAP_HALF;
+    let isDragging   = false;
+    let startY       = 0;
+    let startHeight  = 0;
+
+    function isMobile() { return window.innerWidth < 768; }
+
+    function setSheetHeight(h, animate = true) {
+      if (!isMobile()) return;
+      const listPane = document.getElementById('list-pane');
+      const mapPane  = document.getElementById('map-pane');
+      if (!listPane || !mapPane) return;
+
+      const clamped = Math.max(SNAP_PEEK, Math.min(h, SNAP_FULL));
+      listPane.style.transition = animate ? 'height 0.3s cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+      listPane.style.height = clamped + 'px';
+
+      // Always keep map visible so Leaflet getBounds() stays valid
+      const mapH = Math.max(40, window.innerHeight - clamped - 56);
+      mapPane.style.height = mapH + 'px';
+      mapPane.style.display = '';
+
+      if (animate) {
+        if (window._resizeTimeout) clearTimeout(window._resizeTimeout);
+        window._resizeTimeout = setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+        }, 320);
+      }
+    }
+
+    function updateToggleBtns(mode) {
+      ['split','map','list'].forEach(m => {
+        const btn = document.getElementById(`toggle-${m}`);
+        if (!btn) return;
+        btn.classList.toggle('active', m === mode);
+        btn.classList.toggle('text-slate-500', m !== mode);
+      });
+    }
+
+    function snapToNearest(h) {
+      const snaps   = [SNAP_PEEK, SNAP_HALF, SNAP_FULL];
+      const closest = snaps.reduce((a, b) => Math.abs(b - h) < Math.abs(a - h) ? b : a);
+      currentSnap = closest;
+      setSheetHeight(closest, true);
+      // Only update button highlights — do NOT call setView() to avoid hiding the map
+      if (closest === SNAP_FULL)      updateToggleBtns('list');
+      else if (closest === SNAP_PEEK) updateToggleBtns('map');
+      else                            updateToggleBtns('split');
+    }
+
+    function initBottomSheet() {
+      if (!isMobile()) return;
+      const handle   = document.getElementById('drag-handle');
+      const listPane = document.getElementById('list-pane');
+      if (!handle || !listPane) return;
+
+      // Start at half
+      setSheetHeight(SNAP_HALF, false);
+
+      function startDrag(clientY) {
+        isDragging  = true;
+        startY      = clientY;
+        startHeight = listPane.getBoundingClientRect().height;
+        listPane.style.transition = 'none';
+      }
+
+      function doDrag(clientY) {
+        if (!isDragging) return;
+        const dy = startY - clientY;
+        setSheetHeight(startHeight + dy, false);
+      }
+
+      function endDrag() {
+        if (!isDragging) return;
+        isDragging = false;
+        snapToNearest(listPane.getBoundingClientRect().height);
+      }
+
+      // Pointer events for drag handle
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
+        startDrag(e.clientY);
+        handle.setPointerCapture(e.pointerId);
+      });
+
+      handle.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        doDrag(e.clientY);
+      });
+
+      handle.addEventListener('pointerup', (e) => {
+        if (!isDragging) return;
+        endDrag();
+        try {
+          handle.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+      });
+
+      handle.addEventListener('pointercancel', (e) => {
+        if (!isDragging) return;
+        endDrag();
+      });
+
+      // Pointer events for filter bar (non-input area)
+      const filterBar = listPane.querySelector('.shrink-0.border-b');
+      if (filterBar) {
+        filterBar.style.touchAction = 'none';
+        filterBar.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('button, input, select')) return;
+          if (e.button !== 0 && e.pointerType === 'mouse') return;
+          startDrag(e.clientY);
+          filterBar.setPointerCapture(e.pointerId);
+        });
+
+        filterBar.addEventListener('pointermove', (e) => {
+          if (!isDragging) return;
+          doDrag(e.clientY);
+        });
+
+        filterBar.addEventListener('pointerup', (e) => {
+          if (!isDragging) return;
+          endDrag();
+          try {
+            filterBar.releasePointerCapture(e.pointerId);
+          } catch (err) {}
+        });
+
+        filterBar.addEventListener('pointercancel', (e) => {
+          if (!isDragging) return;
+          endDrag();
+        });
+      }
+
+      // ── Swipe-up / scroll on list content expands sheet ──
+      const scrollArea = listPane.querySelector('.list-scroll-area');
+      if (scrollArea) {
+        let scrollTouchStartY = 0;
+
+        scrollArea.addEventListener('touchstart', (e) => {
+          scrollTouchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        scrollArea.addEventListener('touchmove', (e) => {
+          if (isDragging) return;
+          const dy = scrollTouchStartY - e.touches[0].clientY;
+
+          if (currentSnap < SNAP_FULL) {
+            // Finger swiping up → expand first
+            if (dy > 8) {
+              e.preventDefault();
+              snapToNearest(SNAP_FULL);
+            }
+          } else {
+            // Already full, if scrolled to top and finger swiping down, snap back to half
+            if (scrollArea.scrollTop <= 0 && dy < -8) {
+              e.preventDefault();
+              snapToNearest(SNAP_HALF);
+            }
+          }
+        }, { passive: false });
+
+        // Mouse wheel (desktop mobile-emulation / trackpad)
+        scrollArea.addEventListener('wheel', (e) => {
+          if (!isMobile()) return;
+          
+          if (currentSnap < SNAP_FULL) {
+            if (e.deltaY > 0) {
+              e.preventDefault();
+              snapToNearest(SNAP_FULL);
+            }
+          } else {
+            if (scrollArea.scrollTop <= 0 && e.deltaY < 0) {
+              e.preventDefault();
+              snapToNearest(SNAP_HALF);
+            }
+          }
+        }, { passive: false });
+      }
+    }
+
+    // Wrap setView so toolbar buttons also drive the sheet on mobile
+    const _origSetView = setView;
+    setView = function(mode) {
+      _origSetView(mode);
+      if (!isMobile()) return;
+      if (mode === 'list')  { currentSnap = SNAP_FULL; setSheetHeight(SNAP_FULL, true); }
+      if (mode === 'map')   { currentSnap = SNAP_PEEK; setSheetHeight(SNAP_PEEK, true); }
+      if (mode === 'split') { currentSnap = SNAP_HALF; setSheetHeight(SNAP_HALF, true); }
+    };
+
+    initBottomSheet();
+
+    // Default: half on mobile, split on desktop
+    if (isMobile()) {
+      setSheetHeight(SNAP_HALF, false);
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+    } else {
+      setView('split');
+    }
+
+    window.addEventListener('resize', () => {
+      if (isMobile()) setSheetHeight(currentSnap, false);
     });
   });
 </script>

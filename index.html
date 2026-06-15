@@ -59,7 +59,7 @@
       </div>
 
       <!-- Mobile Menu Toggle -->
-      <button onclick="toggleMobileMenu()" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors">
+      <button id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer; min-width: 44px; min-height: 44px;">
         <span class="material-symbols-outlined text-[28px]">menu</span>
       </button>
     </div>
@@ -100,9 +100,8 @@
         </div>
 
         <!-- Property Type Dropdown -->
-        <div class="relative w-full md:w-48 group">
-          <div
-            class="flex items-center justify-between px-4 py-3 border-b md:border-b-0 md:border-r border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors h-full">
+        <div class="relative w-full md:w-48">
+          <div id="property-trigger" class="flex items-center justify-between px-4 py-3 border-b md:border-b-0 md:border-r border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors h-full" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-height: 44px;">
             <div class="flex items-center gap-3">
               <span class="material-symbols-outlined text-slate-400">home</span>
               <span class="text-sm font-medium text-slate-600">Property</span>
@@ -110,8 +109,7 @@
             <span class="material-symbols-outlined text-slate-400 text-sm">expand_more</span>
           </div>
           <!-- Dropdown Content -->
-          <div
-            class="absolute top-[100%] left-0 mt-2 w-full bg-white border border-slate-100 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 flex flex-col py-2">
+          <div id="property-dropdown" class="absolute top-[100%] left-0 mt-2 w-full bg-white border border-slate-100 rounded-lg shadow-xl opacity-0 invisible transition-all z-50 flex flex-col py-2">
             <label
               class="px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700"><input
                 type="checkbox" class="accent-slate-900 rounded-sm"> Apartment</label>
@@ -128,9 +126,8 @@
         </div>
 
         <!-- Price Range Dropdown -->
-        <div class="relative w-full md:w-56 group">
-          <div
-            class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors mr-2 h-full">
+        <div class="relative w-full md:w-56">
+          <div id="price-trigger" class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors mr-2 h-full" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-height: 44px;">
             <div class="flex items-center gap-3">
               <span class="material-symbols-outlined text-slate-400">payments</span>
               <span class="text-sm font-medium text-slate-600 truncate" id="price-label">Price Range</span>
@@ -138,8 +135,7 @@
             <span class="material-symbols-outlined text-slate-400 text-sm">expand_more</span>
           </div>
           <!-- Dropdown Content -->
-          <div
-            class="absolute top-[100%] left-0 md:-left-8 mt-2 w-[280px] bg-white border border-slate-100 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-5">
+          <div id="price-dropdown" class="absolute top-[100%] left-0 md:-left-8 mt-2 w-[280px] bg-white border border-slate-100 rounded-lg shadow-xl opacity-0 invisible transition-all z-50 p-5">
             <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Maximum Price</p>
             <div class="flex justify-between items-center text-xl font-black text-slate-900 mb-4">
               <span id="price-val">Any</span>
@@ -407,6 +403,80 @@
         setTimeout(() => backdrop.classList.add('hidden'), 300);
       }
     }
+
+    document.getElementById('hamburger-btn').addEventListener('click', toggleMobileMenu);
+    document.getElementById('hamburger-btn').addEventListener('touchend', function(e) {
+      e.preventDefault();
+      toggleMobileMenu();
+    });
+
+  function toggleDropdown(id, event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const dropdown = document.getElementById(id);
+    if (!dropdown) return;
+    const isVisible = dropdown.classList.contains('opacity-100');
+
+    ['property-dropdown', 'price-dropdown'].forEach(d => {
+      const el = document.getElementById(d);
+      if (el) {
+        el.classList.add('opacity-0', 'invisible');
+        el.classList.remove('opacity-100', 'visible');
+      }
+    });
+
+    if (!isVisible) {
+      dropdown.classList.remove('opacity-0', 'invisible');
+      dropdown.classList.add('opacity-100', 'visible');
+    }
+  }
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', () => {
+    ['property-dropdown', 'price-dropdown'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.add('opacity-0', 'invisible');
+        el.classList.remove('opacity-100', 'visible');
+      }
+    });
+  });
+
+  // Wire dropdowns for both click and touch
+  const propertyTrigger = document.getElementById('property-trigger');
+  const priceTrigger = document.getElementById('price-trigger');
+
+  if (propertyTrigger) {
+    propertyTrigger.addEventListener('click', (e) => toggleDropdown('property-dropdown', e));
+    propertyTrigger.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      toggleDropdown('property-dropdown', e);
+    });
+  }
+
+  if (priceTrigger) {
+    priceTrigger.addEventListener('click', (e) => toggleDropdown('price-dropdown', e));
+    priceTrigger.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      toggleDropdown('price-dropdown', e);
+    });
+  }
+
+  // Close on outside touch
+  document.addEventListener('touchend', (e) => {
+    if (!e.target.closest('#property-trigger') && !e.target.closest('#property-dropdown') &&
+        !e.target.closest('#price-trigger') && !e.target.closest('#price-dropdown')) {
+      ['property-dropdown', 'price-dropdown'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.add('opacity-0', 'invisible');
+          el.classList.remove('opacity-100', 'visible');
+        }
+      });
+    }
+  });
   </script>
 </body>
 </html>

@@ -203,7 +203,7 @@ const roleAllowedPages = {
 
 // ─── Global Auth Guard (asynchronous) ──────────────────────────────────────────
 
-isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.html';
+isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.html' || currentPage === 'signup.html';
 
 async function checkAuth() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -309,7 +309,7 @@ function initAppPage() {
     currentPage = currentPath.split('/').pop() || 'index.html';
     if (!currentPage.includes('.')) currentPage += '.html';
     userRole = localStorage.getItem('role');
-    isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.html';
+    isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.html' || currentPage === 'signup.html';
 
     normalizeInternalLinks();
 
@@ -641,35 +641,119 @@ function initAppPage() {
         if (mobileContainer && !containers.includes(mobileContainer)) containers.push(mobileContainer);
 
         containers.forEach(container => {
+            const isMobileContainer = container.id === 'mobile-trailing-actions' || container.classList.contains('flex-col');
+            
             if (currentRole === 'Guest') {
-                container.innerHTML = `
-                    <a href="${window.toAppUrl('login.html')}" class="text-slate-600 hover:text-slate-900 transition-colors font-bold text-xs uppercase tracking-wider px-3 py-2 inline-block">
-                        Sign In
-                    </a>
-                    <a href="${window.toAppUrl('login.html?mode=signup')}" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider shadow-sm ml-2 inline-block">
-                        Sign Up
-                    </a>
-                `;
+                if (isMobileContainer) {
+                    container.innerHTML = `
+                        <a href="${window.toAppUrl('login.html')}" class="w-full text-center border border-slate-200 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors uppercase tracking-wider block">
+                            Sign In
+                        </a>
+                        <a href="${window.toAppUrl('login.html?mode=signup')}" class="w-full text-center bg-slate-900 text-white px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider shadow-sm block">
+                            Sign Up
+                        </a>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <a href="${window.toAppUrl('login.html')}" class="text-slate-600 hover:text-slate-900 transition-colors font-bold text-xs uppercase tracking-wider px-3 py-2 inline-block">
+                            Sign In
+                        </a>
+                        <a href="${window.toAppUrl('login.html?mode=signup')}" class="bg-slate-900 text-white px-5 py-2.5 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider shadow-sm ml-2 inline-block">
+                            Sign Up
+                        </a>
+                    `;
+                }
             } else if (currentRole === 'Buyer') {
-                container.innerHTML = `
-                    <button onclick="window.location.href=window.toAppUrl('profile.html')" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" title="Signed in as Buyer — Go to Profile">
-                        <span class="material-symbols-outlined text-[24px]">account_circle</span>
-                    </button>
-                    <button onclick="window.logout()" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center ml-2" title="Sign Out">
-                        <span class="material-symbols-outlined text-[24px]">logout</span>
-                    </button>
-                `;
+                if (isMobileContainer) {
+                    container.innerHTML = `
+                        <a href="${window.toAppUrl('profile.html')}" class="w-full text-center border border-slate-200 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors uppercase tracking-wider flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">account_circle</span>
+                            Profile
+                        </a>
+                        <button onclick="window.logout()" class="w-full text-center bg-slate-100 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors uppercase tracking-wider flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">logout</span>
+                            Sign Out
+                        </button>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <button onclick="window.location.href=window.toAppUrl('profile.html')" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" title="Signed in as Buyer — Go to Profile">
+                            <span class="material-symbols-outlined text-[24px]">account_circle</span>
+                        </button>
+                        <button onclick="window.logout()" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center ml-2" title="Sign Out">
+                            <span class="material-symbols-outlined text-[24px]">logout</span>
+                        </button>
+                    `;
+                }
             } else {
-                container.innerHTML = `
-                    <a href="${window.toAppUrl(roleHomePage[currentRole] || 'index.html')}" class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider shadow-sm mr-2 flex items-center">
-                        Dashboard
-                    </a>
-                    <button onclick="window.logout()" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" title="Signed in as ${currentRole} — Sign Out">
-                        <span class="material-symbols-outlined text-[24px]">logout</span>
-                    </button>
-                `;
+                if (isMobileContainer) {
+                    container.innerHTML = `
+                        <a href="${window.toAppUrl(roleHomePage[currentRole] || 'index.html')}" class="w-full text-center bg-slate-900 text-white px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider shadow-sm flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">dashboard</span>
+                            Dashboard
+                        </a>
+                        <button onclick="window.logout()" class="w-full text-center bg-slate-100 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors uppercase tracking-wider flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">logout</span>
+                            Sign Out
+                        </button>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <a href="${window.toAppUrl(roleHomePage[currentRole] || 'index.html')}" class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider shadow-sm mr-2 flex items-center">
+                            Dashboard
+                        </a>
+                        <button onclick="window.logout()" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" title="Signed in as ${currentRole} — Sign Out">
+                            <span class="material-symbols-outlined text-[24px]">logout</span>
+                        </button>
+                    `;
+                }
             }
         });
+    }
+
+    // Fix hover-only dropdowns for touch devices
+    function initTouchDropdowns() {
+        document.querySelectorAll('.group').forEach(group => {
+            const trigger = group.querySelector('button, a');
+            const dropdown = group.querySelector('[class*="group-hover"]');
+            if (!trigger || !dropdown) return;
+
+            trigger.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const isVisible = dropdown.style.opacity === '1';
+                // Close all
+                document.querySelectorAll('.group [class*="group-hover"]').forEach(d => {
+                    d.style.opacity = '0';
+                    d.style.visibility = 'hidden';
+                    d.style.pointerEvents = 'none';
+                });
+                // Toggle this one
+                if (!isVisible) {
+                    dropdown.style.opacity = '1';
+                    dropdown.style.visibility = 'visible';
+                    dropdown.style.pointerEvents = 'auto';
+                }
+            });
+        });
+
+        // Close on outside touch
+        document.addEventListener('touchend', (e) => {
+            if (!e.target.closest('.group')) {
+                document.querySelectorAll('.group [class*="group-hover"]').forEach(d => {
+                    d.style.opacity = '0';
+                    d.style.visibility = 'hidden';
+                    d.style.pointerEvents = 'none';
+                });
+            }
+        });
+    }
+
+    // Call after DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTouchDropdowns);
+    } else {
+        initTouchDropdowns();
     }
 
     updateHeaderVisibility();
@@ -793,13 +877,16 @@ function initAppPage() {
         activateBrokerTab(window.location.hash || '#overview-section');
 
         sidebarLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                const href = link.getAttribute('href');
-                if (href && href.startsWith('#')) {
-                    e.preventDefault();
-                    history.pushState(null, '', href);
-                    activateBrokerTab(href);
-                }
+            ['click', 'touchend'].forEach(eventType => {
+                link.addEventListener(eventType, (e) => {
+                    const href = link.getAttribute('href');
+                    if (href && href.startsWith('#')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        history.pushState(null, '', href);
+                        activateBrokerTab(href);
+                    }
+                });
             });
         });
 
@@ -2934,6 +3021,7 @@ async function initBuyerMapPage() {
     const markers = [];
     let activeListingId = null;
     let isProgrammaticMove = false;
+    let lastValidBounds = null;
 
     function selectListing(id, fromMap = false) {
         activeListingId = id;
@@ -3097,7 +3185,17 @@ async function initBuyerMapPage() {
     function updateSidebar() {
         if (isProgrammaticMove) return;
 
-        const bounds = map.getBounds();
+        let bounds = map.getBounds();
+        const mapPane = document.getElementById('map-pane');
+        const mapHeight = mapPane ? mapPane.offsetHeight : 0;
+        if (window.innerWidth < 768) {
+            if (mapHeight > 150) {
+                lastValidBounds = bounds;
+            } else if (lastValidBounds) {
+                bounds = lastValidBounds;
+            }
+        }
+
         const visibleListings = markersData.filter(p => bounds.contains([p.lat, p.lng]));
         
         if (matchesCountEl) {
