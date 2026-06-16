@@ -834,21 +834,35 @@ function initAppPage() {
         const sidebarAddBtn = document.getElementById('sidebar-add-listing-btn');
         if (sidebarAddBtn) sidebarAddBtn.addEventListener('click', () => openListingModal(null));
 
-        // Sidebar Navigation Interactivity
+        // Sidebar & Mobile Navigation Interactivity
         const sidebarLinks = document.querySelectorAll('#broker-sidebar a');
+        const mobileNavBtns = document.querySelectorAll('.mobile-nav-btn');
         
         const activateBrokerTab = (hash) => {
             if (!hash || !hash.startsWith('#')) return;
             const targetLink = Array.from(sidebarLinks).find(l => l.getAttribute('href') === hash);
             if (!targetLink) return;
 
-            // Active state management
+            // Active state management (Sidebar links)
             sidebarLinks.forEach(l => {
                 l.classList.remove('bg-white', 'text-slate-900', 'shadow-sm', 'ring-1', 'ring-slate-200');
                 l.classList.add('text-slate-500', 'hover:bg-slate-100', 'hover:text-slate-900');
+                l.setAttribute('aria-selected', 'false');
             });
             targetLink.classList.add('bg-white', 'text-slate-900', 'shadow-sm', 'ring-1', 'ring-slate-200');
             targetLink.classList.remove('text-slate-500', 'hover:bg-slate-100', 'hover:text-slate-900');
+            targetLink.setAttribute('aria-selected', 'true');
+
+            // Active state management (Mobile Nav buttons)
+            mobileNavBtns.forEach(btn => {
+                if (btn.getAttribute('data-tab') === hash) {
+                    btn.classList.add('active-mobile-tab');
+                    btn.setAttribute('aria-selected', 'true');
+                } else {
+                    btn.classList.remove('active-mobile-tab');
+                    btn.setAttribute('aria-selected', 'false');
+                }
+            });
 
             // Section handling
             const targetId = 'tab-' + hash.substring(1).replace('-section', '');
@@ -873,21 +887,41 @@ function initAppPage() {
             }
         };
 
+        // Expose globally
+        window.activateBrokerTab = activateBrokerTab;
+
         // Activate correct tab on load based on hash (default to overview)
         activateBrokerTab(window.location.hash || '#overview-section');
 
+        // Sidebar link click listeners
         sidebarLinks.forEach(link => {
-            ['click', 'touchend'].forEach(eventType => {
-                link.addEventListener(eventType, (e) => {
-                    const href = link.getAttribute('href');
-                    if (href && href.startsWith('#')) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        history.pushState(null, '', href);
-                        activateBrokerTab(href);
-                    }
-                });
+            link.addEventListener('click', (e) => {
+                const href = link.getAttribute('href');
+                if (href && href.startsWith('#')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    history.pushState(null, '', href);
+                    activateBrokerTab(href);
+                }
             });
+        });
+
+        // Mobile bottom nav button click listeners
+        mobileNavBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const hash = btn.getAttribute('data-tab');
+                if (hash && hash.startsWith('#')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    history.pushState(null, '', hash);
+                    activateBrokerTab(hash);
+                }
+            });
+        });
+
+        // Listen for history popstate events (browser back/forward)
+        window.addEventListener('popstate', () => {
+            activateBrokerTab(window.location.hash || '#overview-section');
         });
 
         // Header Actions
@@ -995,14 +1029,16 @@ function initAppPage() {
         const viewAllListings = document.getElementById('view-all-listings-btn');
         if (viewAllListings) {
             viewAllListings.addEventListener('click', () => {
-                document.getElementById('nav-listings')?.click();
+                history.pushState(null, '', '#listings-section');
+                activateBrokerTab('#listings-section');
             });
         }
 
         const viewAllMessages = document.getElementById('view-all-messages-btn');
         if (viewAllMessages) {
             viewAllMessages.addEventListener('click', () => {
-                document.getElementById('nav-messages')?.click();
+                history.pushState(null, '', '#messages-section');
+                activateBrokerTab('#messages-section');
             });
         }
 

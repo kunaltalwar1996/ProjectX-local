@@ -92,29 +92,29 @@
 </nav>
 <!-- Mobile Bottom Navigation Bar -->
 <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-[200] bg-white border-t border-slate-200 flex items-center justify-around px-1 py-2 safe-area-inset-bottom">
-  <button data-tab="#overview-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors active-mobile-tab">
+  <button type="button" data-tab="#overview-section" aria-label="Overview" aria-selected="true" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors active-mobile-tab">
     <span class="material-symbols-outlined text-[22px]">dashboard</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Overview</span>
   </button>
-  <button data-tab="#listings-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
+  <button type="button" data-tab="#listings-section" aria-label="Listings" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">domain</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Listings</span>
   </button>
-  <button data-tab="#leads-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
+  <button type="button" data-tab="#leads-section" aria-label="Leads" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">person_search</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Leads</span>
   </button>
-  <button data-tab="#messages-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors relative">
+  <button type="button" data-tab="#messages-section" aria-label="Messages" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors relative">
     <span class="material-symbols-outlined text-[22px]">forum</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Messages</span>
     <span id="mobile-unread-badge" class="absolute top-0 right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full items-center justify-center hidden">!</span>
   </button>
-  <button data-tab="#notifications-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors relative">
+  <button type="button" data-tab="#notifications-section" aria-label="Alerts" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors relative">
     <span class="material-symbols-outlined text-[22px]">notifications</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Alerts</span>
     <span id="mobile-unread-notifications-badge" class="absolute top-0 right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full items-center justify-center hidden">!</span>
   </button>
-  <button data-tab="#settings-section" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
+  <button type="button" data-tab="#settings-section" aria-label="Settings" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">settings</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Settings</span>
   </button>
@@ -493,26 +493,6 @@
 </main>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const mobileBtns = document.querySelectorAll('.mobile-nav-btn');
-    mobileBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const hash = btn.dataset.tab;
-        const sidebarLink = document.querySelector(`#broker-sidebar a[href="${hash}"]`);
-        if (sidebarLink) {
-          sidebarLink.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-        }
-        mobileBtns.forEach(b => b.classList.remove('active-mobile-tab'));
-        btn.classList.add('active-mobile-tab');
-      });
-      // Add touch event explicitly
-      btn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        btn.click();
-      });
-    });
-
     // Sync unread badge to mobile
     const observer = new MutationObserver(() => {
       const desktopBadge = document.getElementById('unread-messages-badge');
@@ -601,10 +581,6 @@
     const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
     if (mobileLogoutBtn) {
       mobileLogoutBtn.addEventListener('click', () => {
-        if (typeof window.logout === 'function') window.logout();
-      });
-      mobileLogoutBtn.addEventListener('touchend', (e) => {
-        e.preventDefault();
         if (typeof window.logout === 'function') window.logout();
       });
     }

@@ -221,4 +221,21 @@ body.estate-admin-theme .heading-md {
     font-weight: 700 !important;
 }
 
+/* --- Mobile Bottom Navigation Styling --- */
+.safe-area-inset-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
+}
+
+.mobile-nav-btn {
+    min-width: 48px;
+    min-height: 48px;
+}
+
+@media (max-width: 767px) {
+    body.estate-admin-theme main {
+        padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)) !important;
+    }
+}
+
+
 
