@@ -4,14 +4,14 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <title>ProjectX - Search Your Home</title>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <!-- Leaflet Map CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <!-- Leaflet Map JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <style>
     #map { background: #f8fafc; }
     .leaflet-popup-content-wrapper { border-radius: 20px; padding: 4px; }
@@ -20,7 +20,7 @@
     /* Custom Pin Styles */
     .custom-price-pin {
         background: white;
-        border: 2px solid #0f172a; /* slate-900 */
+        border: 2px solid #0f172a;
         color: #0f172a;
         font-weight: 800;
         font-size: 12px;
@@ -53,32 +53,70 @@
     .custom-price-pin.active-pin::after {
         border-color: #0f172a transparent transparent transparent;
     }
-    #map-pane { transition: all 0.3s ease; }
-    #list-pane { transition: all 0.3s ease; }
+    #map-pane { transition: height 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
     .view-toggle-btn.active {
       background: #0f172a;
       color: white;
     }
+
+    /* ── Bottom Sheet (mobile only) ── */
+    #list-pane {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+      transition: height 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    @media (min-width: 768px) {
+      #list-pane {
+        position: relative;
+        border-radius: 0;
+        box-shadow: none;
+        height: auto !important;
+        transition: none;
+        flex: 0 0 420px;
+      }
+    }
+    #drag-handle {
+      cursor: grab;
+      flex-shrink: 0;
+      padding: 12px 0 6px;
+      touch-action: none;
+    }
+    #drag-handle-pill {
+      width: 36px;
+      height: 4px;
+      background: #cbd5e1;
+      border-radius: 2px;
+      margin: 0 auto;
+    }
+    #list-pane .list-scroll-area {
+      flex: 1;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
+    }
   </style>
-  <script type="module" crossorigin src="/assets/map-DiF_Lc4d.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/auth-B5j3y_3m.js">
-  <link rel="modulepreload" crossorigin href="/assets/demo-data-BvLM9QKs.js">
-  <link rel="stylesheet" crossorigin href="/assets/style-BnzbAXZf.css">
+  <script type="module" crossorigin src="/assets/map-C6gIe6yt.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/auth-f-Wq0pga.js">
+  <link rel="modulepreload" crossorigin href="/assets/demo-data-DzTKjQyv.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-DtGEKwrx.css">
 </head>
 <body class="bg-white text-slate-900 font-['Outfit'] antialiased h-screen overflow-hidden flex flex-col">
-  <!-- Top Navigation (Standardized) -->
+  <!-- Top Navigation -->
   <nav class="w-full z-50 bg-white border-b border-slate-200 shadow-sm h-16 shrink-0 flex items-center">
     <div class="max-w-[1280px] mx-auto px-6 w-full flex items-center justify-between gap-8">
-      <!-- Brand -->
       <div class="flex items-center gap-2">
         <a href="/index.html" class="text-xl font-black tracking-tighter text-slate-900">ProjectX</a>
       </div>
-      <!-- Navigation Links -->
       <div class="hidden md:flex items-center gap-8">
-        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
-          href="/map.html">Search Your Home</a>
-
-        <!-- Services Dropdown -->
+        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1" href="/map.html">Search Your Home</a>
         <div class="relative group">
           <button class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1 flex items-center gap-1">
             Services
@@ -96,43 +134,38 @@
           </div>
         </div>
       </div>
-      <!-- Trailing Actions -->
       <div class="flex items-center gap-4">
         <button class="text-slate-500 hover:text-slate-900 transition-colors">
           <span class="material-symbols-outlined text-[24px]">account_circle</span>
         </button>
-        <button class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider ml-2">
-          Dashboard
-        </button>
+        <button class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider ml-2">Dashboard</button>
       </div>
     </div>
   </nav>
 
   <!-- View Toggle Toolbar -->
-  <div class="shrink-0 bg-white border-b border-slate-200 px-6 py-2 flex items-center justify-between gap-4 z-40">
+  <div class="shrink-0 bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between gap-2 z-40">
     <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-      <button id="toggle-split" class="view-toggle-btn active flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-widest transition-all">
+      <button id="toggle-split" class="view-toggle-btn active flex items-center gap-1 px-2 md:px-3 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest transition-all" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
         <span class="material-symbols-outlined text-[16px]">view_sidebar</span>
-        Split
+        <span class="hidden sm:inline">Split</span>
       </button>
-      <button id="toggle-map" class="view-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-widest text-slate-500 transition-all">
+      <button id="toggle-map" class="view-toggle-btn flex items-center gap-1 px-2 md:px-3 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest text-slate-500 transition-all" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
         <span class="material-symbols-outlined text-[16px]">map</span>
-        Map
+        <span class="hidden sm:inline">Map</span>
       </button>
-      <button id="toggle-list" class="view-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-widest text-slate-500 transition-all">
+      <button id="toggle-list" class="view-toggle-btn flex items-center gap-1 px-2 md:px-3 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest text-slate-500 transition-all" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
         <span class="material-symbols-outlined text-[16px]">view_list</span>
-        List
+        <span class="hidden sm:inline">List</span>
       </button>
     </div>
-    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest" id="map-listings-count-toolbar">Loading...</p>
+    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" id="map-listings-count-toolbar">Loading...</p>
   </div>
 
-  <main id="main-split" class="flex-grow flex flex-col lg:flex-row overflow-hidden">
-    <!-- Left Pane: Map -->
-    <section id="map-pane" class="flex-1 shrink-0 bg-slate-100 relative min-h-[300px]">
-      <!-- OpenStreetMap Container -->
+  <main id="main-split" class="flex-grow flex flex-col md:flex-row overflow-hidden min-h-0">
+    <!-- Map Pane -->
+    <section id="map-pane" class="w-full bg-slate-100 relative shrink-0 md:flex-1" style="height: calc(100vh - 112px);">
       <div id="map" class="absolute inset-0 z-0"></div>
-      
       <!-- Map Search Bar -->
       <div class="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-sm">
         <div class="bg-white rounded-full shadow-lg border border-slate-200 flex items-center p-1">
@@ -146,8 +179,12 @@
       </div>
     </section>
 
-    <!-- Right Pane: Listings Sidebar -->
-    <section id="list-pane" class="w-full lg:w-[420px] bg-white border-l border-slate-100 flex flex-col overflow-hidden shadow-2xl z-10 shrink-0">
+    <!-- List Pane (bottom sheet on mobile, sidebar on desktop) -->
+    <section id="list-pane" class="w-full md:w-[420px] bg-white border-l border-slate-100 flex flex-col overflow-hidden shadow-2xl z-10 shrink-0">
+      <!-- Drag handle (mobile only) -->
+      <div id="drag-handle" aria-label="Drag to resize">
+        <div id="drag-handle-pill"></div>
+      </div>
       <div class="shrink-0 border-b border-slate-100">
         <!-- Filter bar -->
         <div class="px-4 pt-4 pb-3 space-y-3">
@@ -179,11 +216,12 @@
         </div>
       </div>
 
-      <div class="flex-grow overflow-y-auto p-6 space-y-6">
-        <!-- Injected dynamically by JS -->
+      <!-- Scrollable listings — class must contain 'overflow-y-auto' and 'p-6' for auth.js selector -->
+      <div class="list-scroll-area overflow-y-auto p-6 space-y-6">
+        <!-- Injected dynamically by JS (auth.js queries .overflow-y-auto.p-6) -->
       </div>
-
     </section>
   </main>
+
 </body>
 </html>

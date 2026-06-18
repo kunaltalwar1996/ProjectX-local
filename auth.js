@@ -2316,6 +2316,13 @@ function initModalLeafletMap(lat, lng) {
             modalMarker.setLatLng(e.latlng);
             updateModalLocationCoordinates(e.latlng.lat, e.latlng.lng, true);
         });
+
+        // The container was hidden (display:none) when Leaflet initialised, so it
+        // measured 0×0 and rendered blank tiles.  Force a size recalculation once
+        // the browser has repainted with the container now visible.
+        setTimeout(() => {
+            modalMap.invalidateSize();
+        }, 150);
     } else {
         modalMap.setView([lat, lng], 13);
         modalMarker.setLatLng([lat, lng]);
@@ -2794,7 +2801,20 @@ async function saveCustomFilter() {
     }
 
     if (error) {
-        showToast('Error saving filter: ' + error.message, true);
+        // Supabase/PostgREST surfaces a missing column as PGRST204 ("schema cache miss").
+        // Raw PostgreSQL code for "column does not exist" is 42703.
+        // Detect both so the actionable migration hint fires for either path.
+        const isSchemaMissing =
+            error.code === 'PGRST204' ||
+            error.code === '42703' ||
+            (error.message && (
+                error.message.toLowerCase().includes('column') ||
+                error.message.toLowerCase().includes('schema cache')
+            ));
+        const msg = isSchemaMissing
+            ? 'Database schema is outdated — the custom_filters table is missing required columns (slug, is_public). Please run scripts/migrations/custom_filters_v2.sql in your Supabase SQL Editor, then try again.'
+            : 'Error saving filter: ' + error.message;
+        showToast(msg, true);
     } else {
         showToast('Custom filter saved successfully.');
         closeCustomFilterModal();
