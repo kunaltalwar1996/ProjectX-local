@@ -10,8 +10,11 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
-
-    <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css">
+<!-- Leaflet Map CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<!-- Leaflet Map JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script type="module" src="/auth.js"></script>
 <style>
   .mobile-nav-btn.active-mobile-tab {
@@ -20,6 +23,22 @@
   }
   .mobile-nav-btn.active-mobile-tab span.material-symbols-outlined {
     font-variation-settings: 'FILL' 1;
+  }
+  /* Custom map modal styles */
+  #filter-modal-map {
+    height: 220px;
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    margin-top: 8px;
+    z-index: 1;
+  }
+  .location-result-item {
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .location-result-item:hover {
+    background-color: #f8fafc;
   }
 </style>
 </head>

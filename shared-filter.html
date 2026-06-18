@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>ProjectX - Shared Filter</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/auth.js"></script>
+</head>
+
+<body class="bg-[#f8f9fa] text-slate-900 font-['Outfit'] antialiased min-h-screen flex flex-col">
+  <!-- Top Navigation -->
+  <nav class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 shadow-sm h-16 shrink-0 flex items-center">
+    <div class="max-w-[1280px] mx-auto px-6 w-full flex items-center justify-between gap-8">
+      <div class="flex items-center gap-2">
+        <a href="/index.html" class="text-xl font-black tracking-tighter text-slate-900">ProjectX</a>
+      </div>
+      <div class="hidden md:flex items-center gap-8">
+        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
+          href="/map.html">Search Your Home</a>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/login.html"
+          class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider ml-2">
+          Broker Login
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="flex-grow pt-24 pb-16">
+    <div class="max-w-[1280px] mx-auto px-6">
+      
+      <!-- Loading State -->
+      <div id="filter-loading" class="flex flex-col items-center justify-center py-20">
+        <div class="w-12 h-12 border-4 border-slate-200 border-t-slate-950 rounded-full animate-spin"></div>
+        <p class="text-slate-500 font-medium mt-4">Loading curated collection...</p>
+      </div>
+
+      <!-- Error / Unavailable State -->
+      <div id="filter-error" class="hidden flex-col items-center justify-center py-20 text-center">
+        <span class="material-symbols-outlined text-[64px] text-slate-400 mb-4">lock</span>
+        <h1 class="text-2xl font-black tracking-tight text-slate-900">Collection Unavailable</h1>
+        <p class="text-slate-500 mt-2 max-w-md">This custom filter is either private or does not exist. If you are the owner, please log in to access it.</p>
+        <a href="/login.html" class="mt-6 px-6 py-2.5 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-all">Broker Dashboard</a>
+      </div>
+
+      <!-- Active Filter Content -->
+      <div id="filter-content" class="hidden space-y-10">
+        <!-- Header Info Card -->
+        <div class="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div class="space-y-2">
+            <div class="flex items-center gap-3">
+              <h1 id="filter-title" class="text-3xl font-black tracking-tight text-slate-900">Custom Collection</h1>
+              <span id="filter-visibility-badge" class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200 rounded">Public</span>
+            </div>
+            <p id="filter-description" class="text-slate-500 text-sm font-medium">Curated listings matching custom specifications.</p>
+            <div id="filter-criteria-chips" class="flex flex-wrap gap-2 pt-2">
+              <!-- Dynamically populated chips -->
+            </div>
+          </div>
+          <!-- Broker Card -->
+          <div id="filter-broker-info" class="flex items-center gap-4 bg-slate-50 border border-slate-100 p-4 rounded-2xl w-full md:w-auto">
+            <img id="broker-avatar" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80" alt="Broker Profile" class="w-12 h-12 rounded-full object-cover border border-slate-200">
+            <div>
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Shared by Broker</p>
+              <h4 id="broker-name" class="font-bold text-slate-900">Loading Broker...</h4>
+              <p id="broker-company" class="text-xs text-slate-500">Real Estate Expert</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Matching Listings Grid -->
+        <div>
+          <h2 class="text-xl font-black text-slate-900 tracking-tight mb-6" id="results-heading">Matching Properties</h2>
+          <div id="shared-property-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Dynamically populated listings -->
+          </div>
+          
+          <!-- Empty State -->
+          <div id="shared-property-empty" class="hidden flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-slate-200 p-8">
+            <span class="material-symbols-outlined text-[48px] text-slate-400 mb-4">home_work</span>
+            <h3 class="text-lg font-black text-slate-900">No matching properties</h3>
+            <p class="text-slate-500 text-sm mt-1 max-w-sm">No properties in the broker's inventory currently match the criteria parameters.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="bg-white py-12 px-6 mt-auto border-t border-slate-100">
+    <div class="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+      <span class="text-sm font-black text-slate-900 tracking-tight">ProjectX</span>
+      <div class="text-[10px] font-medium text-slate-400 text-center md:text-right uppercase tracking-wider">
+        © 2026 ProjectX. ALL RIGHTS RESERVED.
+      </div>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { supabase } from './lib/supabase.js';
+
+    // Haversine formula for geospatial distance in meters
+    function getHaversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth radius in meters
+      const phi1 = lat1 * Math.PI / 180;
+      const phi2 = lat2 * Math.PI / 180;
+      const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+      const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                Math.cos(phi1) * Math.cos(phi2) *
+                Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c; // distance in meters
+    }
+
+    function formatPrice(val, intent) {
+      if (intent === 'Rent') {
+        if (val >= 1) {
+          return `₹${val} Lac/mo`;
+        } else {
+          return `₹${(val * 100000).toLocaleString()}/mo`;
+        }
+      } else {
+        return `₹${val} Cr`;
+      }
+    }
+
+    async function initSharedFilter() {
+      const loadingEl = document.getElementById('filter-loading');
+      const errorEl = document.getElementById('filter-error');
+      const contentEl = document.getElementById('filter-content');
+
+      try {
+        // Resolve slug from URL search param or path segment
+        const urlParams = new URLSearchParams(window.location.search);
+        let slug = urlParams.get('slug');
+        if (!slug) {
+          const pathSegments = window.location.pathname.split('/');
+          const lastSegment = pathSegments[pathSegments.length - 1];
+          // If pathname ends with shared-filter or shared-filter.html, try the one before
+          if (lastSegment === 'shared-filter.html' || lastSegment === 'shared-filter') {
+            slug = pathSegments[pathSegments.length - 2];
+          } else {
+            slug = lastSegment;
+          }
+        }
+
+        if (!slug) {
+          throw new Error('No filter slug supplied');
+        }
+
+        // Fetch custom filter by slug
+        const { data: filter, error: filterError } = await supabase
+          .from('custom_filters')
+          .select('*')
+          .eq('slug', slug)
+          .single();
+
+        if (filterError || !filter) {
+          throw new Error('Filter not found');
+        }
+
+        // Access check
+        const { data: { user } } = await supabase.auth.getUser();
+        const isOwner = user && user.id === filter.broker_id;
+
+        if (!filter.is_public && !isOwner) {
+          throw new Error('Access denied: filter is private');
+        }
+
+        // Fetch broker profile info
+        let brokerName = 'Partner Broker';
+        let brokerCompany = 'ProjectX Premier Partner';
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', filter.broker_id)
+          .single();
+        if (profile) {
+          brokerName = profile.full_name || profile.company_name || brokerName;
+          brokerCompany = profile.company_name || brokerCompany;
+          if (profile.avatar_url) {
+            document.getElementById('broker-avatar').src = profile.avatar_url;
+          }
+        }
+
+        document.getElementById('broker-name').textContent = brokerName;
+        document.getElementById('broker-company').textContent = brokerCompany;
+        document.getElementById('filter-title').textContent = filter.name || 'Curated Properties';
+        document.getElementById('filter-visibility-badge').textContent = filter.is_public ? 'Public' : 'Private';
+        document.getElementById('filter-visibility-badge').className = filter.is_public 
+          ? 'px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-200 rounded'
+          : 'px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200 rounded';
+
+        // Render criteria chips
+        const chipsContainer = document.getElementById('filter-criteria-chips');
+        chipsContainer.innerHTML = '';
+        const crit = filter.criteria || {};
+
+        if (crit.type && crit.type !== 'Any') {
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${crit.type}</span>`;
+        }
+        if (crit.intent && crit.intent !== 'Any') {
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${crit.intent}</span>`;
+        }
+        if (crit.bedsMin || crit.bedsMax) {
+          const min = crit.bedsMin || '1';
+          const max = crit.bedsMax || '5+';
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${min}-${max} Beds</span>`;
+        }
+        if (crit.priceMin || crit.priceMax) {
+          const minPrice = crit.priceMin ? `₹${crit.priceMin}Cr` : '0';
+          const maxPrice = crit.priceMax ? `₹${crit.priceMax}Cr` : '∞';
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">Price: ${minPrice} - ${maxPrice}</span>`;
+        }
+        if (crit.sqftMin || crit.sqftMax) {
+          const minSq = crit.sqftMin ? `${crit.sqftMin}` : '0';
+          const maxSq = crit.sqftMax ? `${crit.sqftMax}` : '∞';
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">Area: ${minSq}-${maxSq} sqft</span>`;
+        }
+        if (crit.centerLabel) {
+          const radiusText = crit.radius ? `within ${crit.radius >= 1000 ? (crit.radius/1000).toFixed(1) + 'km' : crit.radius + 'm'}` : '';
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-100 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">location_on</span>
+            ${crit.centerLabel} ${radiusText}
+          </span>`;
+        }
+
+        // Fetch ACTIVE listings belonging to THIS broker only
+        const { data: listings, error: listingsError } = await supabase
+          .from('listings')
+          .select('*')
+          .eq('broker_id', filter.broker_id)
+          .eq('status', 'Active');
+
+        if (listingsError) {
+          throw new Error('Error loading listings: ' + listingsError.message);
+        }
+
+        // Filter listings using criteria dynamically
+        const matchingListings = (listings || []).filter(l => {
+          // Property type
+          if (crit.type && crit.type !== 'Any' && l.type !== crit.type) {
+            return false;
+          }
+          // Intent
+          if (crit.intent && crit.intent !== 'Any' && l.intent !== crit.intent) {
+            return false;
+          }
+          // Beds min/max
+          const beds = parseInt(l.beds) || 0;
+          if (crit.bedsMin && beds < parseInt(crit.bedsMin)) {
+            return false;
+          }
+          if (crit.bedsMax && crit.bedsMax !== '5+' && beds > parseInt(crit.bedsMax)) {
+            return false;
+          }
+          // Price range
+          const price = parseFloat(l.price) || 0;
+          if (crit.priceMin && price < parseFloat(crit.priceMin)) {
+            return false;
+          }
+          if (crit.priceMax && price > parseFloat(crit.priceMax)) {
+            return false;
+          }
+          // Sqft range
+          const sqft = parseFloat(l.sqft) || 0;
+          if (crit.sqftMin && sqft < parseFloat(crit.sqftMin)) {
+            return false;
+          }
+          if (crit.sqftMax && sqft > parseFloat(crit.sqftMax)) {
+            return false;
+          }
+          // Geospatial filter: check radius
+          if (crit.centerLat && crit.centerLng && crit.radius) {
+            const listLat = parseFloat(l.lat);
+            const listLng = parseFloat(l.lng);
+            // Must have valid lat/lng coordinates to match radius
+            if (isNaN(listLat) || isNaN(listLng)) {
+              return false;
+            }
+            const distance = getHaversineDistance(
+              parseFloat(crit.centerLat),
+              parseFloat(crit.centerLng),
+              listLat,
+              listLng
+            );
+            if (distance > parseFloat(crit.radius)) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        // Display results
+        const grid = document.getElementById('shared-property-grid');
+        const emptyEl = document.getElementById('shared-property-empty');
+        const resultsHeading = document.getElementById('results-heading');
+        
+        resultsHeading.textContent = `Matching Properties (${matchingListings.length})`;
+        grid.innerHTML = '';
+
+        if (matchingListings.length === 0) {
+          emptyEl.classList.remove('hidden');
+          emptyEl.classList.add('flex');
+        } else {
+          emptyEl.classList.remove('flex');
+          emptyEl.classList.add('hidden');
+          
+          grid.innerHTML = matchingListings.map(l => `
+            <div class="group cursor-pointer bg-white rounded-3xl border border-slate-200 hover:shadow-xl overflow-hidden transition-all duration-300"
+                 onclick="window.location.href='/property-details.html?id=${l.id}'">
+              <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
+                <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" 
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${l.intent}</div>
+                <div class="absolute top-4 right-4 bg-slate-900/80 backdrop-blur text-white px-2 py-1 rounded-md text-[8px] font-bold uppercase tracking-wider">${l.type}</div>
+              </div>
+              <div class="p-5">
+                <div class="flex justify-between items-start mb-1">
+                  <h3 class="text-xl font-black text-slate-900">${formatPrice(parseFloat(l.price), l.intent)}</h3>
+                </div>
+                <p class="text-slate-500 text-sm font-medium mb-4 truncate">${l.title}, ${l.location}</p>
+                <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
+                  <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${l.beds}</span></div>
+                  <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bathtub</span><span class="text-xs font-black text-slate-900">${l.baths || 1}</span></div>
+                  <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">square_foot</span><span class="text-xs font-black text-slate-900">${(l.sqft || 0).toLocaleString()} <span class="font-normal text-slate-400">sqft</span></span></div>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // Show main content container
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+
+      } catch (err) {
+        console.error('Shared filter loading failed:', err);
+        loadingEl.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+        errorEl.classList.add('flex');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initSharedFilter);
+  </script>
+</body>
+
+</html>

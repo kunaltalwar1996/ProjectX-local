@@ -8,6 +8,10 @@
     {
       "source": "/signup.html",
       "destination": "/login.html"
+    },
+    {
+      "source": "/shared-filter/:slug",
+      "destination": "/shared-filter.html?slug=:slug"
     }
   ]
 }

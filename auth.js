@@ -2179,6 +2179,10 @@ function injectInquiryModal() {
 //  BROKER CUSTOM FILTERS MANAGER (Supabase-based CRUD)
 // ══════════════════════════════════════════════════════
 
+let editFilterId = null;
+let modalMap = null;
+let modalMarker = null;
+
 async function initCustomFiltersManager() {
     await renderCustomFilters();
     injectCustomFilterModal();
@@ -2209,26 +2213,50 @@ async function renderCustomFilters() {
     }
 
     tbody.innerHTML = filters.map(f => {
-        const crit = [];
-        if (f.criteria.location) crit.push(`Location: ${escHtml(f.criteria.location)}`);
-        if (f.criteria.minPrice || f.criteria.maxPrice) {
-            const min = f.criteria.minPrice ? `₹${f.criteria.minPrice}Cr` : '0';
-            const max = f.criteria.maxPrice ? `₹${f.criteria.maxPrice}Cr` : '∞';
-            crit.push(`Price: ${min} - ${max}`);
+        const crit = f.criteria || {};
+        const parts = [];
+        if (crit.centerLabel) {
+            const radStr = crit.radius ? ` (${crit.radius >= 1000 ? (crit.radius/1000).toFixed(1) + 'km' : crit.radius + 'm'})` : '';
+            parts.push(`Near: ${escHtml(crit.centerLabel)}${radStr}`);
         }
-        if (f.criteria.type) crit.push(`Type: ${f.criteria.type}`);
-        if (f.criteria.intent) crit.push(`Intent: ${f.criteria.intent}`);
-        if (f.criteria.beds) crit.push(`Beds: ${f.criteria.beds}+`);
-        if (f.criteria.baths) crit.push(`Baths: ${f.criteria.baths}+`);
+        if (crit.type && crit.type !== 'Any') parts.push(`Type: ${crit.type}`);
+        if (crit.intent && crit.intent !== 'Any') parts.push(`Intent: ${crit.intent}`);
+        
+        if (crit.bedsMin || crit.bedsMax) {
+            const minB = crit.bedsMin || '1';
+            const maxB = crit.bedsMax || '5+';
+            parts.push(`Beds: ${minB}-${maxB}`);
+        }
+        if (crit.priceMin || crit.priceMax) {
+            const minP = crit.priceMin ? `₹${crit.priceMin}Cr` : '0';
+            const maxP = crit.priceMax ? `₹${crit.priceMax}Cr` : '∞';
+            parts.push(`Price: ${minP}-${maxP}`);
+        }
+        if (crit.sqftMin || crit.sqftMax) {
+            const minS = crit.sqftMin ? `${crit.sqftMin}` : '0';
+            const maxS = crit.sqftMax ? `${crit.sqftMax}` : '∞';
+            parts.push(`Area: ${minS}-${maxS}sqft`);
+        }
 
-        const criteriaStr = crit.join(' | ') || 'All Properties';
+        const criteriaStr = parts.join(' | ') || 'All Active Inventory';
+        const visibilityBadge = f.is_public !== false 
+            ? '<span class="ml-2 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 rounded border border-emerald-200">Public</span>'
+            : '<span class="ml-2 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 rounded border border-amber-200">Private</span>';
 
         return `
         <tr class="border-b border-surface-variant hover:bg-surface-container transition-colors" data-filter-id="${f.id}">
-          <td class="p-4 font-semibold text-primary">${escHtml(f.name)}</td>
+          <td class="p-4 font-semibold text-primary">
+            <div class="flex items-center">
+              ${escHtml(f.name)}
+              ${visibilityBadge}
+            </div>
+          </td>
           <td class="p-4 text-on-surface-variant text-xs">${criteriaStr}</td>
           <td class="p-4 text-right">
             <div class="flex justify-end gap-2">
+              <button onclick="openCustomFilterModal(${f.id})" class="p-1.5 text-on-surface-variant hover:text-primary rounded hover:bg-surface-container" title="Edit Filter">
+                <span class="material-symbols-outlined text-[20px]">edit</span>
+              </button>
               <button onclick="copyShareLink(${f.id})" class="p-1.5 text-on-surface-variant hover:text-primary rounded hover:bg-surface-container" title="Copy Shareable Link">
                 <span class="material-symbols-outlined text-[20px]">content_copy</span>
               </button>
@@ -2245,6 +2273,58 @@ async function renderCustomFilters() {
     }).join('');
 }
 
+function updateModalLocationCoordinates(lat, lng, doGeocode = false) {
+    document.getElementById('filter-center-lat').value = parseFloat(lat).toFixed(6);
+    document.getElementById('filter-center-lng').value = parseFloat(lng).toFixed(6);
+    if (doGeocode) {
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.display_name) {
+                    const parts = data.display_name.split(',');
+                    const formatted = parts.slice(0, 3).map(p => p.trim()).join(', ');
+                    document.getElementById('filter-center-label').value = formatted;
+                }
+            })
+            .catch(err => console.error('Reverse geocoding failed:', err));
+    }
+}
+
+function initModalLeafletMap(lat, lng) {
+    if (typeof L === 'undefined') {
+        console.warn('Leaflet map framework not loaded on window');
+        return;
+    }
+    const container = document.getElementById('filter-modal-map');
+    if (!container) return;
+
+    if (!modalMap) {
+        modalMap = L.map('filter-modal-map').setView([lat, lng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(modalMap);
+
+        modalMarker = L.marker([lat, lng], { draggable: true }).addTo(modalMap);
+
+        modalMarker.on('dragend', () => {
+            const pos = modalMarker.getLatLng();
+            updateModalLocationCoordinates(pos.lat, pos.lng, true);
+        });
+
+        modalMap.on('click', (e) => {
+            modalMarker.setLatLng(e.latlng);
+            updateModalLocationCoordinates(e.latlng.lat, e.latlng.lng, true);
+        });
+    } else {
+        modalMap.setView([lat, lng], 13);
+        modalMarker.setLatLng([lat, lng]);
+        setTimeout(() => {
+            modalMap.invalidateSize();
+        }, 100);
+    }
+}
+
 function injectCustomFilterModal() {
     if (document.getElementById('custom-filter-modal')) return;
 
@@ -2252,37 +2332,29 @@ function injectCustomFilterModal() {
     modal.id = 'custom-filter-modal';
     modal.className = 'hidden fixed inset-0 z-[100] items-center justify-center bg-black/50 backdrop-blur-sm';
     modal.innerHTML = `
-      <div class="bg-surface-container-lowest rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-outline-variant">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+      <div class="bg-surface-container-lowest rounded-xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden border border-outline-variant flex flex-col max-h-[90vh]">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-low shrink-0">
           <h3 id="filter-modal-title" class="font-h3 text-h3 text-primary">Create Custom Filter</h3>
           <button onclick="closeCustomFilterModal()" class="text-slate-400 hover:text-slate-700 transition-colors">
             <span class="material-symbols-outlined text-[24px]">close</span>
           </button>
         </div>
-        <div class="p-6 space-y-4">
+        
+        <!-- Scrollable Form Content -->
+        <div class="p-6 space-y-5 overflow-y-auto flex-1">
+          <!-- Filter Name -->
           <div>
             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Filter Name *</label>
-            <input id="filter-name" type="text" placeholder="e.g. Bandra West 2BHK for Mr. Shah" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+            <input id="filter-name" type="text" placeholder="e.g. Bandra West Curated Properties" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Location / neighborhood</label>
-            <input id="filter-location" type="text" placeholder="e.g. Bandra West" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price Min (Cr)</label>
-              <input id="filter-price-min" type="number" step="0.1" placeholder="e.g. 1.0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price Max (Cr)</label>
-              <input id="filter-price-max" type="number" step="0.1" placeholder="e.g. 5.0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
-            </div>
-          </div>
+
+          <!-- Type & Intent -->
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Type</label>
               <select id="filter-type" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
-                <option value="">Any</option>
+                <option value="Any">Any</option>
                 <option value="Apartment">Apartment</option>
                 <option value="Villa">Villa</option>
                 <option value="Penthouse">Penthouse</option>
@@ -2292,36 +2364,125 @@ function injectCustomFilterModal() {
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Intent</label>
               <select id="filter-intent" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
-                <option value="">Any</option>
+                <option value="Any">Any</option>
                 <option value="Buy">Buy</option>
                 <option value="Rent">Rent</option>
               </select>
             </div>
           </div>
+
+          <!-- Bedrooms Min / Max -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bedrooms</label>
-              <select id="filter-beds" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bedrooms Min</label>
+              <select id="filter-beds-min" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="">Any</option>
-                <option value="1">1+</option>
-                <option value="2">2+</option>
-                <option value="3">3+</option>
-                <option value="4">4+</option>
-                <option value="5">5+</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bathrooms</label>
-              <select id="filter-baths" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bedrooms Max</label>
+              <select id="filter-beds-max" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="">Any</option>
-                <option value="1">1+</option>
-                <option value="2">2+</option>
-                <option value="3">3+</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5+">5+</option>
               </select>
             </div>
           </div>
+
+          <!-- Price Min / Max -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price Min (Cr)</label>
+              <input id="filter-price-min" type="number" step="0.1" placeholder="Min Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price Max (Cr)</label>
+              <input id="filter-price-max" type="number" step="0.1" placeholder="Max Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+            </div>
+          </div>
+
+          <!-- Sqft Min / Max -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Area Min (sqft)</label>
+              <input id="filter-sqft-min" type="number" step="50" placeholder="Min Area" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Area Max (sqft)</label>
+              <input id="filter-sqft-max" type="number" step="50" placeholder="Max Area" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+            </div>
+          </div>
+
+          <!-- Geospatial Location curation -->
+          <div class="border-t border-slate-100 pt-4 space-y-4">
+            <h4 class="text-sm font-bold text-slate-800">Geospatial Center & Radius</h4>
+            
+            <div class="relative">
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Center Location Label *</label>
+              <input id="filter-center-label" type="text" placeholder="Search address or neighborhood..." class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+              <div id="filter-location-results" class="absolute left-0 right-0 z-[1050] bg-white rounded-xl shadow-lg border border-slate-200 mt-1 hidden flex-col max-h-48 overflow-y-auto"></div>
+            </div>
+
+            <!-- Latitude & Longitude displays -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Latitude</label>
+                <input id="filter-center-lat" type="number" readonly placeholder="Auto geocoded lat" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Longitude</label>
+                <input id="filter-center-lng" type="number" readonly placeholder="Auto geocoded lng" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
+              </div>
+            </div>
+
+            <!-- Quick Geolocation buttons -->
+            <div class="flex gap-3">
+              <button id="filter-use-location-btn" class="flex-1 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px]">my_location</span>
+                Use Current Location
+              </button>
+              <button id="filter-toggle-map-btn" class="flex-1 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px]">map</span>
+                Choose on Map
+              </button>
+            </div>
+
+            <!-- Leaflet Map Wrapper -->
+            <div id="filter-modal-map" class="hidden"></div>
+
+            <!-- Radius slider -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Radius</label>
+                <span id="filter-radius-val" class="text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded">1.0 km</span>
+              </div>
+              <input id="filter-radius" type="range" min="250" max="10000" step="250" value="1000" class="w-full accent-primary h-1.5 bg-slate-200 rounded-lg cursor-pointer mt-2"/>
+            </div>
+          </div>
+
+          <!-- Public/Private visibility toggle -->
+          <div class="border-t border-slate-100 pt-4">
+            <label class="flex items-center justify-between bg-surface-container-low border border-outline-variant rounded-lg px-4 py-3 cursor-pointer select-none">
+              <div>
+                <p class="font-medium text-primary text-sm">Public Visibility</p>
+                <p class="text-[11px] text-on-surface-variant">Allow clients with the link to view matching listings. Private filters are restricted to you.</p>
+              </div>
+              <input type="checkbox" id="filter-is-public" checked class="h-4 w-4 accent-primary" />
+            </label>
+          </div>
+
         </div>
-        <div class="px-6 py-4 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3">
+
+        <!-- Footer -->
+        <div class="px-6 py-4 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3 shrink-0">
           <button onclick="closeCustomFilterModal()" class="px-5 py-2 rounded-lg border border-outline-variant text-on-surface-variant text-sm font-medium hover:bg-surface-container transition-colors">Cancel</button>
           <button onclick="saveCustomFilter()" class="px-5 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium hover:opacity-90 transition-opacity">Save Filter</button>
         </div>
@@ -2330,27 +2491,222 @@ function injectCustomFilterModal() {
     document.body.appendChild(modal);
     modal.addEventListener('click', (e) => { if (e.target === modal) closeCustomFilterModal(); });
 
-    // Allow Enter on text inputs inside the custom filter modal to save
-    ['filter-name', 'filter-location', 'filter-price-min', 'filter-price-max'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') saveCustomFilter(); });
-    });
+    // Autocomplete handling for location search
+    const labelInput = document.getElementById('filter-center-label');
+    const resultsDiv = document.getElementById('filter-location-results');
+    let debounceTimer;
+
+    if (labelInput && resultsDiv) {
+        labelInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            const query = e.target.value.trim();
+            if (query.length < 3) {
+                resultsDiv.innerHTML = '';
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+            debounceTimer = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=IN&limit=5`)
+                    .then(res => res.json())
+                    .then(data => {
+                        resultsDiv.innerHTML = '';
+                        if (data.length === 0) {
+                            resultsDiv.innerHTML = '<div class="p-3 text-xs text-slate-500 font-medium bg-white">No locations found.</div>';
+                        } else {
+                            data.forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors flex items-center gap-2 text-slate-700 location-result-item';
+                                div.innerHTML = `
+                                    <span class="material-symbols-outlined text-slate-400 text-[18px]">location_on</span>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="text-xs font-semibold truncate text-slate-800">${item.display_name.split(',')[0]}</span>
+                                        <span class="text-[9px] text-slate-400 truncate">${item.display_name}</span>
+                                    </div>
+                                `;
+                                div.onclick = () => {
+                                    labelInput.value = item.display_name.split(',')[0];
+                                    updateModalLocationCoordinates(item.lat, item.lon, false);
+                                    resultsDiv.innerHTML = '';
+                                    resultsDiv.classList.add('hidden');
+
+                                    // Update map view if open
+                                    if (modalMap && modalMarker) {
+                                        modalMap.setView([item.lat, item.lon], 15);
+                                        modalMarker.setLatLng([item.lat, item.lon]);
+                                    }
+                                };
+                                resultsDiv.appendChild(div);
+                            });
+                        }
+                        resultsDiv.classList.remove('hidden');
+                    })
+                    .catch(err => console.error('Autocomplete query failed:', err));
+            }, 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!labelInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+                resultsDiv.classList.add('hidden');
+            }
+        });
+    }
+
+    // Geolocation button setup
+    const useLocBtn = document.getElementById('filter-use-location-btn');
+    if (useLocBtn) {
+        useLocBtn.onclick = (e) => {
+            e.preventDefault();
+            if (!navigator.geolocation) {
+                showToast('Geolocation is not supported by your browser.', true);
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    updateModalLocationCoordinates(lat, lng, true);
+                    
+                    if (modalMap && modalMarker) {
+                        modalMap.setView([lat, lng], 15);
+                        modalMarker.setLatLng([lat, lng]);
+                    }
+                },
+                (err) => {
+                    showToast('Failed to fetch location: ' + err.message, true);
+                }
+            );
+        };
+    }
+
+    // Leaflet map toggle setup
+    const toggleMapBtn = document.getElementById('filter-toggle-map-btn');
+    const mapDiv = document.getElementById('filter-modal-map');
+    if (toggleMapBtn && mapDiv) {
+        toggleMapBtn.onclick = (e) => {
+            e.preventDefault();
+            const isHidden = mapDiv.classList.contains('hidden');
+            if (isHidden) {
+                mapDiv.classList.remove('hidden');
+                toggleMapBtn.textContent = 'Hide Map';
+                
+                let lat = parseFloat(document.getElementById('filter-center-lat').value);
+                let lng = parseFloat(document.getElementById('filter-center-lng').value);
+                if (isNaN(lat) || isNaN(lng)) {
+                    lat = 19.0760;
+                    lng = 72.8777;
+                    updateModalLocationCoordinates(lat, lng, false);
+                }
+                initModalLeafletMap(lat, lng);
+            } else {
+                mapDiv.classList.add('hidden');
+                toggleMapBtn.textContent = 'Choose on Map';
+            }
+        };
+    }
+
+    // Radius range slider updating text labels
+    const radiusSlider = document.getElementById('filter-radius');
+    const radiusText = document.getElementById('filter-radius-val');
+    if (radiusSlider && radiusText) {
+        const updateText = () => {
+            const val = parseInt(radiusSlider.value);
+            if (val >= 10000) {
+                radiusText.textContent = '10.0 km+';
+            } else if (val >= 1000) {
+                radiusText.textContent = (val / 1000).toFixed(1) + ' km';
+            } else {
+                radiusText.textContent = val + ' m';
+            }
+        };
+        radiusSlider.addEventListener('input', updateText);
+    }
 }
 
-window.openCustomFilterModal = function() {
+window.openCustomFilterModal = async function(id) {
+    injectCustomFilterModal();
     const modal = document.getElementById('custom-filter-modal');
-    if (modal) {
+    if (!modal) return;
+
+    if (id) {
+        // Edit flow
+        editFilterId = id;
+        document.getElementById('filter-modal-title').textContent = 'Edit Custom Filter';
+        
+        const { data: filter, error } = await supabase
+            .from('custom_filters')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error || !filter) {
+            showToast('Failed to load filter details.', true);
+            return;
+        }
+
+        document.getElementById('filter-name').value = filter.name || '';
+        const crit = filter.criteria || {};
+        document.getElementById('filter-type').value = crit.type || 'Any';
+        document.getElementById('filter-intent').value = crit.intent || 'Any';
+        document.getElementById('filter-beds-min').value = crit.bedsMin || '';
+        document.getElementById('filter-beds-max').value = crit.bedsMax || '';
+        document.getElementById('filter-price-min').value = crit.priceMin || '';
+        document.getElementById('filter-price-max').value = crit.priceMax || '';
+        document.getElementById('filter-sqft-min').value = crit.sqftMin || '';
+        document.getElementById('filter-sqft-max').value = crit.sqftMax || '';
+        document.getElementById('filter-center-label').value = crit.centerLabel || '';
+        document.getElementById('filter-center-lat').value = crit.centerLat || '';
+        document.getElementById('filter-center-lng').value = crit.centerLng || '';
+        
+        const radiusSlider = document.getElementById('filter-radius');
+        if (radiusSlider) {
+            radiusSlider.value = crit.radius || 1000;
+            radiusSlider.dispatchEvent(new Event('input'));
+        }
+
+        document.getElementById('filter-is-public').checked = filter.is_public !== false;
+
+        // Leaflet map refresh if not hidden
+        const mapDiv = document.getElementById('filter-modal-map');
+        if (mapDiv && !mapDiv.classList.contains('hidden')) {
+            const lat = parseFloat(crit.centerLat);
+            const lng = parseFloat(crit.centerLng);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                initModalLeafletMap(lat, lng);
+            }
+        }
+    } else {
+        // Create flow
+        editFilterId = null;
+        document.getElementById('filter-modal-title').textContent = 'Create Custom Filter';
+        
         document.getElementById('filter-name').value = '';
-        document.getElementById('filter-location').value = '';
+        document.getElementById('filter-type').value = 'Any';
+        document.getElementById('filter-intent').value = 'Any';
+        document.getElementById('filter-beds-min').value = '';
+        document.getElementById('filter-beds-max').value = '';
         document.getElementById('filter-price-min').value = '';
         document.getElementById('filter-price-max').value = '';
-        document.getElementById('filter-type').value = '';
-        document.getElementById('filter-intent').value = '';
-        document.getElementById('filter-beds').value = '';
-        document.getElementById('filter-baths').value = '';
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
+        document.getElementById('filter-sqft-min').value = '';
+        document.getElementById('filter-sqft-max').value = '';
+        document.getElementById('filter-center-label').value = '';
+        document.getElementById('filter-center-lat').value = '';
+        document.getElementById('filter-center-lng').value = '';
+        
+        const radiusSlider = document.getElementById('filter-radius');
+        if (radiusSlider) {
+            radiusSlider.value = 1000;
+            radiusSlider.dispatchEvent(new Event('input'));
+        }
+        document.getElementById('filter-is-public').checked = true;
+
+        const mapDiv = document.getElementById('filter-modal-map');
+        if (mapDiv) mapDiv.classList.add('hidden');
+        const toggleMapBtn = document.getElementById('filter-toggle-map-btn');
+        if (toggleMapBtn) toggleMapBtn.textContent = 'Choose on Map';
     }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
 };
 
 window.closeCustomFilterModal = function() {
@@ -2363,48 +2719,82 @@ window.closeCustomFilterModal = function() {
 
 async function saveCustomFilter() {
     const name = document.getElementById('filter-name').value.trim();
-    const location = document.getElementById('filter-location').value.trim();
-    const minPrice = document.getElementById('filter-price-min').value;
-    const maxPrice = document.getElementById('filter-price-max').value;
     const type = document.getElementById('filter-type').value;
     const intent = document.getElementById('filter-intent').value;
-    const beds = document.getElementById('filter-beds').value;
-    const baths = document.getElementById('filter-baths').value;
+    const bedsMin = document.getElementById('filter-beds-min').value;
+    const bedsMax = document.getElementById('filter-beds-max').value;
+    const priceMin = document.getElementById('filter-price-min').value;
+    const priceMax = document.getElementById('filter-price-max').value;
+    const sqftMin = document.getElementById('filter-sqft-min').value;
+    const sqftMax = document.getElementById('filter-sqft-max').value;
+    const centerLabel = document.getElementById('filter-center-label').value.trim();
+    const centerLat = document.getElementById('filter-center-lat').value;
+    const centerLng = document.getElementById('filter-center-lng').value;
+    const radius = document.getElementById('filter-radius').value;
+    const is_public = document.getElementById('filter-is-public').checked;
 
     if (!name) {
-        showToast('Please enter a filter name.');
+        showToast('Please enter a filter name.', true);
+        return;
+    }
+    if (!centerLabel || !centerLat || !centerLng) {
+        showToast('Please specify a center location coordinates.', true);
         return;
     }
 
-    if (window.hasProfanity && (window.hasProfanity(name) || window.hasProfanity(location))) {
+    if (window.hasProfanity && (window.hasProfanity(name) || window.hasProfanity(centerLabel))) {
         showToast('WARNING: Swearing is strictly prohibited! Please remove all offensive language to proceed.', 'profanity');
         return;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-        showToast('Error: No active user session.');
+        showToast('Error: No active user session.', true);
         return;
     }
 
     const filterData = {
-        broker_id: user.id,
         name,
+        is_public,
         criteria: {
-            location,
-            minPrice,
-            maxPrice,
             type,
             intent,
-            beds,
-            baths
+            bedsMin,
+            bedsMax,
+            priceMin,
+            priceMax,
+            sqftMin,
+            sqftMax,
+            centerLabel,
+            centerLat,
+            centerLng,
+            radius
         }
     };
 
-    const { error } = await supabase.from('custom_filters').insert([filterData]);
+    let error = null;
+
+    if (editFilterId) {
+        // Edit mode - update and preserve slug
+        const result = await supabase
+            .from('custom_filters')
+            .update(filterData)
+            .eq('id', editFilterId);
+        error = result.error;
+    } else {
+        // Create mode - insert new unique slug
+        const uniqueSlug = Math.random().toString(36).substring(2, 6) + Math.random().toString(36).substring(2, 6);
+        filterData.broker_id = user.id;
+        filterData.slug = uniqueSlug;
+
+        const result = await supabase
+            .from('custom_filters')
+            .insert([filterData]);
+        error = result.error;
+    }
 
     if (error) {
-        showToast('Error saving filter: ' + error.message);
+        showToast('Error saving filter: ' + error.message, true);
     } else {
         showToast('Custom filter saved successfully.');
         closeCustomFilterModal();
@@ -2416,7 +2806,7 @@ async function deleteCustomFilter(filterId) {
     if (!confirm('Are you sure you want to delete this custom filter?')) return;
     const { error } = await supabase.from('custom_filters').delete().eq('id', filterId);
     if (error) {
-        showToast('Error deleting filter: ' + error.message);
+        showToast('Error deleting filter: ' + error.message, true);
     } else {
         showToast('Custom filter deleted.');
         await renderCustomFilters();
@@ -2431,26 +2821,16 @@ async function copyShareLink(filterId) {
         .single();
 
     if (error || !filter) {
-        showToast('Filter not found.');
+        showToast('Filter not found.', true);
         return;
     }
 
-    const params = new URLSearchParams();
-    params.set('brokerId', filter.broker_id);
-    if (filter.criteria.location) params.set('q', filter.criteria.location);
-    if (filter.criteria.minPrice) params.set('minPrice', filter.criteria.minPrice);
-    if (filter.criteria.maxPrice) params.set('maxPrice', filter.criteria.maxPrice);
-    if (filter.criteria.type) params.set('type', filter.criteria.type);
-    if (filter.criteria.intent) params.set('intent', filter.criteria.intent);
-    if (filter.criteria.beds) params.set('beds', filter.criteria.beds);
-    if (filter.criteria.baths) params.set('baths', filter.criteria.baths);
-
-    const shareUrl = `${window.location.origin}/properties.html?${params.toString()}`;
+    const shareUrl = `${window.location.origin}/shared-filter/${filter.slug}`;
 
     navigator.clipboard.writeText(shareUrl).then(() => {
         showToast('Shareable link copied to clipboard!');
     }).catch(() => {
-        showToast('Failed to copy link.');
+        showToast('Failed to copy link.', true);
     });
 }
 
@@ -2463,17 +2843,7 @@ async function testCustomFilter(filterId) {
 
     if (error || !filter) return;
 
-    const params = new URLSearchParams();
-    params.set('brokerId', filter.broker_id);
-    if (filter.criteria.location) params.set('q', filter.criteria.location);
-    if (filter.criteria.minPrice) params.set('minPrice', filter.criteria.minPrice);
-    if (filter.criteria.maxPrice) params.set('maxPrice', filter.criteria.maxPrice);
-    if (filter.criteria.type) params.set('type', filter.criteria.type);
-    if (filter.criteria.intent) params.set('intent', filter.criteria.intent);
-    if (filter.criteria.beds) params.set('beds', filter.criteria.beds);
-    if (filter.criteria.baths) params.set('baths', filter.criteria.baths);
-
-    const shareUrl = `${window.location.origin}/properties.html?${params.toString()}`;
+    const shareUrl = `${window.location.origin}/shared-filter/${filter.slug}`;
 
     if (window.ajaxLoadPage) {
         window.ajaxLoadPage(shareUrl, true);

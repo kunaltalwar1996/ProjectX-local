@@ -11,6 +11,9 @@ export default defineConfig({
           const url = new URL(req.url, 'http://localhost');
           if (url.pathname === '/signup.html' || url.pathname === '/signup') {
             req.url = '/login.html' + url.search;
+          } else if (url.pathname.startsWith('/shared-filter/')) {
+            const slug = url.pathname.substring('/shared-filter/'.length);
+            req.url = '/shared-filter.html?slug=' + slug + url.search;
           }
           next();
         });
@@ -34,7 +37,8 @@ export default defineConfig({
         terms: 'terms.html',
         privacy: 'privacy.html',
         staffLogin: 'staff-login.html',
-        sitemap: 'sitemap.html'
+        sitemap: 'sitemap.html',
+        sharedFilter: 'shared-filter.html'
       }
     }
   }
