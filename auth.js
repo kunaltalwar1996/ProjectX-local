@@ -2,11 +2,22 @@ import { supabase } from './lib/supabase.js';
 
 const currentPath = window.location.pathname;
 let currentPage = currentPath.split('/').pop() || 'index.html';
-if (!currentPage.includes('.')) currentPage += '.html'; // Handle Vite-style paths without extensions
+const isSharedFilterRoute = currentPath.includes('/shared-filter/') || currentPage === 'shared-filter';
 
-const appBasePath = currentPath.endsWith('/')
+if (isSharedFilterRoute) {
+    currentPage = 'shared-filter.html';
+} else if (!currentPage.includes('.')) {
+    currentPage += '.html'; // Handle Vite-style paths without extensions
+}
+
+let appBasePath = currentPath.endsWith('/')
     ? currentPath
     : currentPath.slice(0, currentPath.lastIndexOf('/') + 1);
+
+if (isSharedFilterRoute) {
+    appBasePath = '/';
+}
+
 let userRole = localStorage.getItem('role');
 let isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.html' || currentPage === 'signup.html';
 let activeInquiryId = null;
@@ -180,8 +191,8 @@ window.hasProfanity = hasProfanity;
 
 // ─── Route Maps ───────────────────────────────────────────────────────────────
 
-const buyerPages = ['index.html', 'properties.html', 'map.html', 'property-details.html', 'sell.html', 'profile.html'];
-const guestPages  = ['index.html', 'properties.html', 'map.html', 'property-details.html', 'sell.html'];
+const buyerPages = ['index.html', 'properties.html', 'map.html', 'property-details.html', 'sell.html', 'profile.html', 'shared-filter.html'];
+const guestPages  = ['index.html', 'properties.html', 'map.html', 'property-details.html', 'sell.html', 'shared-filter.html'];
 
 const roleHomePage = {
     'Admin':    'admin-panel.html',
@@ -192,9 +203,9 @@ const roleHomePage = {
 };
 
 const roleAllowedPages = {
-    'Admin':    ['admin-panel.html', 'employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html'],
-    'Employee': ['employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html'],
-    'Broker':   ['broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html'],
+    'Admin':    ['admin-panel.html', 'employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Employee': ['employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Broker':   ['broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
     'Buyer':    buyerPages,
     'Guest':    guestPages
 };
@@ -307,7 +318,12 @@ function initAppPage() {
     // Re-evaluate currentPage, userRole and isLoginPage context dynamically
     const currentPath = window.location.pathname;
     currentPage = currentPath.split('/').pop() || 'index.html';
-    if (!currentPage.includes('.')) currentPage += '.html';
+    const isSharedFilterRoute = currentPath.includes('/shared-filter/') || currentPage === 'shared-filter';
+    if (isSharedFilterRoute) {
+        currentPage = 'shared-filter.html';
+    } else if (!currentPage.includes('.')) {
+        currentPage += '.html';
+    }
     userRole = localStorage.getItem('role');
     isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.html' || currentPage === 'signup.html';
 

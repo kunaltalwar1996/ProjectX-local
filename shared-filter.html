@@ -357,7 +357,11 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', initSharedFilter);
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', initSharedFilter);
+    } else {
+      initSharedFilter();
+    }
   </script>
 </body>
 
