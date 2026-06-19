@@ -2882,7 +2882,7 @@ async function testCustomFilter(filterId) {
     const shareUrl = `${window.location.origin}/shared-filter/${filter.slug}`;
 
     if (window.ajaxLoadPage) {
-        window.ajaxLoadPage(shareUrl, true);
+        window.ajaxLoadPage(shareUrl, false);
     } else {
         window.open(shareUrl, '_blank');
     }
@@ -4929,9 +4929,6 @@ async function ajaxLoadPage(url, replaceState = false) {
         document.body.className = parsedDoc.body.className;
         document.body.innerHTML = parsedDoc.body.innerHTML;
 
-        // Force execution of script tags in the new body
-        executeScripts(document.body);
-
         // Update title and history
         document.title = parsedDoc.title || document.title;
         if (replaceState) {
@@ -4939,6 +4936,9 @@ async function ajaxLoadPage(url, replaceState = false) {
         } else {
             history.pushState({ url }, '', url);
         }
+
+        // Force execution of script tags in the new body
+        executeScripts(document.body);
 
         // Re-run the page initialization lifecycle
         initAppPage();
