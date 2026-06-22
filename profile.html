@@ -1358,7 +1358,7 @@
     await renderSavedListings();
   };
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function initProfilePage() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUserId = urlParams.get('id');
 
@@ -1525,7 +1525,17 @@
           }
         }
       };
-    });
+    }
+
+    if (typeof window.registerPageInit === 'function') {
+      window.registerPageInit('profile.html', initProfilePage);
+    } else {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initProfilePage);
+      } else {
+        initProfilePage();
+      }
+    }
   </script>
 </body>
 

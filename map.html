@@ -345,8 +345,7 @@
 
   loadListings();
 
-  document.addEventListener('DOMContentLoaded', () => {
-
+  function initMapPage() {
     // ── View toggle ──
     function setView(mode) {
       const mapPane  = document.getElementById('map-pane');
@@ -639,7 +638,17 @@
     window.addEventListener('resize', () => {
       if (isMobile()) setSheetHeight(currentSnap, false);
     });
-  });
+  }
+
+  if (typeof window.registerPageInit === 'function') {
+    window.registerPageInit('map.html', initMapPage);
+  } else {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMapPage);
+    } else {
+      initMapPage();
+    }
+  }
 </script>
 </body>
 </html>
