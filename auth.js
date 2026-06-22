@@ -23,6 +23,7 @@ let isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.h
 let activeInquiryId = null;
 let updateHeaderVisibility = null;
 let referrerId = null;
+let uploadedMedia = [];
 
 // Parse ref parameter on boot
 try {
@@ -1140,6 +1141,17 @@ function initAppPage() {
     if (userRole === 'Employee' && currentPage === 'employee-panel.html') {
         initEmployeePanelInteractions();
     }
+
+    // Run the page's registered SPA initializer if it exists
+    if (window.spaPageInit && window.spaPageInit[currentPage]) {
+        try {
+            window.spaPageInit[currentPage]();
+        } catch (e) {
+            console.error(`Error executing SPA page initializer for ${currentPage}:`, e);
+        }
+    }
+
+    window.initAppPageHasRun = true;
 }
 document.addEventListener('DOMContentLoaded', initAppPage);
 
@@ -1356,6 +1368,34 @@ async function openListingModal(id) {
         listing = data;
     }
 
+    // Reset media state for this modal session
+    uploadedMedia = [];
+
+    // Load existing media from listing_media when editing
+    if (id) {
+        const { data: mediaRows } = await supabase
+            .from('listing_media')
+            .select('*')
+            .eq('listing_id', id)
+            .order('sort_order', { ascending: true });
+        if (mediaRows && mediaRows.length > 0) {
+            uploadedMedia = mediaRows.map(row => ({
+                url: row.url,
+                media_type: row.media_type,
+                is_cover: row.is_cover || false,
+                alt_text: row.alt_text || null,
+                thumbnail_url: row.thumbnail_url || null
+            }));
+        } else if (listing && listing.img) {
+            uploadedMedia = [{
+                url: listing.img,
+                media_type: 'image',
+                is_cover: true,
+                alt_text: null
+            }];
+        }
+    }
+
     document.getElementById('modal-title').textContent   = listing ? 'Edit Listing' : 'Add New Listing';
     document.getElementById('modal-id').value            = listing ? listing.id : '';
     document.getElementById('modal-prop-title').value    = listing ? listing.title    : '';
@@ -1407,25 +1447,15 @@ async function openListingModal(id) {
     document.getElementById('modal-views').value         = listing ? listing.views     : '0';
     document.getElementById('modal-lat').value           = listing ? (listing.lat || '') : '';
     document.getElementById('modal-lng').value           = listing ? (listing.lng || '') : '';
-    const imgUrl = listing ? (listing.img || '') : '';
-    document.getElementById('modal-img').value = imgUrl;
 
-    const previewEl = document.getElementById('modal-image-preview');
-    const previewImg = document.getElementById('modal-preview-img');
-    const uploadZone = document.getElementById('modal-upload-zone');
-    const fileInput = document.getElementById('modal-file-input');
-
-    if (previewEl && previewImg && uploadZone) {
-        if (imgUrl) {
-            previewImg.src = imgUrl;
-            previewEl.classList.remove('hidden');
-            uploadZone.classList.add('hidden');
-        } else {
-            previewEl.classList.add('hidden');
-            uploadZone.classList.remove('hidden');
-            if (fileInput) fileInput.value = '';
-        }
+    const listingMapDiv = document.getElementById('listing-modal-map');
+    if (listingMapDiv) listingMapDiv.classList.add('hidden');
+    const listingToggleMapBtn = document.getElementById('listing-toggle-map-btn');
+    if (listingToggleMapBtn) {
+        listingToggleMapBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">map</span> Choose on Map';
     }
+
+    renderMediaGrid();
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1454,8 +1484,6 @@ async function saveListingForm() {
     const sqftEl     = document.getElementById('modal-sqft');
     const latEl      = document.getElementById('modal-lat');
     const lngEl      = document.getElementById('modal-lng');
-    const uploadZone = document.getElementById('modal-upload-zone');
-    const imgEl      = document.getElementById('modal-img');
 
     const title    = titleEl.value.trim();
     const location = locationEl.value.trim();
@@ -1469,7 +1497,9 @@ async function saveListingForm() {
     const views    = parseInt(document.getElementById('modal-views').value) || 0;
     const lat      = parseFloat(latEl.value) || null;
     const lng      = parseFloat(lngEl.value) || null;
-    const img      = imgEl.value.trim();
+    const coverItem = uploadedMedia.find(m => m.is_cover && m.media_type === 'image');
+    const firstImage = uploadedMedia.find(m => m.media_type === 'image');
+    const img = coverItem ? coverItem.url : (firstImage ? firstImage.url : MEDIA_PLACEHOLDER);
 
     // Reset styles
     [titleEl, locationEl, priceEl, intentEl, typeEl, statusEl, bedsEl, bathsEl, sqftEl, latEl, lngEl].forEach(el => {
@@ -1478,10 +1508,6 @@ async function saveListingForm() {
             el.classList.add('border-outline-variant');
         }
     });
-    if (uploadZone) {
-        uploadZone.classList.remove('border-red-500', 'bg-red-50/20');
-        uploadZone.classList.add('border-slate-200');
-    }
 
     let hasErrors = false;
     function markInvalid(el) {
@@ -1494,13 +1520,7 @@ async function saveListingForm() {
 
     if (title === '') markInvalid(titleEl);
     if (location === '') markInvalid(locationEl);
-    if (img === '') {
-        if (uploadZone) {
-            uploadZone.classList.remove('border-slate-200');
-            uploadZone.classList.add('border-red-500', 'bg-red-50/20');
-        }
-        hasErrors = true;
-    }
+    // Media is optional — no image required validation
     if (priceEl.value.trim() === '' || price <= 0) markInvalid(priceEl);
     if (intent === '') markInvalid(intentEl);
     if (type === '') markInvalid(typeEl);
@@ -1572,7 +1592,7 @@ async function saveListingForm() {
     if (result.error) {
         showToast('Error saving listing: ' + result.error.message);
     } else {
-        // Log status change
+        let resolvedId = id || null;
         if (!id) {
             const { data: newListing } = await supabase
                 .from('listings')
@@ -1582,10 +1602,15 @@ async function saveListingForm() {
                 .limit(1)
                 .single();
             if (newListing) {
-                await logListingStatusChange(newListing.id, null, status, 'Listing created.');
+                resolvedId = newListing.id;
+                await logListingStatusChange(resolvedId, null, status, 'Listing created.');
             }
         } else if (oldStatus !== status) {
             await logListingStatusChange(id, oldStatus, status, 'Status updated by owner.');
+        }
+
+        if (resolvedId) {
+            await saveListingMedia(resolvedId, user ? user.id : null);
         }
 
         await renderListings();
@@ -1593,16 +1618,7 @@ async function saveListingForm() {
 
         // Only show share popup for NEW listings (no id means it was an insert)
         if (!id) {
-            // Get the newly inserted listing id
-            const { data: newListing } = await supabase
-                .from('listings')
-                .select('id')
-                .eq('broker_id', (await supabase.auth.getUser()).data.user.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            const newId = newListing?.id;
+            const newId = resolvedId;
             const shareUrl = newId
                 ? `${window.location.origin}/property-details.html?id=${newId}`
                 : null;
@@ -1687,6 +1703,196 @@ async function saveListingForm() {
 
 window.saveListingForm = saveListingForm;
 
+// ══════════════════════════════════════════════════════
+//  LISTING MEDIA HELPERS
+// ══════════════════════════════════════════════════════
+
+const MEDIA_PLACEHOLDER = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+
+function renderMediaGrid() {
+    const grid = document.getElementById('modal-media-grid');
+    if (!grid) return;
+    if (uploadedMedia.length === 0) {
+        grid.innerHTML = '';
+        grid.classList.add('hidden');
+        const zone = document.getElementById('modal-upload-zone');
+        if (zone) zone.classList.remove('hidden');
+        return;
+    }
+    const zone = document.getElementById('modal-upload-zone');
+    if (zone) zone.classList.remove('hidden');
+    grid.classList.remove('hidden');
+    grid.innerHTML = uploadedMedia.map((item, idx) => {
+        const isImage = item.media_type === 'image';
+        const isCover = item.is_cover;
+        const thumbHtml = isImage
+            ? `<img src="${escHtml(item.url)}" class="w-full h-full object-cover" alt="Media ${idx+1}">`
+            : `<div class="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-white gap-1">
+                <span class="material-symbols-outlined text-[28px] text-slate-300">play_circle</span>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Video</span>
+               </div>`;
+        const coverBadge = isCover
+            ? `<span class="absolute top-1.5 left-1.5 bg-primary text-on-primary text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full">Cover</span>`
+            : '';
+        const setCoverBtn = isImage && !isCover
+            ? `<button type="button" onclick="setCoverItem(${idx})" title="Set as Cover" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors"><span class="material-symbols-outlined text-[14px]">star</span></button>`
+            : '';
+        return `
+        <div class="relative rounded-lg overflow-hidden border-2 ${isCover ? 'border-primary' : 'border-outline-variant'} bg-slate-100 aspect-[4/3]">
+            ${thumbHtml}
+            ${coverBadge}
+            <div class="absolute inset-0 bg-black/0 hover:bg-black/40 transition-all flex items-end justify-center pb-2 gap-1 opacity-0 hover:opacity-100">
+                <button type="button" onclick="moveMediaItem(${idx},-1)" title="Move Left" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors ${idx === 0 ? 'opacity-30 pointer-events-none' : ''}"><span class="material-symbols-outlined text-[14px]">arrow_back</span></button>
+                ${setCoverBtn}
+                <button type="button" onclick="removeMediaItem(${idx})" title="Remove" class="p-1 bg-red-600 hover:bg-red-700 rounded text-white transition-colors"><span class="material-symbols-outlined text-[14px]">delete</span></button>
+                <button type="button" onclick="moveMediaItem(${idx},1)" title="Move Right" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors ${idx === uploadedMedia.length-1 ? 'opacity-30 pointer-events-none' : ''}"><span class="material-symbols-outlined text-[14px]">arrow_forward</span></button>
+            </div>
+            <span class="absolute bottom-1 right-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${isImage ? 'bg-slate-900/70 text-white' : 'bg-blue-600/90 text-white'}">${isImage ? 'IMG' : 'VID'}</span>
+        </div>`;
+    }).join('');
+}
+
+window.removeMediaItem = function(idx) {
+    const wasCover = uploadedMedia[idx]?.is_cover;
+    uploadedMedia.splice(idx, 1);
+    if (wasCover && uploadedMedia.length > 0) {
+        const firstImg = uploadedMedia.find(m => m.media_type === 'image');
+        if (firstImg) firstImg.is_cover = true;
+    }
+    renderMediaGrid();
+};
+
+window.setCoverItem = function(idx) {
+    uploadedMedia.forEach((m, i) => { m.is_cover = (i === idx); });
+    renderMediaGrid();
+};
+
+window.moveMediaItem = function(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= uploadedMedia.length) return;
+    [uploadedMedia[idx], uploadedMedia[newIdx]] = [uploadedMedia[newIdx], uploadedMedia[idx]];
+    renderMediaGrid();
+};
+
+async function handleMultipleUploads(files, listingIdHint) {
+    const progressEl = document.getElementById('modal-upload-progress');
+    const uploadZone = document.getElementById('modal-upload-zone');
+    if (progressEl) progressEl.classList.remove('hidden');
+    if (uploadZone) uploadZone.classList.add('opacity-50', 'pointer-events-none');
+
+    const folderName = listingIdHint ? `listing-media/${listingIdHint}` : `listing-media/temp-${Date.now()}`;
+
+    for (const file of files) {
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        if (!isImage && !isVideo) {
+            showToast(`Skipped unsupported file: ${file.name}`);
+            continue;
+        }
+        try {
+            const safeBase = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const filePath = `${folderName}/${Date.now()}-${safeBase}`;
+            const { error: upErr } = await supabase.storage
+                .from('properties')
+                .upload(filePath, file, { cacheControl: '3600', upsert: true });
+            if (upErr) throw upErr;
+            const { data: { publicUrl } } = supabase.storage.from('properties').getPublicUrl(filePath);
+            const hasNoCoverImage = !uploadedMedia.some(m => m.is_cover && m.media_type === 'image');
+            uploadedMedia.push({
+                url: publicUrl,
+                media_type: isImage ? 'image' : 'video',
+                is_cover: isImage && hasNoCoverImage,
+                alt_text: file.name
+            });
+        } catch (err) {
+            showToast(`Failed to upload ${file.name}: ${err.message}`, true);
+        }
+    }
+
+    if (progressEl) progressEl.classList.add('hidden');
+    if (uploadZone) uploadZone.classList.remove('opacity-50', 'pointer-events-none');
+    renderMediaGrid();
+}
+
+async function saveListingMedia(listingId, brokerId) {
+    await supabase.from('listing_media').delete().eq('listing_id', listingId);
+
+    if (uploadedMedia.length === 0) return;
+
+    const rows = uploadedMedia.map((item, idx) => ({
+        listing_id: listingId,
+        broker_id: brokerId,
+        media_type: item.media_type,
+        url: item.url,
+        thumbnail_url: item.thumbnail_url || null,
+        sort_order: idx,
+        is_cover: item.is_cover || false,
+        alt_text: item.alt_text || null
+    }));
+
+    const { error } = await supabase.from('listing_media').insert(rows);
+    if (error) console.error('Error saving listing_media:', error.message);
+}
+
+function renderInteractiveGallery(container, mediaItems, fallbackImg) {
+    if (!container) return;
+    const PLACEHOLDER = MEDIA_PLACEHOLDER;
+
+    let items = mediaItems && mediaItems.length > 0 ? mediaItems : [];
+    if (items.length === 0 && fallbackImg) {
+        items = [{ url: fallbackImg, media_type: 'image', is_cover: true }];
+    }
+    if (items.length === 0) {
+        items = [{ url: PLACEHOLDER, media_type: 'image', is_cover: true }];
+    }
+
+    let activeIdx = 0;
+
+    function buildHtml() {
+        const item = items[activeIdx];
+        const isVideo = item.media_type === 'video';
+        const mainMediaHtml = isVideo
+            ? `<video src="${escHtml(item.url)}" controls playsinline class="w-full h-full object-contain bg-black"></video>`
+            : `<img src="${escHtml(item.url)}" alt="Property media ${activeIdx + 1}" class="w-full h-full object-cover transition-all duration-500">`;
+
+        const thumbsHtml = items.length > 1 ? `
+        <div class="flex gap-2 overflow-x-auto py-2 px-1 mt-3 scrollbar-hide">
+            ${items.map((m, i) => {
+                const thumbIsVideo = m.media_type === 'video';
+                const thumbContent = thumbIsVideo
+                    ? `<div class="w-full h-full flex items-center justify-center bg-slate-900"><span class="material-symbols-outlined text-white text-[20px]">play_circle</span></div>`
+                    : `<img src="${escHtml(m.url)}" class="w-full h-full object-cover" alt="Thumb ${i+1}">`;
+                return `<button type="button" data-idx="${i}" class="gallery-thumb shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${i === activeIdx ? 'border-slate-900 scale-105' : 'border-transparent opacity-60 hover:opacity-100'}">${thumbContent}</button>`;
+            }).join('')}
+        </div>` : '';
+
+        const counter = items.length > 1 ? `<span class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full">${activeIdx + 1} / ${items.length}</span>` : '';
+        const prevBtn = items.length > 1 && activeIdx > 0 ? `<button type="button" id="gallery-prev" class="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-full shadow-lg transition-all"><span class="material-symbols-outlined text-slate-800 text-[20px]">arrow_back</span></button>` : '';
+        const nextBtn = items.length > 1 && activeIdx < items.length - 1 ? `<button type="button" id="gallery-next" class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-full shadow-lg transition-all"><span class="material-symbols-outlined text-slate-800 text-[20px]">arrow_forward</span></button>` : '';
+
+        container.innerHTML = `
+        <div class="w-full">
+            <div class="h-[400px] md:h-[580px] w-full rounded-[32px] overflow-hidden relative shadow-2xl bg-slate-100">
+                ${mainMediaHtml}
+                ${prevBtn}
+                ${nextBtn}
+                ${counter}
+            </div>
+            ${thumbsHtml}
+        </div>`;
+
+        const prevEl = container.querySelector('#gallery-prev');
+        const nextEl = container.querySelector('#gallery-next');
+        if (prevEl) prevEl.onclick = () => { activeIdx--; buildHtml(); };
+        if (nextEl) nextEl.onclick = () => { activeIdx++; buildHtml(); };
+        container.querySelectorAll('.gallery-thumb').forEach(btn => {
+            btn.onclick = () => { activeIdx = parseInt(btn.dataset.idx); buildHtml(); };
+        });
+    }
+
+    buildHtml();
+}
+
 function injectListingModal() {
     if (document.getElementById('listing-modal')) return;
 
@@ -1719,23 +1925,29 @@ function injectListingModal() {
                 <input id="modal-location" type="text" autocomplete="off" placeholder="e.g. Bandra West, Mumbai" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
                 <div id="modal-location-results" class="absolute left-0 right-0 mt-1 bg-surface-container-lowest rounded-lg shadow-xl border border-outline-variant hidden flex-col max-h-60 overflow-y-auto z-50"></div>
               </div>
+              <div class="flex gap-3 mt-3">
+                <button type="button" id="listing-use-location-btn" class="flex-1 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px]">my_location</span>
+                  Use Current Location
+                </button>
+                <button type="button" id="listing-toggle-map-btn" class="flex-1 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px]">map</span>
+                  Choose on Map
+                </button>
+              </div>
+              <div id="listing-modal-map" class="hidden"></div>
             </div>
             <div class="md:col-span-2">
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Media (Image) *</label>
-              <div id="modal-upload-zone" class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center gap-2 bg-surface-container-low">
-                <span class="material-symbols-outlined text-[32px] text-slate-400">cloud_upload</span>
-                <p class="text-sm font-medium text-slate-600">Drag & drop your property photo here, or <span class="text-primary font-bold">browse</span></p>
-                <p class="text-xs text-slate-400">Supports PNG, JPG, JPEG up to 10MB</p>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Media <span class="text-slate-400 font-normal normal-case">(Images &amp; Videos — optional)</span></label>
+              <div id="modal-media-grid" class="hidden grid grid-cols-3 gap-2 mb-2"></div>
+              <div id="modal-upload-zone" class="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-primary hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center gap-2 bg-surface-container-low">
+                <span class="material-symbols-outlined text-[28px] text-slate-400">perm_media</span>
+                <p class="text-sm font-medium text-slate-600">Drag &amp; drop images or videos, or <span class="text-primary font-bold">browse</span></p>
+                <p class="text-xs text-slate-400">Supports PNG, JPG, JPEG, MP4, MOV, WEBM — multiple files allowed</p>
               </div>
-              <input type="file" id="modal-file-input" class="hidden" accept="image/*" />
+              <input type="file" id="modal-file-input" class="hidden" accept="image/*,video/*" multiple />
               <div id="modal-upload-progress" class="hidden w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
                 <div class="bg-primary h-1.5 rounded-full animate-pulse" style="width: 100%"></div>
-              </div>
-              <div id="modal-image-preview" class="hidden mt-3 relative rounded-lg overflow-hidden border border-outline-variant aspect-[16/9] w-full max-h-48 bg-slate-50">
-                <img id="modal-preview-img" src="" alt="Preview" class="w-full h-full object-cover"/>
-                <button type="button" id="modal-remove-img" class="absolute top-2 right-2 p-1.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full transition-colors flex items-center justify-center" title="Remove Photo">
-                  <span class="material-symbols-outlined text-[16px]">close</span>
-                </button>
               </div>
               <input type="hidden" id="modal-img" />
             </div>
@@ -1857,14 +2069,9 @@ function injectListingModal() {
       });
     }
 
-    // File upload event listeners
+    // Multi-media upload event listeners
     const uploadZone = document.getElementById('modal-upload-zone');
     const fileInput = document.getElementById('modal-file-input');
-    const progressEl = document.getElementById('modal-upload-progress');
-    const previewEl = document.getElementById('modal-image-preview');
-    const previewImg = document.getElementById('modal-preview-img');
-    const removeBtn = document.getElementById('modal-remove-img');
-    const imgUrlInput = document.getElementById('modal-img');
 
     if (uploadZone && fileInput) {
         uploadZone.onclick = () => fileInput.click();
@@ -1881,61 +2088,13 @@ function injectListingModal() {
         uploadZone.ondrop = (e) => {
             e.preventDefault();
             uploadZone.classList.remove('border-primary', 'bg-slate-50');
-            const file = e.dataTransfer.files[0];
-            if (file) handleUpload(file);
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length) handleMultipleUploads(files, document.getElementById('modal-id')?.value || null);
         };
 
         fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) handleUpload(file);
-        };
-    }
-
-    async function handleUpload(file) {
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file.');
-            return;
-        }
-
-        progressEl.classList.remove('hidden');
-        uploadZone.classList.add('opacity-50', 'pointer-events-none');
-
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `listing-${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            const { data, error } = await supabase.storage
-                .from('properties')
-                .upload(filePath, file, { cacheControl: '3600', upsert: true });
-
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('properties')
-                .getPublicUrl(filePath);
-
-            imgUrlInput.value = publicUrl;
-            
-            previewImg.src = publicUrl;
-            previewEl.classList.remove('hidden');
-            uploadZone.classList.add('hidden');
-            showToast('Property photo uploaded successfully!');
-        } catch (err) {
-            console.error('Upload error:', err);
-            showToast('Failed to upload image: ' + err.message);
-        } finally {
-            progressEl.classList.add('hidden');
-            uploadZone.classList.remove('opacity-50', 'pointer-events-none');
-        }
-    }
-
-    if (removeBtn) {
-        removeBtn.onclick = () => {
-            imgUrlInput.value = '';
-            previewImg.src = '';
-            previewEl.classList.add('hidden');
-            uploadZone.classList.remove('hidden');
+            const files = Array.from(e.target.files);
+            if (files.length) handleMultipleUploads(files, document.getElementById('modal-id')?.value || null);
             fileInput.value = '';
         };
     }
@@ -1974,14 +2133,9 @@ function injectListingModal() {
                                     </div>
                                 `;
                                 div.onclick = () => {
-                                    const parts = item.display_name.split(',');
-                                    const formattedLocation = parts.slice(0, 3).map(s => s.trim()).join(', ');
-                                    modalLocationInput.value = formattedLocation;
-                                    
-                                    const latEl = document.getElementById('modal-lat');
-                                    const lngEl = document.getElementById('modal-lng');
-                                    if (latEl) latEl.value = item.lat;
-                                    if (lngEl) lngEl.value = item.lon;
+                                    modalLocationInput.value = formatNominatimAddress(item.display_name);
+                                    updateListingLocationCoordinates(item.lat, item.lon, false);
+                                    syncLocationMapView('listing-modal-map', item.lat, item.lon);
 
                                     modalLocationResults.innerHTML = '';
                                     modalLocationResults.classList.add('hidden');
@@ -2008,6 +2162,19 @@ function injectListingModal() {
             }
         });
     }
+
+    wireUseCurrentLocationButton('listing-use-location-btn', {
+        latInputId: 'modal-lat',
+        lngInputId: 'modal-lng',
+        labelInputId: 'modal-location',
+        mapContainerId: 'listing-modal-map'
+    });
+
+    wireLocationMapToggleButton('listing-toggle-map-btn', 'listing-modal-map', {
+        latInputId: 'modal-lat',
+        lngInputId: 'modal-lng',
+        labelInputId: 'modal-location'
+    });
 }
 
 // ══════════════════════════════════════════════════════
@@ -2196,8 +2363,158 @@ function injectInquiryModal() {
 // ══════════════════════════════════════════════════════
 
 let editFilterId = null;
-let modalMap = null;
-let modalMarker = null;
+const DEFAULT_MAP_CENTER = { lat: 19.0760, lng: 72.8777 };
+const locationMaps = {};
+
+function formatNominatimAddress(displayName) {
+    const parts = displayName.split(',');
+    return parts.slice(0, 3).map(p => p.trim()).join(', ');
+}
+
+function reverseGeocodeLocationLabel(lat, lng, labelInputId) {
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data?.display_name) {
+                const el = document.getElementById(labelInputId);
+                if (el) el.value = formatNominatimAddress(data.display_name);
+            }
+        })
+        .catch(err => console.error('Reverse geocoding failed:', err));
+}
+
+function updateLocationPickerFields({ lat, lng, latInputId, lngInputId, labelInputId, doGeocode = false }) {
+    const latEl = document.getElementById(latInputId);
+    const lngEl = document.getElementById(lngInputId);
+    if (latEl) latEl.value = parseFloat(lat).toFixed(6);
+    if (lngEl) lngEl.value = parseFloat(lng).toFixed(6);
+    if (doGeocode && labelInputId) {
+        reverseGeocodeLocationLabel(lat, lng, labelInputId);
+    }
+}
+
+function syncLocationMapView(containerId, lat, lng, zoom = 15) {
+    const entry = locationMaps[containerId];
+    if (entry?.map && entry?.marker) {
+        entry.map.setView([lat, lng], zoom);
+        entry.marker.setLatLng([lat, lng]);
+    }
+}
+
+function initLeafletPickerMap(containerId, lat, lng, onCoordinatesChange) {
+    if (typeof L === 'undefined') {
+        console.warn('Leaflet map framework not loaded on window');
+        return null;
+    }
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+
+    let entry = locationMaps[containerId];
+    if (!entry) {
+        const map = L.map(containerId).setView([lat, lng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        const marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        marker.on('dragend', () => {
+            const pos = marker.getLatLng();
+            onCoordinatesChange(pos.lat, pos.lng, true);
+        });
+        map.on('click', (e) => {
+            marker.setLatLng(e.latlng);
+            onCoordinatesChange(e.latlng.lat, e.latlng.lng, true);
+        });
+        entry = { map, marker };
+        locationMaps[containerId] = entry;
+        setTimeout(() => map.invalidateSize(), 150);
+    } else {
+        entry.map.setView([lat, lng], 13);
+        entry.marker.setLatLng([lat, lng]);
+        setTimeout(() => entry.map.invalidateSize(), 100);
+    }
+    return entry;
+}
+
+function wireUseCurrentLocationButton(buttonId, { latInputId, lngInputId, labelInputId, mapContainerId }) {
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    btn.onclick = (e) => {
+        e.preventDefault();
+        if (!navigator.geolocation) {
+            showToast('Geolocation is not supported by your browser.', true);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                updateLocationPickerFields({ lat, lng, latInputId, lngInputId, labelInputId, doGeocode: true });
+                if (mapContainerId) syncLocationMapView(mapContainerId, lat, lng);
+            },
+            (err) => showToast('Failed to fetch location: ' + err.message, true)
+        );
+    };
+}
+
+function wireLocationMapToggleButton(buttonId, mapContainerId, { latInputId, lngInputId, labelInputId, onCoordinatesChange }) {
+    const toggleMapBtn = document.getElementById(buttonId);
+    const mapDiv = document.getElementById(mapContainerId);
+    if (!toggleMapBtn || !mapDiv) return;
+
+    const defaultLabel = toggleMapBtn.innerHTML;
+    toggleMapBtn.onclick = (e) => {
+        e.preventDefault();
+        const isHidden = mapDiv.classList.contains('hidden');
+        if (isHidden) {
+            mapDiv.classList.remove('hidden');
+            toggleMapBtn.textContent = 'Hide Map';
+
+            let lat = parseFloat(document.getElementById(latInputId).value);
+            let lng = parseFloat(document.getElementById(lngInputId).value);
+            if (isNaN(lat) || isNaN(lng)) {
+                lat = DEFAULT_MAP_CENTER.lat;
+                lng = DEFAULT_MAP_CENTER.lng;
+                updateLocationPickerFields({ lat, lng, latInputId, lngInputId, labelInputId, doGeocode: false });
+            }
+            initLeafletPickerMap(mapContainerId, lat, lng, (lat, lng, doGeocode) => {
+                updateLocationPickerFields({ lat, lng, latInputId, lngInputId, labelInputId, doGeocode });
+                if (onCoordinatesChange) onCoordinatesChange(lat, lng, doGeocode);
+            });
+        } else {
+            mapDiv.classList.add('hidden');
+            toggleMapBtn.innerHTML = defaultLabel;
+        }
+    };
+}
+
+function updateModalLocationCoordinates(lat, lng, doGeocode = false) {
+    updateLocationPickerFields({
+        lat,
+        lng,
+        latInputId: 'filter-center-lat',
+        lngInputId: 'filter-center-lng',
+        labelInputId: 'filter-center-label',
+        doGeocode
+    });
+}
+
+function updateListingLocationCoordinates(lat, lng, doGeocode = false) {
+    updateLocationPickerFields({
+        lat,
+        lng,
+        latInputId: 'modal-lat',
+        lngInputId: 'modal-lng',
+        labelInputId: 'modal-location',
+        doGeocode
+    });
+}
+
+function initModalLeafletMap(lat, lng) {
+    initLeafletPickerMap('filter-modal-map', lat, lng, (lat, lng, doGeocode) => {
+        updateModalLocationCoordinates(lat, lng, doGeocode);
+    });
+}
 
 async function initCustomFiltersManager() {
     await renderCustomFilters();
@@ -2287,65 +2604,6 @@ async function renderCustomFilters() {
         </tr>
         `;
     }).join('');
-}
-
-function updateModalLocationCoordinates(lat, lng, doGeocode = false) {
-    document.getElementById('filter-center-lat').value = parseFloat(lat).toFixed(6);
-    document.getElementById('filter-center-lng').value = parseFloat(lng).toFixed(6);
-    if (doGeocode) {
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.display_name) {
-                    const parts = data.display_name.split(',');
-                    const formatted = parts.slice(0, 3).map(p => p.trim()).join(', ');
-                    document.getElementById('filter-center-label').value = formatted;
-                }
-            })
-            .catch(err => console.error('Reverse geocoding failed:', err));
-    }
-}
-
-function initModalLeafletMap(lat, lng) {
-    if (typeof L === 'undefined') {
-        console.warn('Leaflet map framework not loaded on window');
-        return;
-    }
-    const container = document.getElementById('filter-modal-map');
-    if (!container) return;
-
-    if (!modalMap) {
-        modalMap = L.map('filter-modal-map').setView([lat, lng], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(modalMap);
-
-        modalMarker = L.marker([lat, lng], { draggable: true }).addTo(modalMap);
-
-        modalMarker.on('dragend', () => {
-            const pos = modalMarker.getLatLng();
-            updateModalLocationCoordinates(pos.lat, pos.lng, true);
-        });
-
-        modalMap.on('click', (e) => {
-            modalMarker.setLatLng(e.latlng);
-            updateModalLocationCoordinates(e.latlng.lat, e.latlng.lng, true);
-        });
-
-        // The container was hidden (display:none) when Leaflet initialised, so it
-        // measured 0×0 and rendered blank tiles.  Force a size recalculation once
-        // the browser has repainted with the container now visible.
-        setTimeout(() => {
-            modalMap.invalidateSize();
-        }, 150);
-    } else {
-        modalMap.setView([lat, lng], 13);
-        modalMarker.setLatLng([lat, lng]);
-        setTimeout(() => {
-            modalMap.invalidateSize();
-        }, 100);
-    }
 }
 
 function injectCustomFilterModal() {
@@ -2551,12 +2809,7 @@ function injectCustomFilterModal() {
                                     updateModalLocationCoordinates(item.lat, item.lon, false);
                                     resultsDiv.innerHTML = '';
                                     resultsDiv.classList.add('hidden');
-
-                                    // Update map view if open
-                                    if (modalMap && modalMarker) {
-                                        modalMap.setView([item.lat, item.lon], 15);
-                                        modalMarker.setLatLng([item.lat, item.lon]);
-                                    }
+                                    syncLocationMapView('filter-modal-map', item.lat, item.lon);
                                 };
                                 resultsDiv.appendChild(div);
                             });
@@ -2574,58 +2827,18 @@ function injectCustomFilterModal() {
         });
     }
 
-    // Geolocation button setup
-    const useLocBtn = document.getElementById('filter-use-location-btn');
-    if (useLocBtn) {
-        useLocBtn.onclick = (e) => {
-            e.preventDefault();
-            if (!navigator.geolocation) {
-                showToast('Geolocation is not supported by your browser.', true);
-                return;
-            }
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    updateModalLocationCoordinates(lat, lng, true);
-                    
-                    if (modalMap && modalMarker) {
-                        modalMap.setView([lat, lng], 15);
-                        modalMarker.setLatLng([lat, lng]);
-                    }
-                },
-                (err) => {
-                    showToast('Failed to fetch location: ' + err.message, true);
-                }
-            );
-        };
-    }
+    wireUseCurrentLocationButton('filter-use-location-btn', {
+        latInputId: 'filter-center-lat',
+        lngInputId: 'filter-center-lng',
+        labelInputId: 'filter-center-label',
+        mapContainerId: 'filter-modal-map'
+    });
 
-    // Leaflet map toggle setup
-    const toggleMapBtn = document.getElementById('filter-toggle-map-btn');
-    const mapDiv = document.getElementById('filter-modal-map');
-    if (toggleMapBtn && mapDiv) {
-        toggleMapBtn.onclick = (e) => {
-            e.preventDefault();
-            const isHidden = mapDiv.classList.contains('hidden');
-            if (isHidden) {
-                mapDiv.classList.remove('hidden');
-                toggleMapBtn.textContent = 'Hide Map';
-                
-                let lat = parseFloat(document.getElementById('filter-center-lat').value);
-                let lng = parseFloat(document.getElementById('filter-center-lng').value);
-                if (isNaN(lat) || isNaN(lng)) {
-                    lat = 19.0760;
-                    lng = 72.8777;
-                    updateModalLocationCoordinates(lat, lng, false);
-                }
-                initModalLeafletMap(lat, lng);
-            } else {
-                mapDiv.classList.add('hidden');
-                toggleMapBtn.textContent = 'Choose on Map';
-            }
-        };
-    }
+    wireLocationMapToggleButton('filter-toggle-map-btn', 'filter-modal-map', {
+        latInputId: 'filter-center-lat',
+        lngInputId: 'filter-center-lng',
+        labelInputId: 'filter-center-label'
+    });
 
     // Radius range slider updating text labels
     const radiusSlider = document.getElementById('filter-radius');
@@ -4221,9 +4434,24 @@ async function initBuyerDetailsPage() {
     // Update page title
     document.title = `${l.title} — EstatePro`;
 
-    // Hero image
-    const heroImg = document.querySelector('.hero-img');
-    if (heroImg) heroImg.src = l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+    // Property gallery from listing_media
+    const galleryContainer = document.getElementById('property-gallery-container');
+    if (galleryContainer) {
+        const { data: mediaRows } = await supabase
+            .from('listing_media')
+            .select('url, media_type, sort_order, is_cover')
+            .eq('listing_id', id)
+            .order('sort_order', { ascending: true });
+        const mediaItems = (mediaRows || []).map(row => ({
+            url: row.url,
+            media_type: row.media_type,
+            is_cover: row.is_cover
+        }));
+        renderInteractiveGallery(galleryContainer, mediaItems, l.img);
+    } else {
+        const heroImg = document.querySelector('.hero-img');
+        if (heroImg) heroImg.src = l.img || MEDIA_PLACEHOLDER;
+    }
 
     // Price
     const priceEl = document.getElementById('detail-price');
@@ -4886,9 +5114,36 @@ document.head.appendChild(style);
 
 let isNavigating = false;
 
+// Global page initialization registry for SPA pages
+window.spaPageInit = window.spaPageInit || {};
+window.initAppPageHasRun = false;
+window.registerPageInit = function(pageName, initFn) {
+    window.spaPageInit[pageName] = initFn;
+    
+    // Resolve current computed page to match pageName
+    const currentPath = window.location.pathname;
+    let computedPage = currentPath.split('/').pop() || 'index.html';
+    const isSharedFilterRoute = currentPath.includes('/shared-filter/') || computedPage === 'shared-filter';
+    if (isSharedFilterRoute) {
+        computedPage = 'shared-filter.html';
+    } else if (!computedPage.includes('.')) {
+        computedPage += '.html';
+    }
+    
+    // If the main initAppPage has already run for this page, execute immediately
+    if (window.initAppPageHasRun && computedPage === pageName) {
+        try {
+            initFn();
+        } catch (e) {
+            console.error(`Error running SPA page initializer for ${pageName}:`, e);
+        }
+    }
+};
+
 async function ajaxLoadPage(url, replaceState = false) {
     if (isNavigating) return;
     isNavigating = true;
+    window.initAppPageHasRun = false;
 
     // Create or find Progress Bar
     let progressBar = document.getElementById('spa-progress-bar');
