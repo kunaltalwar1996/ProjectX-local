@@ -185,6 +185,131 @@ function showToast(message, isError = false) {
 
 window.showToast = showToast;
 
+const DEFAULT_BROKER_AVATAR = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80';
+
+function resolveBrokerAvatarUrl(avatarUrl, userId) {
+    if (avatarUrl) return avatarUrl;
+    if (userId) {
+        const cached = localStorage.getItem(`broker_avatar_${userId}`);
+        if (cached) return cached;
+    }
+    return DEFAULT_BROKER_AVATAR;
+}
+
+function applyBrokerProfileDisplay({ name, avatarUrl, userId } = {}) {
+    const displayName = name || localStorage.getItem('userName') || 'Broker';
+    const resolvedAvatar = resolveBrokerAvatarUrl(avatarUrl, userId);
+
+    ['broker-profile-img', 'mobile-broker-profile-img'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.src = resolvedAvatar;
+    });
+
+    const nameEl = document.getElementById('broker-company-name');
+    if (nameEl) nameEl.textContent = displayName;
+
+    const mobileNameEl = document.getElementById('mobile-broker-name');
+    if (mobileNameEl) mobileNameEl.textContent = displayName;
+
+    if (name) localStorage.setItem('userName', name);
+    if (avatarUrl && userId) localStorage.setItem(`broker_avatar_${userId}`, avatarUrl);
+}
+
+async function loadAndApplyBrokerProfileDisplay() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        applyBrokerProfileDisplay();
+        return;
+    }
+
+    const userId = session.user.id;
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', userId)
+        .single();
+
+    applyBrokerProfileDisplay({
+        name: profile?.full_name,
+        avatarUrl: profile?.avatar_url,
+        userId
+    });
+}
+
+function wireNominatimCitySearch(inputId, resultsId, options = {}) {
+    const input = document.getElementById(inputId);
+    const resultsDiv = document.getElementById(resultsId);
+    if (!input || !resultsDiv) return;
+
+    const cityOnly = options.cityOnly !== false;
+    let debounceTimer;
+
+    input.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        const query = e.target.value.trim();
+        if (query.length < 3) {
+            resultsDiv.innerHTML = '';
+            resultsDiv.classList.add('hidden');
+            resultsDiv.classList.remove('flex');
+            return;
+        }
+        debounceTimer = setTimeout(() => {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=IN&limit=5`)
+                .then(res => res.json())
+                .then(data => {
+                    resultsDiv.innerHTML = '';
+                    if (data.length === 0) {
+                        resultsDiv.innerHTML = '<div class="p-3 text-xs text-slate-500 font-medium bg-white">No locations found.</div>';
+                    } else {
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors flex items-center gap-2 text-slate-700 location-result-item';
+                            div.innerHTML = `
+                                <span class="material-symbols-outlined text-slate-400 text-[18px]">location_on</span>
+                                <div class="flex flex-col min-w-0">
+                                    <span class="text-xs font-semibold truncate text-slate-800">${item.display_name.split(',')[0]}</span>
+                                    <span class="text-[9px] text-slate-400 truncate">${item.display_name}</span>
+                                </div>
+                            `;
+                            div.onclick = () => {
+                                input.value = cityOnly
+                                    ? item.display_name.split(',')[0].trim()
+                                    : item.display_name.split(',').slice(0, 3).map(p => p.trim()).join(', ');
+                                resultsDiv.innerHTML = '';
+                                resultsDiv.classList.add('hidden');
+                                resultsDiv.classList.remove('flex');
+                                if (typeof options.onSelect === 'function') options.onSelect(item, input.value);
+                            };
+                            resultsDiv.appendChild(div);
+                        });
+                    }
+                    resultsDiv.classList.remove('hidden');
+                    resultsDiv.classList.add('flex');
+                })
+                .catch(err => console.error('Autocomplete query failed:', err));
+        }, 300);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.classList.add('hidden');
+        }
+    });
+}
+
+window.applyBrokerProfileDisplay = applyBrokerProfileDisplay;
+window.wireNominatimCitySearch = wireNominatimCitySearch;
+
+window.addEventListener('brokerAvatarUpdated', (e) => {
+    const { url, userId } = e.detail || {};
+    applyBrokerProfileDisplay({ avatarUrl: url, userId });
+});
+
+window.addEventListener('brokerProfileUpdated', (e) => {
+    const { name, avatarUrl, userId } = e.detail || {};
+    applyBrokerProfileDisplay({ name, avatarUrl, userId });
+});
+
 const leetMap = {
     'a': '[a@44*]',
     'b': '[b8*]',
@@ -849,14 +974,13 @@ function initAppPage() {
 
     // ── Broker Dashboard: populate name + wire listings manager ──
     if (userRole === 'Broker' && currentPage === 'broker-dashboard.html') {
-        const brokerName = localStorage.getItem('userName');
-        if (brokerName) {
-            const nameEl = document.getElementById('broker-company-name');
-            if (nameEl) nameEl.textContent = brokerName;
-
-            const greeting = document.querySelector('main header p');
-            if (greeting) greeting.textContent = `Welcome back, ${brokerName}. Here is your portfolio performance.`;
-        }
+        loadAndApplyBrokerProfileDisplay().then(() => {
+            const brokerName = localStorage.getItem('userName');
+            if (brokerName) {
+                const greeting = document.querySelector('main header p');
+                if (greeting) greeting.textContent = `Welcome back, ${brokerName}. Here is your portfolio performance.`;
+            }
+        });
 
         // Setup Broker Referral Program
         supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -899,19 +1023,6 @@ function initAppPage() {
             }
         });
 
-        // Retrieve and apply the uploaded avatar from broker_avatar_${userId} localStorage key
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-                const cachedAvatar = localStorage.getItem(`broker_avatar_${session.user.id}`);
-                if (cachedAvatar) {
-                    const profileImgEl = document.getElementById('broker-profile-img');
-                    if (profileImgEl) {
-                        profileImgEl.src = cachedAvatar;
-                    }
-                }
-            }
-        });
-
         // Sidebar Logout
         const sidebarLogout = document.getElementById('sidebar-logout-btn');
         if (sidebarLogout) sidebarLogout.addEventListener('click', window.logout);
@@ -926,6 +1037,11 @@ function initAppPage() {
         
         const activateBrokerTab = (hash) => {
             if (!hash || !hash.startsWith('#')) return;
+            // Settings hidden for MVP — redirect to overview if accessed via URL
+            if (hash === '#settings-section') {
+                hash = '#overview-section';
+                history.replaceState(null, '', hash);
+            }
             const targetLink = Array.from(sidebarLinks).find(l => l.getAttribute('href') === hash);
             if (!targetLink) return;
 
