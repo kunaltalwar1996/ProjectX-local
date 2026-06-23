@@ -202,23 +202,26 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label class="profile-label" for="field-name">Full Name</label>
+              <label class="profile-label" for="field-name">Full Name: </label>
               <input class="profile-input" id="field-name" type="text" placeholder="Your full name" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-email">Email Address</label>
+              <label class="profile-label" for="field-email">Email Address: </label>
               <input class="profile-input" id="field-email" type="email" placeholder="you@example.com" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-phone">Phone Number</label>
+              <label class="profile-label" for="field-phone">Phone Number: </label>
               <input class="profile-input" id="field-phone" type="tel" placeholder="+91 98765 43210" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-city">City</label>
-              <input class="profile-input" id="field-city" type="text" placeholder="e.g. Mumbai" disabled />
+              <label class="profile-label" for="field-city">City: </label>
+              <div class="relative">
+                <input class="profile-input" id="field-city" type="text" placeholder="e.g. Mumbai" disabled autocomplete="off" />
+                <div id="field-city-results" class="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 hidden flex-col max-h-48 overflow-y-auto z-50"></div>
+              </div>
             </div>
             <div class="md:col-span-2">
-              <label class="profile-label" for="field-bio">About</label>
+              <label class="profile-label" for="field-bio">About: </label>
               <textarea class="profile-input resize-none h-24" id="field-bio" placeholder="A short bio about yourself..." disabled></textarea>
             </div>
           </div>
@@ -468,6 +471,15 @@
           }
           if (buyerProfile.avatarUrl) {
             localStorage.setItem(`broker_avatar_${session.user.id}`, buyerProfile.avatarUrl);
+          }
+          if (buyerProfile.role === 'Broker') {
+            window.dispatchEvent(new CustomEvent('brokerProfileUpdated', {
+              detail: {
+                name: buyerProfile.name,
+                avatarUrl: buyerProfile.avatarUrl,
+                userId: session.user.id
+              }
+            }));
           }
         }
 
@@ -1063,6 +1075,10 @@
         }
 
         showToast('Profile picture updated successfully!');
+
+        window.dispatchEvent(new CustomEvent('brokerAvatarUpdated', {
+          detail: { url: publicUrl, userId }
+        }));
       } catch (err) {
         console.error('Error uploading avatar:', err);
         showToast('Failed to upload image: ' + err.message, true);
@@ -1193,6 +1209,11 @@
         bio: bio
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+
+      window.dispatchEvent(new CustomEvent('brokerProfileUpdated', {
+        detail: { name, userId: user.id }
+      }));
+
       return profile;
     }
 
@@ -1358,7 +1379,7 @@
     await renderSavedListings();
   };
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function initProfilePage() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUserId = urlParams.get('id');
 
@@ -1384,6 +1405,10 @@
       const saveProfBtn = document.getElementById('save-prof-btn');
       if (saveProfBtn) {
         saveProfBtn.onclick = saveBrokerProfessionalInfo;
+      }
+
+      if (window.wireNominatimCitySearch) {
+        window.wireNominatimCitySearch('field-city', 'field-city-results', { cityOnly: true });
       }
 
       // 1. Optimistic first render (only if own profile)
@@ -1525,7 +1550,17 @@
           }
         }
       };
-    });
+    }
+
+    if (typeof window.registerPageInit === 'function') {
+      window.registerPageInit('profile.html', initProfilePage);
+    } else {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initProfilePage);
+      } else {
+        initProfilePage();
+      }
+    }
   </script>
 </body>
 

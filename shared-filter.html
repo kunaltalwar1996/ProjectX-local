@@ -128,15 +128,16 @@
     }
 
     function formatPrice(val, intent) {
-      if (intent === 'Rent') {
-        if (val >= 1) {
-          return `₹${val} Lac/mo`;
-        } else {
-          return `₹${(val * 100000).toLocaleString()}/mo`;
-        }
-      } else {
-        return `₹${val} Cr`;
+      if (typeof window.formatListingPrice === 'function') {
+        return window.formatListingPrice(val, intent);
       }
+      if (intent === 'Rent') return `₹${Number(val).toLocaleString('en-IN')}/mo`;
+      return `₹${val} Cr`;
+    }
+
+    function formatIntentDisplay(intent) {
+      if (typeof window.formatIntentLabel === 'function') return window.formatIntentLabel(intent);
+      return intent === 'Buy' ? 'Sell' : intent;
     }
 
     async function initSharedFilter() {
@@ -215,7 +216,7 @@
           chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${crit.type}</span>`;
         }
         if (crit.intent && crit.intent !== 'Any') {
-          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${crit.intent}</span>`;
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${formatIntentDisplay(crit.intent)}</span>`;
         }
         if (crit.bedsMin || crit.bedsMax) {
           const min = crit.bedsMin || '1';
@@ -223,8 +224,9 @@
           chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${min}-${max} Beds</span>`;
         }
         if (crit.priceMin || crit.priceMax) {
-          const minPrice = crit.priceMin ? `₹${crit.priceMin}Cr` : '0';
-          const maxPrice = crit.priceMax ? `₹${crit.priceMax}Cr` : '∞';
+          const priceIntent = crit.priceUnit === 'crore' || crit.intent === 'Buy' ? 'Buy' : 'Rent';
+          const minPrice = crit.priceMin ? formatPrice(crit.priceMin, priceIntent) : '0';
+          const maxPrice = crit.priceMax ? formatPrice(crit.priceMax, priceIntent) : '∞';
           chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">Price: ${minPrice} - ${maxPrice}</span>`;
         }
         if (crit.sqftMin || crit.sqftMax) {
@@ -327,7 +329,7 @@
               <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
                 <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" 
                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
-                <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${l.intent}</div>
+                <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${formatIntentDisplay(l.intent)}</div>
                 <div class="absolute top-4 right-4 bg-slate-900/80 backdrop-blur text-white px-2 py-1 rounded-md text-[8px] font-bold uppercase tracking-wider">${l.type}</div>
               </div>
               <div class="p-5">
@@ -357,10 +359,14 @@
       }
     }
 
-    if (document.readyState === 'loading') {
-      window.addEventListener('DOMContentLoaded', initSharedFilter);
+    if (typeof window.registerPageInit === 'function') {
+      window.registerPageInit('shared-filter.html', initSharedFilter);
     } else {
-      initSharedFilter();
+      if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', initSharedFilter);
+      } else {
+        initSharedFilter();
+      }
     }
   </script>
 </body>

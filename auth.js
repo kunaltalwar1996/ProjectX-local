@@ -23,6 +23,76 @@ let isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.h
 let activeInquiryId = null;
 let updateHeaderVisibility = null;
 let referrerId = null;
+let uploadedMedia = [];
+
+// ── Listing price & intent helpers ──
+function formatIntentLabel(intent) {
+    if (intent === 'Buy') return 'Sell';
+    return intent || '';
+}
+
+function formatListingPrice(price, intent, { html = false } = {}) {
+    const p = parseFloat(price);
+    if (isNaN(p)) return '—';
+    if (intent === 'Rent') {
+        const formatted = `₹${p.toLocaleString('en-IN')}`;
+        return html
+            ? `${formatted}<span class="text-[10px] font-normal text-slate-400">/mo</span>`
+            : `${formatted}/mo`;
+    }
+    if (p >= 1) return `₹${p % 1 === 0 ? p : p.toFixed(2)} Cr`;
+    return `₹${(p * 100).toFixed(0)} L`;
+}
+
+function formatListingPriceRange(min, max, intent) {
+    const minLabel = min ? formatListingPrice(min, intent) : '0';
+    const maxLabel = max ? formatListingPrice(max, intent) : '∞';
+    return `${minLabel} - ${maxLabel}`;
+}
+
+function normalizeBrokerageType(value) {
+    if (!value) return 'one_time';
+    const v = String(value).toLowerCase();
+    if (v === 'once' || v === 'one_time') return 'one_time';
+    if (v === 'annual' || v === 'annually') return 'annually';
+    return value;
+}
+
+function brokerageTypeLabel(value) {
+    return normalizeBrokerageType(value) === 'annually' ? 'Annually' : 'One Time';
+}
+
+function syncListingPriceUnitForIntent(intent, priceUnitEl) {
+    if (!priceUnitEl) return;
+    priceUnitEl.value = intent === 'Rent' ? 'k' : 'cr';
+}
+
+function populateListingPriceFields(listing, dispField, unitField, priceHidden) {
+    if (!listing || listing.price === '' || listing.price == null) {
+        if (dispField) dispField.value = '';
+        if (priceHidden) priceHidden.value = '';
+        return;
+    }
+    const p = parseFloat(listing.price);
+    const intent = listing.intent || 'Buy';
+    syncListingPriceUnitForIntent(intent, unitField);
+    if (intent === 'Rent') {
+        if (dispField) dispField.value = p;
+    } else {
+        const unit = unitField?.value || 'cr';
+        if (unit === 'lac') {
+            if (unitField) unitField.value = 'lac';
+            if (dispField) dispField.value = (p * 100).toFixed(2);
+        } else {
+            if (unitField) unitField.value = 'cr';
+            if (dispField) dispField.value = p;
+        }
+    }
+    if (dispField) dispField.dispatchEvent(new Event('input'));
+}
+
+window.formatListingPrice = formatListingPrice;
+window.formatIntentLabel = formatIntentLabel;
 
 // Parse ref parameter on boot
 try {
@@ -114,6 +184,131 @@ function showToast(message, isError = false) {
 }
 
 window.showToast = showToast;
+
+const DEFAULT_BROKER_AVATAR = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80';
+
+function resolveBrokerAvatarUrl(avatarUrl, userId) {
+    if (avatarUrl) return avatarUrl;
+    if (userId) {
+        const cached = localStorage.getItem(`broker_avatar_${userId}`);
+        if (cached) return cached;
+    }
+    return DEFAULT_BROKER_AVATAR;
+}
+
+function applyBrokerProfileDisplay({ name, avatarUrl, userId } = {}) {
+    const displayName = name || localStorage.getItem('userName') || 'Broker';
+    const resolvedAvatar = resolveBrokerAvatarUrl(avatarUrl, userId);
+
+    ['broker-profile-img', 'mobile-broker-profile-img'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.src = resolvedAvatar;
+    });
+
+    const nameEl = document.getElementById('broker-company-name');
+    if (nameEl) nameEl.textContent = displayName;
+
+    const mobileNameEl = document.getElementById('mobile-broker-name');
+    if (mobileNameEl) mobileNameEl.textContent = displayName;
+
+    if (name) localStorage.setItem('userName', name);
+    if (avatarUrl && userId) localStorage.setItem(`broker_avatar_${userId}`, avatarUrl);
+}
+
+async function loadAndApplyBrokerProfileDisplay() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        applyBrokerProfileDisplay();
+        return;
+    }
+
+    const userId = session.user.id;
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', userId)
+        .single();
+
+    applyBrokerProfileDisplay({
+        name: profile?.full_name,
+        avatarUrl: profile?.avatar_url,
+        userId
+    });
+}
+
+function wireNominatimCitySearch(inputId, resultsId, options = {}) {
+    const input = document.getElementById(inputId);
+    const resultsDiv = document.getElementById(resultsId);
+    if (!input || !resultsDiv) return;
+
+    const cityOnly = options.cityOnly !== false;
+    let debounceTimer;
+
+    input.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        const query = e.target.value.trim();
+        if (query.length < 3) {
+            resultsDiv.innerHTML = '';
+            resultsDiv.classList.add('hidden');
+            resultsDiv.classList.remove('flex');
+            return;
+        }
+        debounceTimer = setTimeout(() => {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=IN&limit=5`)
+                .then(res => res.json())
+                .then(data => {
+                    resultsDiv.innerHTML = '';
+                    if (data.length === 0) {
+                        resultsDiv.innerHTML = '<div class="p-3 text-xs text-slate-500 font-medium bg-white">No locations found.</div>';
+                    } else {
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors flex items-center gap-2 text-slate-700 location-result-item';
+                            div.innerHTML = `
+                                <span class="material-symbols-outlined text-slate-400 text-[18px]">location_on</span>
+                                <div class="flex flex-col min-w-0">
+                                    <span class="text-xs font-semibold truncate text-slate-800">${item.display_name.split(',')[0]}</span>
+                                    <span class="text-[9px] text-slate-400 truncate">${item.display_name}</span>
+                                </div>
+                            `;
+                            div.onclick = () => {
+                                input.value = cityOnly
+                                    ? item.display_name.split(',')[0].trim()
+                                    : item.display_name.split(',').slice(0, 3).map(p => p.trim()).join(', ');
+                                resultsDiv.innerHTML = '';
+                                resultsDiv.classList.add('hidden');
+                                resultsDiv.classList.remove('flex');
+                                if (typeof options.onSelect === 'function') options.onSelect(item, input.value);
+                            };
+                            resultsDiv.appendChild(div);
+                        });
+                    }
+                    resultsDiv.classList.remove('hidden');
+                    resultsDiv.classList.add('flex');
+                })
+                .catch(err => console.error('Autocomplete query failed:', err));
+        }, 300);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.classList.add('hidden');
+        }
+    });
+}
+
+window.applyBrokerProfileDisplay = applyBrokerProfileDisplay;
+window.wireNominatimCitySearch = wireNominatimCitySearch;
+
+window.addEventListener('brokerAvatarUpdated', (e) => {
+    const { url, userId } = e.detail || {};
+    applyBrokerProfileDisplay({ avatarUrl: url, userId });
+});
+
+window.addEventListener('brokerProfileUpdated', (e) => {
+    const { name, avatarUrl, userId } = e.detail || {};
+    applyBrokerProfileDisplay({ name, avatarUrl, userId });
+});
 
 const leetMap = {
     'a': '[a@44*]',
@@ -779,14 +974,13 @@ function initAppPage() {
 
     // ── Broker Dashboard: populate name + wire listings manager ──
     if (userRole === 'Broker' && currentPage === 'broker-dashboard.html') {
-        const brokerName = localStorage.getItem('userName');
-        if (brokerName) {
-            const nameEl = document.getElementById('broker-company-name');
-            if (nameEl) nameEl.textContent = brokerName;
-
-            const greeting = document.querySelector('main header p');
-            if (greeting) greeting.textContent = `Welcome back, ${brokerName}. Here is your portfolio performance.`;
-        }
+        loadAndApplyBrokerProfileDisplay().then(() => {
+            const brokerName = localStorage.getItem('userName');
+            if (brokerName) {
+                const greeting = document.querySelector('main header p');
+                if (greeting) greeting.textContent = `Welcome back, ${brokerName}. Here is your portfolio performance.`;
+            }
+        });
 
         // Setup Broker Referral Program
         supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -829,19 +1023,6 @@ function initAppPage() {
             }
         });
 
-        // Retrieve and apply the uploaded avatar from broker_avatar_${userId} localStorage key
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-                const cachedAvatar = localStorage.getItem(`broker_avatar_${session.user.id}`);
-                if (cachedAvatar) {
-                    const profileImgEl = document.getElementById('broker-profile-img');
-                    if (profileImgEl) {
-                        profileImgEl.src = cachedAvatar;
-                    }
-                }
-            }
-        });
-
         // Sidebar Logout
         const sidebarLogout = document.getElementById('sidebar-logout-btn');
         if (sidebarLogout) sidebarLogout.addEventListener('click', window.logout);
@@ -856,6 +1037,11 @@ function initAppPage() {
         
         const activateBrokerTab = (hash) => {
             if (!hash || !hash.startsWith('#')) return;
+            // Settings hidden for MVP — redirect to overview if accessed via URL
+            if (hash === '#settings-section') {
+                hash = '#overview-section';
+                history.replaceState(null, '', hash);
+            }
             const targetLink = Array.from(sidebarLinks).find(l => l.getAttribute('href') === hash);
             if (!targetLink) return;
 
@@ -1140,6 +1326,17 @@ function initAppPage() {
     if (userRole === 'Employee' && currentPage === 'employee-panel.html') {
         initEmployeePanelInteractions();
     }
+
+    // Run the page's registered SPA initializer if it exists
+    if (window.spaPageInit && window.spaPageInit[currentPage]) {
+        try {
+            window.spaPageInit[currentPage]();
+        } catch (e) {
+            console.error(`Error executing SPA page initializer for ${currentPage}:`, e);
+        }
+    }
+
+    window.initAppPageHasRun = true;
 }
 document.addEventListener('DOMContentLoaded', initAppPage);
 
@@ -1268,7 +1465,7 @@ function generateListingsHTML(listings, showViews) {
           <td class="p-4">
             <span class="${badgeClass} px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">${l.status}</span>
           </td>
-          <td class="p-4 font-medium">${escHtml(l.price)}</td>
+          <td class="p-4 font-medium">${formatListingPrice(l.price, l.intent)}</td>
           ${showViews ? `<td class="p-4">${(l.views || 0).toLocaleString()}</td>` : ''}
           <td class="p-4">
             <div class="text-sm font-medium text-slate-900">${listingAge(l.created_at).date}</div>
@@ -1331,7 +1528,7 @@ async function openListingModal(id) {
         'modal-prop-title', 'modal-location', 'modal-price', 
         'modal-intent', 'modal-type', 'modal-status', 
         'modal-beds', 'modal-baths', 'modal-sqft', 
-        'modal-lat', 'modal-lng'
+        'modal-lat', 'modal-lng', 'modal-brokerage', 'modal-brokerage-type', 'modal-deposit'
     ];
     inputsToReset.forEach(inputId => {
         const el = document.getElementById(inputId);
@@ -1356,29 +1553,56 @@ async function openListingModal(id) {
         listing = data;
     }
 
+    // Reset media state for this modal session
+    uploadedMedia = [];
+
+    // Load existing media from listing_media when editing
+    if (id) {
+        const { data: mediaRows } = await supabase
+            .from('listing_media')
+            .select('*')
+            .eq('listing_id', id)
+            .order('sort_order', { ascending: true });
+        if (mediaRows && mediaRows.length > 0) {
+            uploadedMedia = mediaRows.map(row => ({
+                url: row.url,
+                media_type: row.media_type,
+                is_cover: row.is_cover || false,
+                alt_text: row.alt_text || null,
+                thumbnail_url: row.thumbnail_url || null
+            }));
+        } else if (listing && listing.img) {
+            uploadedMedia = [{
+                url: listing.img,
+                media_type: 'image',
+                is_cover: true,
+                alt_text: null
+            }];
+        }
+    }
+
     document.getElementById('modal-title').textContent   = listing ? 'Edit Listing' : 'Add New Listing';
     document.getElementById('modal-id').value            = listing ? listing.id : '';
     document.getElementById('modal-prop-title').value    = listing ? listing.title    : '';
     document.getElementById('modal-location').value      = listing ? listing.location  : '';
     // Populate price display field for editing
-    const existingPrice = listing ? listing.price : '';
-    document.getElementById('modal-price').value = existingPrice;
     const dispField = document.getElementById('modal-price-display');
     const unitField = document.getElementById('modal-price-unit');
-    if (dispField && existingPrice !== '') {
-      const p = parseFloat(existingPrice);
-      if (listing && listing.intent === 'Rent') {
-        // Show in Lac
-        unitField.value = 'lac';
-        dispField.value = (p * 100).toFixed(2);
-      } else {
-        unitField.value = 'cr';
-        dispField.value = p;
-      }
-      // Trigger update of hidden input and preview
-      dispField.dispatchEvent(new Event('input'));
+    const priceHidden = document.getElementById('modal-price');
+    if (listing) {
+        populateListingPriceFields(listing, dispField, unitField, priceHidden);
+    } else {
+        if (dispField) dispField.value = '';
+        if (priceHidden) priceHidden.value = '';
+        syncListingPriceUnitForIntent('Buy', unitField);
     }
     document.getElementById('modal-intent').value        = listing ? listing.intent    : 'Buy';
+    const brokerageEl = document.getElementById('modal-brokerage');
+    const brokerageTypeEl = document.getElementById('modal-brokerage-type');
+    const depositEl = document.getElementById('modal-deposit');
+    if (brokerageEl) brokerageEl.value = listing ? (listing.brokerage ?? '') : '';
+    if (brokerageTypeEl) brokerageTypeEl.value = listing ? normalizeBrokerageType(listing.brokerage_type) : 'one_time';
+    if (depositEl) depositEl.value = listing ? (listing.deposit ?? '') : '';
     document.getElementById('modal-type').value          = listing ? listing.type      : 'Apartment';
     const statusSelect = document.getElementById('modal-status');
     if (statusSelect) {
@@ -1407,25 +1631,15 @@ async function openListingModal(id) {
     document.getElementById('modal-views').value         = listing ? listing.views     : '0';
     document.getElementById('modal-lat').value           = listing ? (listing.lat || '') : '';
     document.getElementById('modal-lng').value           = listing ? (listing.lng || '') : '';
-    const imgUrl = listing ? (listing.img || '') : '';
-    document.getElementById('modal-img').value = imgUrl;
 
-    const previewEl = document.getElementById('modal-image-preview');
-    const previewImg = document.getElementById('modal-preview-img');
-    const uploadZone = document.getElementById('modal-upload-zone');
-    const fileInput = document.getElementById('modal-file-input');
-
-    if (previewEl && previewImg && uploadZone) {
-        if (imgUrl) {
-            previewImg.src = imgUrl;
-            previewEl.classList.remove('hidden');
-            uploadZone.classList.add('hidden');
-        } else {
-            previewEl.classList.add('hidden');
-            uploadZone.classList.remove('hidden');
-            if (fileInput) fileInput.value = '';
-        }
+    const listingMapDiv = document.getElementById('listing-modal-map');
+    if (listingMapDiv) listingMapDiv.classList.add('hidden');
+    const listingToggleMapBtn = document.getElementById('listing-toggle-map-btn');
+    if (listingToggleMapBtn) {
+        listingToggleMapBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">map</span> Choose on Map';
     }
+
+    renderMediaGrid();
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1454,8 +1668,9 @@ async function saveListingForm() {
     const sqftEl     = document.getElementById('modal-sqft');
     const latEl      = document.getElementById('modal-lat');
     const lngEl      = document.getElementById('modal-lng');
-    const uploadZone = document.getElementById('modal-upload-zone');
-    const imgEl      = document.getElementById('modal-img');
+    const brokerageEl = document.getElementById('modal-brokerage');
+    const brokerageTypeEl = document.getElementById('modal-brokerage-type');
+    const depositEl  = document.getElementById('modal-deposit');
 
     const title    = titleEl.value.trim();
     const location = locationEl.value.trim();
@@ -1469,19 +1684,20 @@ async function saveListingForm() {
     const views    = parseInt(document.getElementById('modal-views').value) || 0;
     const lat      = parseFloat(latEl.value) || null;
     const lng      = parseFloat(lngEl.value) || null;
-    const img      = imgEl.value.trim();
+    const brokerage = parseFloat(brokerageEl?.value) || 0;
+    const brokerage_type = brokerageTypeEl?.value || 'one_time';
+    const deposit = parseFloat(depositEl?.value) || 0;
+    const coverItem = uploadedMedia.find(m => m.is_cover && m.media_type === 'image');
+    const firstImage = uploadedMedia.find(m => m.media_type === 'image');
+    const img = coverItem ? coverItem.url : (firstImage ? firstImage.url : MEDIA_PLACEHOLDER);
 
     // Reset styles
-    [titleEl, locationEl, priceEl, intentEl, typeEl, statusEl, bedsEl, bathsEl, sqftEl, latEl, lngEl].forEach(el => {
+    [titleEl, locationEl, priceEl, intentEl, typeEl, statusEl, bedsEl, bathsEl, sqftEl, latEl, lngEl, brokerageEl, brokerageTypeEl, depositEl].forEach(el => {
         if (el) {
             el.classList.remove('border-red-500', 'ring-2', 'ring-red-100');
             el.classList.add('border-outline-variant');
         }
     });
-    if (uploadZone) {
-        uploadZone.classList.remove('border-red-500', 'bg-red-50/20');
-        uploadZone.classList.add('border-slate-200');
-    }
 
     let hasErrors = false;
     function markInvalid(el) {
@@ -1494,13 +1710,7 @@ async function saveListingForm() {
 
     if (title === '') markInvalid(titleEl);
     if (location === '') markInvalid(locationEl);
-    if (img === '') {
-        if (uploadZone) {
-            uploadZone.classList.remove('border-slate-200');
-            uploadZone.classList.add('border-red-500', 'bg-red-50/20');
-        }
-        hasErrors = true;
-    }
+    // Media is optional — no image required validation
     if (priceEl.value.trim() === '' || price <= 0) markInvalid(priceEl);
     if (intent === '') markInvalid(intentEl);
     if (type === '') markInvalid(typeEl);
@@ -1508,6 +1718,8 @@ async function saveListingForm() {
     if (bedsEl.value.trim() === '' || beds < 0) markInvalid(bedsEl);
     if (bathsEl.value.trim() === '' || baths < 0) markInvalid(bathsEl);
     if (sqftEl.value.trim() === '' || sqft <= 0) markInvalid(sqftEl);
+    if (brokerageEl && (brokerageEl.value.trim() === '' || brokerage < 0)) markInvalid(brokerageEl);
+    if (depositEl && (depositEl.value.trim() === '' || deposit < 0)) markInvalid(depositEl);
     if (latEl.value.trim() === '' || isNaN(lat) || lat < -90 || lat > 90) markInvalid(latEl);
     if (lngEl.value.trim() === '' || isNaN(lng) || lng < -180 || lng > 180) markInvalid(lngEl);
 
@@ -1559,6 +1771,7 @@ async function saveListingForm() {
 
     const listingData = { 
         title, location, price, intent, type, status, beds, baths, sqft, views, lat, lng, img,
+        brokerage, brokerage_type, deposit,
         broker_id: user ? user.id : null
     };
 
@@ -1572,7 +1785,7 @@ async function saveListingForm() {
     if (result.error) {
         showToast('Error saving listing: ' + result.error.message);
     } else {
-        // Log status change
+        let resolvedId = id || null;
         if (!id) {
             const { data: newListing } = await supabase
                 .from('listings')
@@ -1582,10 +1795,15 @@ async function saveListingForm() {
                 .limit(1)
                 .single();
             if (newListing) {
-                await logListingStatusChange(newListing.id, null, status, 'Listing created.');
+                resolvedId = newListing.id;
+                await logListingStatusChange(resolvedId, null, status, 'Listing created.');
             }
         } else if (oldStatus !== status) {
             await logListingStatusChange(id, oldStatus, status, 'Status updated by owner.');
+        }
+
+        if (resolvedId) {
+            await saveListingMedia(resolvedId, user ? user.id : null);
         }
 
         await renderListings();
@@ -1593,16 +1811,7 @@ async function saveListingForm() {
 
         // Only show share popup for NEW listings (no id means it was an insert)
         if (!id) {
-            // Get the newly inserted listing id
-            const { data: newListing } = await supabase
-                .from('listings')
-                .select('id')
-                .eq('broker_id', (await supabase.auth.getUser()).data.user.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            const newId = newListing?.id;
+            const newId = resolvedId;
             const shareUrl = newId
                 ? `${window.location.origin}/property-details.html?id=${newId}`
                 : null;
@@ -1687,6 +1896,196 @@ async function saveListingForm() {
 
 window.saveListingForm = saveListingForm;
 
+// ══════════════════════════════════════════════════════
+//  LISTING MEDIA HELPERS
+// ══════════════════════════════════════════════════════
+
+const MEDIA_PLACEHOLDER = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+
+function renderMediaGrid() {
+    const grid = document.getElementById('modal-media-grid');
+    if (!grid) return;
+    if (uploadedMedia.length === 0) {
+        grid.innerHTML = '';
+        grid.classList.add('hidden');
+        const zone = document.getElementById('modal-upload-zone');
+        if (zone) zone.classList.remove('hidden');
+        return;
+    }
+    const zone = document.getElementById('modal-upload-zone');
+    if (zone) zone.classList.remove('hidden');
+    grid.classList.remove('hidden');
+    grid.innerHTML = uploadedMedia.map((item, idx) => {
+        const isImage = item.media_type === 'image';
+        const isCover = item.is_cover;
+        const thumbHtml = isImage
+            ? `<img src="${escHtml(item.url)}" class="w-full h-full object-cover" alt="Media ${idx+1}">`
+            : `<div class="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-white gap-1">
+                <span class="material-symbols-outlined text-[28px] text-slate-300">play_circle</span>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Video</span>
+               </div>`;
+        const coverBadge = isCover
+            ? `<span class="absolute top-1.5 left-1.5 bg-primary text-on-primary text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full">Cover</span>`
+            : '';
+        const setCoverBtn = isImage && !isCover
+            ? `<button type="button" onclick="setCoverItem(${idx})" title="Set as Cover" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors"><span class="material-symbols-outlined text-[14px]">star</span></button>`
+            : '';
+        return `
+        <div class="relative rounded-lg overflow-hidden border-2 ${isCover ? 'border-primary' : 'border-outline-variant'} bg-slate-100 aspect-[4/3]">
+            ${thumbHtml}
+            ${coverBadge}
+            <div class="absolute inset-0 bg-black/0 hover:bg-black/40 transition-all flex items-end justify-center pb-2 gap-1 opacity-0 hover:opacity-100">
+                <button type="button" onclick="moveMediaItem(${idx},-1)" title="Move Left" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors ${idx === 0 ? 'opacity-30 pointer-events-none' : ''}"><span class="material-symbols-outlined text-[14px]">arrow_back</span></button>
+                ${setCoverBtn}
+                <button type="button" onclick="removeMediaItem(${idx})" title="Remove" class="p-1 bg-red-600 hover:bg-red-700 rounded text-white transition-colors"><span class="material-symbols-outlined text-[14px]">delete</span></button>
+                <button type="button" onclick="moveMediaItem(${idx},1)" title="Move Right" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors ${idx === uploadedMedia.length-1 ? 'opacity-30 pointer-events-none' : ''}"><span class="material-symbols-outlined text-[14px]">arrow_forward</span></button>
+            </div>
+            <span class="absolute bottom-1 right-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${isImage ? 'bg-slate-900/70 text-white' : 'bg-blue-600/90 text-white'}">${isImage ? 'IMG' : 'VID'}</span>
+        </div>`;
+    }).join('');
+}
+
+window.removeMediaItem = function(idx) {
+    const wasCover = uploadedMedia[idx]?.is_cover;
+    uploadedMedia.splice(idx, 1);
+    if (wasCover && uploadedMedia.length > 0) {
+        const firstImg = uploadedMedia.find(m => m.media_type === 'image');
+        if (firstImg) firstImg.is_cover = true;
+    }
+    renderMediaGrid();
+};
+
+window.setCoverItem = function(idx) {
+    uploadedMedia.forEach((m, i) => { m.is_cover = (i === idx); });
+    renderMediaGrid();
+};
+
+window.moveMediaItem = function(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= uploadedMedia.length) return;
+    [uploadedMedia[idx], uploadedMedia[newIdx]] = [uploadedMedia[newIdx], uploadedMedia[idx]];
+    renderMediaGrid();
+};
+
+async function handleMultipleUploads(files, listingIdHint) {
+    const progressEl = document.getElementById('modal-upload-progress');
+    const uploadZone = document.getElementById('modal-upload-zone');
+    if (progressEl) progressEl.classList.remove('hidden');
+    if (uploadZone) uploadZone.classList.add('opacity-50', 'pointer-events-none');
+
+    const folderName = listingIdHint ? `listing-media/${listingIdHint}` : `listing-media/temp-${Date.now()}`;
+
+    for (const file of files) {
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        if (!isImage && !isVideo) {
+            showToast(`Skipped unsupported file: ${file.name}`);
+            continue;
+        }
+        try {
+            const safeBase = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const filePath = `${folderName}/${Date.now()}-${safeBase}`;
+            const { error: upErr } = await supabase.storage
+                .from('properties')
+                .upload(filePath, file, { cacheControl: '3600', upsert: true });
+            if (upErr) throw upErr;
+            const { data: { publicUrl } } = supabase.storage.from('properties').getPublicUrl(filePath);
+            const hasNoCoverImage = !uploadedMedia.some(m => m.is_cover && m.media_type === 'image');
+            uploadedMedia.push({
+                url: publicUrl,
+                media_type: isImage ? 'image' : 'video',
+                is_cover: isImage && hasNoCoverImage,
+                alt_text: file.name
+            });
+        } catch (err) {
+            showToast(`Failed to upload ${file.name}: ${err.message}`, true);
+        }
+    }
+
+    if (progressEl) progressEl.classList.add('hidden');
+    if (uploadZone) uploadZone.classList.remove('opacity-50', 'pointer-events-none');
+    renderMediaGrid();
+}
+
+async function saveListingMedia(listingId, brokerId) {
+    await supabase.from('listing_media').delete().eq('listing_id', listingId);
+
+    if (uploadedMedia.length === 0) return;
+
+    const rows = uploadedMedia.map((item, idx) => ({
+        listing_id: listingId,
+        broker_id: brokerId,
+        media_type: item.media_type,
+        url: item.url,
+        thumbnail_url: item.thumbnail_url || null,
+        sort_order: idx,
+        is_cover: item.is_cover || false,
+        alt_text: item.alt_text || null
+    }));
+
+    const { error } = await supabase.from('listing_media').insert(rows);
+    if (error) console.error('Error saving listing_media:', error.message);
+}
+
+function renderInteractiveGallery(container, mediaItems, fallbackImg) {
+    if (!container) return;
+    const PLACEHOLDER = MEDIA_PLACEHOLDER;
+
+    let items = mediaItems && mediaItems.length > 0 ? mediaItems : [];
+    if (items.length === 0 && fallbackImg) {
+        items = [{ url: fallbackImg, media_type: 'image', is_cover: true }];
+    }
+    if (items.length === 0) {
+        items = [{ url: PLACEHOLDER, media_type: 'image', is_cover: true }];
+    }
+
+    let activeIdx = 0;
+
+    function buildHtml() {
+        const item = items[activeIdx];
+        const isVideo = item.media_type === 'video';
+        const mainMediaHtml = isVideo
+            ? `<video src="${escHtml(item.url)}" controls playsinline class="w-full h-full object-contain bg-black"></video>`
+            : `<img src="${escHtml(item.url)}" alt="Property media ${activeIdx + 1}" class="w-full h-full object-cover transition-all duration-500">`;
+
+        const thumbsHtml = items.length > 1 ? `
+        <div class="flex gap-2 overflow-x-auto py-2 px-1 mt-3 scrollbar-hide">
+            ${items.map((m, i) => {
+                const thumbIsVideo = m.media_type === 'video';
+                const thumbContent = thumbIsVideo
+                    ? `<div class="w-full h-full flex items-center justify-center bg-slate-900"><span class="material-symbols-outlined text-white text-[20px]">play_circle</span></div>`
+                    : `<img src="${escHtml(m.url)}" class="w-full h-full object-cover" alt="Thumb ${i+1}">`;
+                return `<button type="button" data-idx="${i}" class="gallery-thumb shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${i === activeIdx ? 'border-slate-900 scale-105' : 'border-transparent opacity-60 hover:opacity-100'}">${thumbContent}</button>`;
+            }).join('')}
+        </div>` : '';
+
+        const counter = items.length > 1 ? `<span class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full">${activeIdx + 1} / ${items.length}</span>` : '';
+        const prevBtn = items.length > 1 && activeIdx > 0 ? `<button type="button" id="gallery-prev" class="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-full shadow-lg transition-all"><span class="material-symbols-outlined text-slate-800 text-[20px]">arrow_back</span></button>` : '';
+        const nextBtn = items.length > 1 && activeIdx < items.length - 1 ? `<button type="button" id="gallery-next" class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-full shadow-lg transition-all"><span class="material-symbols-outlined text-slate-800 text-[20px]">arrow_forward</span></button>` : '';
+
+        container.innerHTML = `
+        <div class="w-full">
+            <div class="h-[400px] md:h-[580px] w-full rounded-[32px] overflow-hidden relative shadow-2xl bg-slate-100">
+                ${mainMediaHtml}
+                ${prevBtn}
+                ${nextBtn}
+                ${counter}
+            </div>
+            ${thumbsHtml}
+        </div>`;
+
+        const prevEl = container.querySelector('#gallery-prev');
+        const nextEl = container.querySelector('#gallery-next');
+        if (prevEl) prevEl.onclick = () => { activeIdx--; buildHtml(); };
+        if (nextEl) nextEl.onclick = () => { activeIdx++; buildHtml(); };
+        container.querySelectorAll('.gallery-thumb').forEach(btn => {
+            btn.onclick = () => { activeIdx = parseInt(btn.dataset.idx); buildHtml(); };
+        });
+    }
+
+    buildHtml();
+}
+
 function injectListingModal() {
     if (document.getElementById('listing-modal')) return;
 
@@ -1719,48 +2118,80 @@ function injectListingModal() {
                 <input id="modal-location" type="text" autocomplete="off" placeholder="e.g. Bandra West, Mumbai" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
                 <div id="modal-location-results" class="absolute left-0 right-0 mt-1 bg-surface-container-lowest rounded-lg shadow-xl border border-outline-variant hidden flex-col max-h-60 overflow-y-auto z-50"></div>
               </div>
+              <div class="flex gap-3 mt-3">
+                <button type="button" id="listing-use-location-btn" class="flex-1 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px]">my_location</span>
+                  Use Current Location
+                </button>
+                <button type="button" id="listing-toggle-map-btn" class="flex-1 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px]">map</span>
+                  Choose on Map
+                </button>
+              </div>
+              <div id="listing-modal-map" class="hidden"></div>
             </div>
             <div class="md:col-span-2">
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Media (Image) *</label>
-              <div id="modal-upload-zone" class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center gap-2 bg-surface-container-low">
-                <span class="material-symbols-outlined text-[32px] text-slate-400">cloud_upload</span>
-                <p class="text-sm font-medium text-slate-600">Drag & drop your property photo here, or <span class="text-primary font-bold">browse</span></p>
-                <p class="text-xs text-slate-400">Supports PNG, JPG, JPEG up to 10MB</p>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Media <span class="text-slate-400 font-normal normal-case">(Images &amp; Videos — optional)</span></label>
+              <div id="modal-media-grid" class="hidden grid grid-cols-3 gap-2 mb-2"></div>
+              <div id="modal-upload-zone" class="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-primary hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center gap-2 bg-surface-container-low">
+                <span class="material-symbols-outlined text-[28px] text-slate-400">perm_media</span>
+                <p class="text-sm font-medium text-slate-600">Drag &amp; drop images or videos, or <span class="text-primary font-bold">browse</span></p>
+                <p class="text-xs text-slate-400">Supports PNG, JPG, JPEG, MP4, MOV, WEBM — multiple files allowed</p>
               </div>
-              <input type="file" id="modal-file-input" class="hidden" accept="image/*" />
+              <input type="file" id="modal-file-input" class="hidden" accept="image/*,video/*" multiple />
               <div id="modal-upload-progress" class="hidden w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
                 <div class="bg-primary h-1.5 rounded-full animate-pulse" style="width: 100%"></div>
               </div>
-              <div id="modal-image-preview" class="hidden mt-3 relative rounded-lg overflow-hidden border border-outline-variant aspect-[16/9] w-full max-h-48 bg-slate-50">
-                <img id="modal-preview-img" src="" alt="Preview" class="w-full h-full object-cover"/>
-                <button type="button" id="modal-remove-img" class="absolute top-2 right-2 p-1.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full transition-colors flex items-center justify-center" title="Remove Photo">
-                  <span class="material-symbols-outlined text-[16px]">close</span>
-                </button>
-              </div>
               <input type="hidden" id="modal-img" />
             </div>
-            <div>
+            <div class="min-w-0">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price *</label>
-              <div class="flex gap-2">
+              <div class="flex gap-2 min-w-0">
                 <input id="modal-price-display" type="number" step="0.01" placeholder="e.g. 45" 
-                  class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+                  class="flex-1 min-w-0 bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
                 <select id="modal-price-unit" 
-                  class="bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
-                  <option value="cr">Cr</option>
-                  <option value="lac">Lac</option>
+                  class="shrink-0 min-w-[5.5rem] bg-surface-container-low border border-outline-variant rounded-lg px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                   <option value="k">/mo (₹)</option>
+                  <option value="lac">Lac (₹)</option>
+                  <option value="cr">Cr (₹)</option>
                 </select>
               </div>
               <input type="hidden" id="modal-price" />
               <p id="modal-price-preview" class="text-[10px] text-slate-400 font-medium mt-1"></p>
             </div>
-            <div>
+            <div class="min-w-0">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Intent *</label>
-              <select id="modal-intent" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
-                <option value="Buy">Buy</option>
+              <select id="modal-intent" 
+                class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="Rent">Rent</option>
+                <option value="Buy">Sell</option>
               </select>
             </div>
+            <div class="min-w-0">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Brokerage *</label>
+            <div class="flex gap-2 min-w-0">
+                <input 
+                class="flex-1 min-w-0 bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"
+                id="modal-brokerage"
+                type="number"
+                min="0"
+                placeholder="0"/>
+                <select id="modal-brokerage-type" 
+                    class="shrink-0 min-w-[6.5rem] bg-surface-container-low border border-outline-variant rounded-lg px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
+                    <option value="one_time">One Time</option>
+                    <option value="annually">Annually</option>
+                </select>
+            </div>
+            </div>
+            <div class="min-w-0">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Deposit *</label>
+            <input id="modal-deposit"
+                type="number"
+                min="0"
+                placeholder="0"
+                class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
+            </div>
+
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Type *</label>
               <select id="modal-type" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
@@ -1785,17 +2216,11 @@ function injectListingModal() {
               <input id="modal-baths" type="number" step="0.5" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">SqFt *</label>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Carpet Area in SqFt *</label>
               <input id="modal-sqft" type="number" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
             </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Latitude *</label>
-              <input id="modal-lat" type="number" step="any" placeholder="19.0760" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Longitude *</label>
-              <input id="modal-lng" type="number" step="any" placeholder="72.8777" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
-            </div>
+            <input type="hidden" id="modal-lat" value="" />
+            <input type="hidden" id="modal-lng" value="" />
           </div>
         </div>
         <div class="px-6 py-4 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3">
@@ -1815,56 +2240,42 @@ function injectListingModal() {
 
     function convertPrice() {
       const val = parseFloat(priceDisplay.value);
+      const intent = document.getElementById('modal-intent')?.value || 'Buy';
       if (isNaN(val)) {
         priceHidden.value = '';
         pricePreview.textContent = '';
         return;
       }
       const unit = priceUnit.value;
-      let crores;
-      let preview;
-      if (unit === 'cr') {
-        crores = val;
-        preview = `₹${val} Crore${val !== 1 ? 's' : ''}`;
-      } else if (unit === 'lac') {
-        crores = val / 100;
-        preview = `₹${val} Lac = ₹${crores.toFixed(4)} Cr stored`;
-      } else if (unit === 'k') {
-        // Per month in rupees → convert to Crores
-        crores = val / 10000000;
-        const display = val >= 100000 
-          ? `₹${(val/100000).toFixed(2)} Lac/mo`
-          : `₹${val.toLocaleString('en-IN')}/mo`;
-        preview = `${display} = ₹${crores.toFixed(7)} Cr stored`;
+      if (intent === 'Rent' || unit === 'k') {
+        priceHidden.value = val;
+        pricePreview.textContent = `→ ₹${val.toLocaleString('en-IN')}/mo stored`;
+        return;
       }
-      priceHidden.value = crores;
-      pricePreview.textContent = `→ ${preview}`;
+      if (unit === 'cr') {
+        priceHidden.value = val;
+        pricePreview.textContent = `→ ₹${val} Crore${val !== 1 ? 's' : ''}`;
+      } else if (unit === 'lac') {
+        const crores = val / 100;
+        priceHidden.value = crores;
+        pricePreview.textContent = `→ ₹${val} Lac = ₹${crores.toFixed(4)} Cr stored`;
+      }
     }
 
     priceDisplay.addEventListener('input', convertPrice);
     priceUnit.addEventListener('change', convertPrice);
 
-    // Also sync unit with intent selector
     const intentSelect = document.getElementById('modal-intent');
     if (intentSelect) {
       intentSelect.addEventListener('change', () => {
-        if (intentSelect.value === 'Rent') {
-          priceUnit.value = 'lac';
-        } else {
-          priceUnit.value = 'cr';
-        }
+        syncListingPriceUnitForIntent(intentSelect.value, priceUnit);
         convertPrice();
       });
     }
 
-    // File upload event listeners
+    // Multi-media upload event listeners
     const uploadZone = document.getElementById('modal-upload-zone');
     const fileInput = document.getElementById('modal-file-input');
-    const progressEl = document.getElementById('modal-upload-progress');
-    const previewEl = document.getElementById('modal-image-preview');
-    const previewImg = document.getElementById('modal-preview-img');
-    const removeBtn = document.getElementById('modal-remove-img');
-    const imgUrlInput = document.getElementById('modal-img');
 
     if (uploadZone && fileInput) {
         uploadZone.onclick = () => fileInput.click();
@@ -1881,61 +2292,13 @@ function injectListingModal() {
         uploadZone.ondrop = (e) => {
             e.preventDefault();
             uploadZone.classList.remove('border-primary', 'bg-slate-50');
-            const file = e.dataTransfer.files[0];
-            if (file) handleUpload(file);
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length) handleMultipleUploads(files, document.getElementById('modal-id')?.value || null);
         };
 
         fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) handleUpload(file);
-        };
-    }
-
-    async function handleUpload(file) {
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file.');
-            return;
-        }
-
-        progressEl.classList.remove('hidden');
-        uploadZone.classList.add('opacity-50', 'pointer-events-none');
-
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `listing-${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            const { data, error } = await supabase.storage
-                .from('properties')
-                .upload(filePath, file, { cacheControl: '3600', upsert: true });
-
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('properties')
-                .getPublicUrl(filePath);
-
-            imgUrlInput.value = publicUrl;
-            
-            previewImg.src = publicUrl;
-            previewEl.classList.remove('hidden');
-            uploadZone.classList.add('hidden');
-            showToast('Property photo uploaded successfully!');
-        } catch (err) {
-            console.error('Upload error:', err);
-            showToast('Failed to upload image: ' + err.message);
-        } finally {
-            progressEl.classList.add('hidden');
-            uploadZone.classList.remove('opacity-50', 'pointer-events-none');
-        }
-    }
-
-    if (removeBtn) {
-        removeBtn.onclick = () => {
-            imgUrlInput.value = '';
-            previewImg.src = '';
-            previewEl.classList.add('hidden');
-            uploadZone.classList.remove('hidden');
+            const files = Array.from(e.target.files);
+            if (files.length) handleMultipleUploads(files, document.getElementById('modal-id')?.value || null);
             fileInput.value = '';
         };
     }
@@ -1974,14 +2337,9 @@ function injectListingModal() {
                                     </div>
                                 `;
                                 div.onclick = () => {
-                                    const parts = item.display_name.split(',');
-                                    const formattedLocation = parts.slice(0, 3).map(s => s.trim()).join(', ');
-                                    modalLocationInput.value = formattedLocation;
-                                    
-                                    const latEl = document.getElementById('modal-lat');
-                                    const lngEl = document.getElementById('modal-lng');
-                                    if (latEl) latEl.value = item.lat;
-                                    if (lngEl) lngEl.value = item.lon;
+                                    modalLocationInput.value = formatNominatimAddress(item.display_name);
+                                    updateListingLocationCoordinates(item.lat, item.lon, false);
+                                    syncLocationMapView('listing-modal-map', item.lat, item.lon);
 
                                     modalLocationResults.innerHTML = '';
                                     modalLocationResults.classList.add('hidden');
@@ -2008,6 +2366,19 @@ function injectListingModal() {
             }
         });
     }
+
+    wireUseCurrentLocationButton('listing-use-location-btn', {
+        latInputId: 'modal-lat',
+        lngInputId: 'modal-lng',
+        labelInputId: 'modal-location',
+        mapContainerId: 'listing-modal-map'
+    });
+
+    wireLocationMapToggleButton('listing-toggle-map-btn', 'listing-modal-map', {
+        latInputId: 'modal-lat',
+        lngInputId: 'modal-lng',
+        labelInputId: 'modal-location'
+    });
 }
 
 // ══════════════════════════════════════════════════════
@@ -2196,8 +2567,168 @@ function injectInquiryModal() {
 // ══════════════════════════════════════════════════════
 
 let editFilterId = null;
-let modalMap = null;
-let modalMarker = null;
+const DEFAULT_MAP_CENTER = { lat: 19.0760, lng: 72.8777 };
+const locationMaps = {};
+
+function formatNominatimAddress(displayName) {
+    const parts = displayName.split(',');
+    return parts.slice(0, 3).map(p => p.trim()).join(', ');
+}
+
+function reverseGeocodeLocationLabel(lat, lng, labelInputId) {
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data?.display_name) {
+                const el = document.getElementById(labelInputId);
+                if (el) el.value = formatNominatimAddress(data.display_name);
+            }
+        })
+        .catch(err => console.error('Reverse geocoding failed:', err));
+}
+
+function updateLocationPickerFields({ lat, lng, latInputId, lngInputId, labelInputId, doGeocode = false }) {
+    const latEl = document.getElementById(latInputId);
+    const lngEl = document.getElementById(lngInputId);
+    if (latEl) latEl.value = parseFloat(lat).toFixed(6);
+    if (lngEl) lngEl.value = parseFloat(lng).toFixed(6);
+    if (doGeocode && labelInputId) {
+        reverseGeocodeLocationLabel(lat, lng, labelInputId);
+    }
+}
+
+function syncLocationMapView(containerId, lat, lng, zoom = 15) {
+    const entry = locationMaps[containerId];
+    if (entry?.map && entry?.marker) {
+        entry.map.setView([lat, lng], zoom);
+        entry.marker.setLatLng([lat, lng]);
+    }
+}
+
+function initLeafletPickerMap(containerId, lat, lng, onCoordinatesChange) {
+    if (typeof L === 'undefined') {
+        console.warn('Leaflet map framework not loaded on window');
+        return null;
+    }
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+
+    let entry = locationMaps[containerId];
+    if (!entry) {
+        const map = L.map(containerId).setView([lat, lng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        const marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        marker.on('dragend', () => {
+            const pos = marker.getLatLng();
+            onCoordinatesChange(pos.lat, pos.lng, true);
+        });
+        map.on('click', (e) => {
+            marker.setLatLng(e.latlng);
+            onCoordinatesChange(e.latlng.lat, e.latlng.lng, true);
+        });
+        entry = { map, marker };
+        locationMaps[containerId] = entry;
+        setTimeout(() => map.invalidateSize(), 150);
+    } else {
+        entry.map.setView([lat, lng], 13);
+        entry.marker.setLatLng([lat, lng]);
+        setTimeout(() => entry.map.invalidateSize(), 100);
+    }
+    return entry;
+}
+
+function wireUseCurrentLocationButton(buttonId, { latInputId, lngInputId, labelInputId, mapContainerId }) {
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    btn.onclick = (e) => {
+        e.preventDefault();
+        if (!navigator.geolocation) {
+            showToast('Geolocation is not supported by your browser.', true);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                updateLocationPickerFields({ lat, lng, latInputId, lngInputId, labelInputId, doGeocode: true });
+                if (mapContainerId) syncLocationMapView(mapContainerId, lat, lng);
+            },
+            (err) => showToast('Failed to fetch location: ' + err.message, true)
+        );
+    };
+}
+
+function wireLocationMapToggleButton(buttonId, mapContainerId, { latInputId, lngInputId, labelInputId, onCoordinatesChange }) {
+    const toggleMapBtn = document.getElementById(buttonId);
+    const mapDiv = document.getElementById(mapContainerId);
+    if (!toggleMapBtn || !mapDiv) return;
+
+    const defaultLabel = toggleMapBtn.innerHTML;
+    toggleMapBtn.onclick = (e) => {
+        e.preventDefault();
+        const isHidden = mapDiv.classList.contains('hidden');
+        if (isHidden) {
+            mapDiv.classList.remove('hidden');
+            toggleMapBtn.textContent = 'Hide Map';
+
+            let lat = parseFloat(document.getElementById(latInputId).value);
+            let lng = parseFloat(document.getElementById(lngInputId).value);
+            if (isNaN(lat) || isNaN(lng)) {
+                lat = DEFAULT_MAP_CENTER.lat;
+                lng = DEFAULT_MAP_CENTER.lng;
+                updateLocationPickerFields({ lat, lng, latInputId, lngInputId, labelInputId, doGeocode: false });
+            }
+            initLeafletPickerMap(mapContainerId, lat, lng, (lat, lng, doGeocode) => {
+                updateLocationPickerFields({ lat, lng, latInputId, lngInputId, labelInputId, doGeocode });
+                if (onCoordinatesChange) onCoordinatesChange(lat, lng, doGeocode);
+            });
+        } else {
+            mapDiv.classList.add('hidden');
+            toggleMapBtn.innerHTML = defaultLabel;
+        }
+    };
+}
+
+function updateModalLocationCoordinates(lat, lng, doGeocode = false) {
+    updateLocationPickerFields({
+        lat,
+        lng,
+        latInputId: 'filter-center-lat',
+        lngInputId: 'filter-center-lng',
+        labelInputId: 'filter-center-label',
+        doGeocode
+    });
+}
+
+function updateListingLocationCoordinates(lat, lng, doGeocode = false) {
+    updateLocationPickerFields({
+        lat,
+        lng,
+        latInputId: 'modal-lat',
+        lngInputId: 'modal-lng',
+        labelInputId: 'modal-location',
+        doGeocode
+    });
+}
+
+function initModalLeafletMap(lat, lng) {
+    initLeafletPickerMap('filter-modal-map', lat, lng, (lat, lng, doGeocode) => {
+        updateModalLocationCoordinates(lat, lng, doGeocode);
+    });
+}
+
+function updateFilterPriceLabels() {
+    const intent = document.getElementById('filter-intent')?.value || 'Any';
+    const minLabel = document.getElementById('filter-price-min-label');
+    const maxLabel = document.getElementById('filter-price-max-label');
+    const labelText = intent === 'Buy' ? 'PRICE MIN (Cr (₹))' : 'PRICE MIN (/mo (₹))';
+    const labelTextMax = intent === 'Buy' ? 'PRICE MAX (Cr (₹))' : 'PRICE MAX (/mo (₹))';
+    if (minLabel) minLabel.textContent = labelText;
+    if (maxLabel) maxLabel.textContent = labelTextMax;
+}
 
 async function initCustomFiltersManager() {
     await renderCustomFilters();
@@ -2236,7 +2767,7 @@ async function renderCustomFilters() {
             parts.push(`Near: ${escHtml(crit.centerLabel)}${radStr}`);
         }
         if (crit.type && crit.type !== 'Any') parts.push(`Type: ${crit.type}`);
-        if (crit.intent && crit.intent !== 'Any') parts.push(`Intent: ${crit.intent}`);
+        if (crit.intent && crit.intent !== 'Any') parts.push(`Intent: ${formatIntentLabel(crit.intent)}`);
         
         if (crit.bedsMin || crit.bedsMax) {
             const minB = crit.bedsMin || '1';
@@ -2244,9 +2775,8 @@ async function renderCustomFilters() {
             parts.push(`Beds: ${minB}-${maxB}`);
         }
         if (crit.priceMin || crit.priceMax) {
-            const minP = crit.priceMin ? `₹${crit.priceMin}Cr` : '0';
-            const maxP = crit.priceMax ? `₹${crit.priceMax}Cr` : '∞';
-            parts.push(`Price: ${minP}-${maxP}`);
+            const priceIntent = crit.priceUnit === 'crore' || crit.intent === 'Buy' ? 'Buy' : 'Rent';
+            parts.push(`Price: ${formatListingPriceRange(crit.priceMin, crit.priceMax, priceIntent)}`);
         }
         if (crit.sqftMin || crit.sqftMax) {
             const minS = crit.sqftMin ? `${crit.sqftMin}` : '0';
@@ -2289,65 +2819,6 @@ async function renderCustomFilters() {
     }).join('');
 }
 
-function updateModalLocationCoordinates(lat, lng, doGeocode = false) {
-    document.getElementById('filter-center-lat').value = parseFloat(lat).toFixed(6);
-    document.getElementById('filter-center-lng').value = parseFloat(lng).toFixed(6);
-    if (doGeocode) {
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.display_name) {
-                    const parts = data.display_name.split(',');
-                    const formatted = parts.slice(0, 3).map(p => p.trim()).join(', ');
-                    document.getElementById('filter-center-label').value = formatted;
-                }
-            })
-            .catch(err => console.error('Reverse geocoding failed:', err));
-    }
-}
-
-function initModalLeafletMap(lat, lng) {
-    if (typeof L === 'undefined') {
-        console.warn('Leaflet map framework not loaded on window');
-        return;
-    }
-    const container = document.getElementById('filter-modal-map');
-    if (!container) return;
-
-    if (!modalMap) {
-        modalMap = L.map('filter-modal-map').setView([lat, lng], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(modalMap);
-
-        modalMarker = L.marker([lat, lng], { draggable: true }).addTo(modalMap);
-
-        modalMarker.on('dragend', () => {
-            const pos = modalMarker.getLatLng();
-            updateModalLocationCoordinates(pos.lat, pos.lng, true);
-        });
-
-        modalMap.on('click', (e) => {
-            modalMarker.setLatLng(e.latlng);
-            updateModalLocationCoordinates(e.latlng.lat, e.latlng.lng, true);
-        });
-
-        // The container was hidden (display:none) when Leaflet initialised, so it
-        // measured 0×0 and rendered blank tiles.  Force a size recalculation once
-        // the browser has repainted with the container now visible.
-        setTimeout(() => {
-            modalMap.invalidateSize();
-        }, 150);
-    } else {
-        modalMap.setView([lat, lng], 13);
-        modalMarker.setLatLng([lat, lng]);
-        setTimeout(() => {
-            modalMap.invalidateSize();
-        }, 100);
-    }
-}
-
 function injectCustomFilterModal() {
     if (document.getElementById('custom-filter-modal')) return;
 
@@ -2388,8 +2859,8 @@ function injectCustomFilterModal() {
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Intent</label>
               <select id="filter-intent" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="Any">Any</option>
-                <option value="Buy">Buy</option>
                 <option value="Rent">Rent</option>
+                <option value="Buy">Sell</option>
               </select>
             </div>
           </div>
@@ -2423,12 +2894,12 @@ function injectCustomFilterModal() {
           <!-- Price Min / Max -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price Min (Cr)</label>
-              <input id="filter-price-min" type="number" step="0.1" placeholder="Min Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+              <label id="filter-price-min-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MIN (/mo (₹))</label>
+              <input id="filter-price-min" type="number" step="1" placeholder="Min Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price Max (Cr)</label>
-              <input id="filter-price-max" type="number" step="0.1" placeholder="Max Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+              <label id="filter-price-max-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MAX (/mo (₹))</label>
+              <input id="filter-price-max" type="number" step="1" placeholder="Max Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
           </div>
 
@@ -2446,10 +2917,10 @@ function injectCustomFilterModal() {
 
           <!-- Geospatial Location curation -->
           <div class="border-t border-slate-100 pt-4 space-y-4">
-            <h4 class="text-sm font-bold text-slate-800">Geospatial Center & Radius</h4>
+            <!-- <h4 class="text-sm font-bold text-slate-800">Geospatial Center & Radius</h4> -->
             
             <div class="relative">
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Center Location Label *</label>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Location Center *</label>
               <input id="filter-center-label" type="text" placeholder="Search address or neighborhood..." class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
               <div id="filter-location-results" class="absolute left-0 right-0 z-[1050] bg-white rounded-xl shadow-lg border border-slate-200 mt-1 hidden flex-col max-h-48 overflow-y-auto"></div>
             </div>
@@ -2457,12 +2928,12 @@ function injectCustomFilterModal() {
             <!-- Latitude & Longitude displays -->
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Latitude</label>
-                <input id="filter-center-lat" type="number" readonly placeholder="Auto geocoded lat" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
+                <!-- <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Latitude</label> -->
+                <input type = 'hidden' id="filter-center-lat" type="number" readonly placeholder="Auto geocoded lat" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
               </div>
               <div>
-                <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Longitude</label>
-                <input id="filter-center-lng" type="number" readonly placeholder="Auto geocoded lng" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
+                <!-- <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Longitude</label> -->
+                <input type = 'hidden' id="filter-center-lng" type="number" readonly placeholder="Auto geocoded lng" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
               </div>
             </div>
 
@@ -2551,12 +3022,7 @@ function injectCustomFilterModal() {
                                     updateModalLocationCoordinates(item.lat, item.lon, false);
                                     resultsDiv.innerHTML = '';
                                     resultsDiv.classList.add('hidden');
-
-                                    // Update map view if open
-                                    if (modalMap && modalMarker) {
-                                        modalMap.setView([item.lat, item.lon], 15);
-                                        modalMarker.setLatLng([item.lat, item.lon]);
-                                    }
+                                    syncLocationMapView('filter-modal-map', item.lat, item.lon);
                                 };
                                 resultsDiv.appendChild(div);
                             });
@@ -2574,57 +3040,23 @@ function injectCustomFilterModal() {
         });
     }
 
-    // Geolocation button setup
-    const useLocBtn = document.getElementById('filter-use-location-btn');
-    if (useLocBtn) {
-        useLocBtn.onclick = (e) => {
-            e.preventDefault();
-            if (!navigator.geolocation) {
-                showToast('Geolocation is not supported by your browser.', true);
-                return;
-            }
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    updateModalLocationCoordinates(lat, lng, true);
-                    
-                    if (modalMap && modalMarker) {
-                        modalMap.setView([lat, lng], 15);
-                        modalMarker.setLatLng([lat, lng]);
-                    }
-                },
-                (err) => {
-                    showToast('Failed to fetch location: ' + err.message, true);
-                }
-            );
-        };
-    }
+    wireUseCurrentLocationButton('filter-use-location-btn', {
+        latInputId: 'filter-center-lat',
+        lngInputId: 'filter-center-lng',
+        labelInputId: 'filter-center-label',
+        mapContainerId: 'filter-modal-map'
+    });
 
-    // Leaflet map toggle setup
-    const toggleMapBtn = document.getElementById('filter-toggle-map-btn');
-    const mapDiv = document.getElementById('filter-modal-map');
-    if (toggleMapBtn && mapDiv) {
-        toggleMapBtn.onclick = (e) => {
-            e.preventDefault();
-            const isHidden = mapDiv.classList.contains('hidden');
-            if (isHidden) {
-                mapDiv.classList.remove('hidden');
-                toggleMapBtn.textContent = 'Hide Map';
-                
-                let lat = parseFloat(document.getElementById('filter-center-lat').value);
-                let lng = parseFloat(document.getElementById('filter-center-lng').value);
-                if (isNaN(lat) || isNaN(lng)) {
-                    lat = 19.0760;
-                    lng = 72.8777;
-                    updateModalLocationCoordinates(lat, lng, false);
-                }
-                initModalLeafletMap(lat, lng);
-            } else {
-                mapDiv.classList.add('hidden');
-                toggleMapBtn.textContent = 'Choose on Map';
-            }
-        };
+    wireLocationMapToggleButton('filter-toggle-map-btn', 'filter-modal-map', {
+        latInputId: 'filter-center-lat',
+        lngInputId: 'filter-center-lng',
+        labelInputId: 'filter-center-label'
+    });
+
+    const filterIntentSelect = document.getElementById('filter-intent');
+    if (filterIntentSelect) {
+        filterIntentSelect.addEventListener('change', updateFilterPriceLabels);
+        updateFilterPriceLabels();
     }
 
     // Radius range slider updating text labels
@@ -2688,6 +3120,8 @@ window.openCustomFilterModal = async function(id) {
 
         document.getElementById('filter-is-public').checked = filter.is_public !== false;
 
+        updateFilterPriceLabels();
+
         // Leaflet map refresh if not hidden
         const mapDiv = document.getElementById('filter-modal-map');
         if (mapDiv && !mapDiv.classList.contains('hidden')) {
@@ -2726,6 +3160,7 @@ window.openCustomFilterModal = async function(id) {
         if (mapDiv) mapDiv.classList.add('hidden');
         const toggleMapBtn = document.getElementById('filter-toggle-map-btn');
         if (toggleMapBtn) toggleMapBtn.textContent = 'Choose on Map';
+        updateFilterPriceLabels();
     }
 
     modal.classList.remove('hidden');
@@ -2786,6 +3221,7 @@ async function saveCustomFilter() {
             bedsMax,
             priceMin,
             priceMax,
+            priceUnit: intent === 'Buy' ? 'crore' : 'monthly',
             sqftMin,
             sqftMax,
             centerLabel,
@@ -3000,7 +3436,7 @@ async function initBuyerHomePage() {
                     <div class="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest">Just Listed</div>
                   </div>
                   <div class="w-full md:w-1/2 p-8 flex flex-col justify-center">
-                    <h3 class="text-2xl font-black text-slate-900 mb-2">₹${top3[0].price}${top3[0].intent === 'Rent' ? '' : ' Cr'}</h3>
+                    <h3 class="text-2xl font-black text-slate-900 mb-2">${formatListingPrice(top3[0].price, top3[0].intent, { html: true })}</h3>
                     <p class="text-sm font-bold text-slate-500 mb-6">${escHtml(top3[0].title)}, ${escHtml(top3[0].location)}</p>
                     <div class="flex items-center gap-6 pt-6 border-t border-slate-100">
                       <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${top3[0].beds}</span></div>
@@ -3029,7 +3465,7 @@ async function initBuyerHomePage() {
                     <div class="absolute top-4 left-4 bg-white/90 backdrop-blur px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest text-slate-900">${l.type}</div>
                   </div>
                   <div class="p-6 flex-1 flex flex-col">
-                    <h3 class="text-lg font-black text-slate-900 mb-1">₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}</h3>
+                    <h3 class="text-lg font-black text-slate-900 mb-1">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
                     <p class="text-xs font-bold text-slate-500 mb-4 truncate">${escHtml(l.title)}</p>
                     <div class="flex items-center gap-4 mt-auto pt-4 border-t border-slate-50">
                       <div class="flex items-center gap-1.5 text-slate-400"><span class="material-symbols-outlined text-[14px]">bed</span><span class="text-[10px] font-black text-slate-900">${l.beds}</span></div>
@@ -3086,7 +3522,7 @@ async function initBuyerListingsPage() {
              data-type="${l.type}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}">
           <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
             <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
-            <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${l.intent}</div>
+            <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${formatIntentLabel(l.intent)}</div>
             <button aria-label="Save Property" class="save-property-btn absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow text-slate-400 hover:text-error transition-colors">
               <span class="material-symbols-outlined text-[20px]">favorite</span>
             </button>
@@ -3099,7 +3535,7 @@ async function initBuyerListingsPage() {
           </div>
           <div class="p-5">
             <div class="flex justify-between items-start mb-1">
-              <h3 class="text-xl font-black text-slate-900">₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}</h3>
+              <h3 class="text-xl font-black text-slate-900">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
             </div>
             <p class="text-slate-500 text-sm font-medium mb-4 truncate">${escHtml(l.title)}, ${escHtml(l.location)}</p>
             <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
@@ -3389,15 +3825,7 @@ async function initBuyerListingsPage() {
 
 async function initBuyerMapPage() {
   function formatMapPrice(price, intent) {
-    const p = parseFloat(price);
-    if (isNaN(p)) return '—';
-    if (intent === 'Rent') {
-      const lac = p * 100;
-      if (lac >= 1) return `₹${lac % 1 === 0 ? lac : lac.toFixed(1)}L/mo`;
-      return `₹${(lac * 100000).toLocaleString('en-IN')}`;
-    }
-    if (p >= 1) return `₹${p % 1 === 0 ? p : p.toFixed(1)} Cr`;
-    return `₹${(p * 100).toFixed(0)} L`;
+    return formatListingPrice(price, intent);
   }
 
     console.log('Initializing Map with Supabase data...');
@@ -3551,7 +3979,7 @@ async function initBuyerMapPage() {
         
         marker.bindPopup(`
             <div class="p-2 min-w-[150px]">
-                <h4 class="font-bold text-sm text-slate-900">₹${p.price}${p.intent === 'Rent' ? '' : ' Cr'}</h4>
+                <h4 class="font-bold text-sm text-slate-900">${formatListingPrice(p.price, p.intent)}</h4>
                 <p class="text-xs font-medium text-slate-500 mt-0.5">${escHtml(p.title)}</p>
                 <div class="flex items-center gap-2 mt-2 text-slate-600 text-[10px] font-bold">
                     <span>${p.beds} BEDS</span> &bull; <span>${p.baths} BATHS</span>
@@ -3662,11 +4090,11 @@ async function initBuyerMapPage() {
             <div id="card-${l.id}" class="listing-card cursor-pointer bg-white rounded-3xl border ${activeClasses} overflow-hidden transition-all duration-300" onclick="clickSidebarCard(${l.id})">
               <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
                 <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover transition-transform duration-700 ${isActive ? '' : 'group-hover:scale-105'}">
-                <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${escHtml(l.intent)}</div>
+                <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${formatIntentLabel(l.intent)}</div>
               </div>
               <div class="p-5">
                 <div class="flex justify-between items-start mb-1">
-                  <h3 class="text-xl font-black text-slate-900">₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}</h3>
+                  <h3 class="text-xl font-black text-slate-900">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
                   <div class="flex items-center gap-2">
                     <button class="transition-colors text-slate-200 hover:text-red-500 flex items-center justify-center" onclick="event.stopPropagation(); window.openReportModal('listing', ${l.id}, '${escHtml(l.title)}');" title="Report Listing">
                       <span class="material-symbols-outlined text-[20px]">flag</span>
@@ -3782,7 +4210,7 @@ async function initBuyerMapPage() {
                         const marker = L.marker([lat, lng], { icon }).addTo(map);
                         marker.bindPopup(`
                             <div class="p-2 min-w-[150px]">
-                                <h4 class="font-bold text-sm text-slate-900">₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}</h4>
+                                <h4 class="font-bold text-sm text-slate-900">${formatListingPrice(l.price, l.intent)}</h4>
                                 <p class="text-xs font-medium text-slate-500 mt-0.5">${escHtml(l.title)}</p>
                                 <div class="flex items-center gap-2 mt-2 text-slate-600 text-[10px] font-bold">
                                     <span>${l.beds} BEDS</span> &bull; <span>${l.baths} BATHS</span>
@@ -4221,13 +4649,28 @@ async function initBuyerDetailsPage() {
     // Update page title
     document.title = `${l.title} — EstatePro`;
 
-    // Hero image
-    const heroImg = document.querySelector('.hero-img');
-    if (heroImg) heroImg.src = l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+    // Property gallery from listing_media
+    const galleryContainer = document.getElementById('property-gallery-container');
+    if (galleryContainer) {
+        const { data: mediaRows } = await supabase
+            .from('listing_media')
+            .select('url, media_type, sort_order, is_cover')
+            .eq('listing_id', id)
+            .order('sort_order', { ascending: true });
+        const mediaItems = (mediaRows || []).map(row => ({
+            url: row.url,
+            media_type: row.media_type,
+            is_cover: row.is_cover
+        }));
+        renderInteractiveGallery(galleryContainer, mediaItems, l.img);
+    } else {
+        const heroImg = document.querySelector('.hero-img');
+        if (heroImg) heroImg.src = l.img || MEDIA_PLACEHOLDER;
+    }
 
     // Price
     const priceEl = document.getElementById('detail-price');
-    if (priceEl) priceEl.innerHTML = `₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}`;
+    if (priceEl) priceEl.innerHTML = formatListingPrice(l.price, l.intent, { html: true });
 
     // Title & address
     const titleEl = document.getElementById('detail-title');
@@ -4886,9 +5329,36 @@ document.head.appendChild(style);
 
 let isNavigating = false;
 
+// Global page initialization registry for SPA pages
+window.spaPageInit = window.spaPageInit || {};
+window.initAppPageHasRun = false;
+window.registerPageInit = function(pageName, initFn) {
+    window.spaPageInit[pageName] = initFn;
+    
+    // Resolve current computed page to match pageName
+    const currentPath = window.location.pathname;
+    let computedPage = currentPath.split('/').pop() || 'index.html';
+    const isSharedFilterRoute = currentPath.includes('/shared-filter/') || computedPage === 'shared-filter';
+    if (isSharedFilterRoute) {
+        computedPage = 'shared-filter.html';
+    } else if (!computedPage.includes('.')) {
+        computedPage += '.html';
+    }
+    
+    // If the main initAppPage has already run for this page, execute immediately
+    if (window.initAppPageHasRun && computedPage === pageName) {
+        try {
+            initFn();
+        } catch (e) {
+            console.error(`Error running SPA page initializer for ${pageName}:`, e);
+        }
+    }
+};
+
 async function ajaxLoadPage(url, replaceState = false) {
     if (isNavigating) return;
     isNavigating = true;
+    window.initAppPageHasRun = false;
 
     // Create or find Progress Bar
     let progressBar = document.getElementById('spa-progress-bar');
