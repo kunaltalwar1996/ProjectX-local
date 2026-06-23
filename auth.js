@@ -25,6 +25,75 @@ let updateHeaderVisibility = null;
 let referrerId = null;
 let uploadedMedia = [];
 
+// ── Listing price & intent helpers ──
+function formatIntentLabel(intent) {
+    if (intent === 'Buy') return 'Sell';
+    return intent || '';
+}
+
+function formatListingPrice(price, intent, { html = false } = {}) {
+    const p = parseFloat(price);
+    if (isNaN(p)) return '—';
+    if (intent === 'Rent') {
+        const formatted = `₹${p.toLocaleString('en-IN')}`;
+        return html
+            ? `${formatted}<span class="text-[10px] font-normal text-slate-400">/mo</span>`
+            : `${formatted}/mo`;
+    }
+    if (p >= 1) return `₹${p % 1 === 0 ? p : p.toFixed(2)} Cr`;
+    return `₹${(p * 100).toFixed(0)} L`;
+}
+
+function formatListingPriceRange(min, max, intent) {
+    const minLabel = min ? formatListingPrice(min, intent) : '0';
+    const maxLabel = max ? formatListingPrice(max, intent) : '∞';
+    return `${minLabel} - ${maxLabel}`;
+}
+
+function normalizeBrokerageType(value) {
+    if (!value) return 'one_time';
+    const v = String(value).toLowerCase();
+    if (v === 'once' || v === 'one_time') return 'one_time';
+    if (v === 'annual' || v === 'annually') return 'annually';
+    return value;
+}
+
+function brokerageTypeLabel(value) {
+    return normalizeBrokerageType(value) === 'annually' ? 'Annually' : 'One Time';
+}
+
+function syncListingPriceUnitForIntent(intent, priceUnitEl) {
+    if (!priceUnitEl) return;
+    priceUnitEl.value = intent === 'Rent' ? 'k' : 'cr';
+}
+
+function populateListingPriceFields(listing, dispField, unitField, priceHidden) {
+    if (!listing || listing.price === '' || listing.price == null) {
+        if (dispField) dispField.value = '';
+        if (priceHidden) priceHidden.value = '';
+        return;
+    }
+    const p = parseFloat(listing.price);
+    const intent = listing.intent || 'Buy';
+    syncListingPriceUnitForIntent(intent, unitField);
+    if (intent === 'Rent') {
+        if (dispField) dispField.value = p;
+    } else {
+        const unit = unitField?.value || 'cr';
+        if (unit === 'lac') {
+            if (unitField) unitField.value = 'lac';
+            if (dispField) dispField.value = (p * 100).toFixed(2);
+        } else {
+            if (unitField) unitField.value = 'cr';
+            if (dispField) dispField.value = p;
+        }
+    }
+    if (dispField) dispField.dispatchEvent(new Event('input'));
+}
+
+window.formatListingPrice = formatListingPrice;
+window.formatIntentLabel = formatIntentLabel;
+
 // Parse ref parameter on boot
 try {
     const urlParamsForRef = new URLSearchParams(window.location.search);
@@ -1280,7 +1349,7 @@ function generateListingsHTML(listings, showViews) {
           <td class="p-4">
             <span class="${badgeClass} px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">${l.status}</span>
           </td>
-          <td class="p-4 font-medium">${escHtml(l.price)}</td>
+          <td class="p-4 font-medium">${formatListingPrice(l.price, l.intent)}</td>
           ${showViews ? `<td class="p-4">${(l.views || 0).toLocaleString()}</td>` : ''}
           <td class="p-4">
             <div class="text-sm font-medium text-slate-900">${listingAge(l.created_at).date}</div>
@@ -1343,7 +1412,7 @@ async function openListingModal(id) {
         'modal-prop-title', 'modal-location', 'modal-price', 
         'modal-intent', 'modal-type', 'modal-status', 
         'modal-beds', 'modal-baths', 'modal-sqft', 
-        'modal-lat', 'modal-lng'
+        'modal-lat', 'modal-lng', 'modal-brokerage', 'modal-brokerage-type', 'modal-deposit'
     ];
     inputsToReset.forEach(inputId => {
         const el = document.getElementById(inputId);
@@ -1401,24 +1470,23 @@ async function openListingModal(id) {
     document.getElementById('modal-prop-title').value    = listing ? listing.title    : '';
     document.getElementById('modal-location').value      = listing ? listing.location  : '';
     // Populate price display field for editing
-    const existingPrice = listing ? listing.price : '';
-    document.getElementById('modal-price').value = existingPrice;
     const dispField = document.getElementById('modal-price-display');
     const unitField = document.getElementById('modal-price-unit');
-    if (dispField && existingPrice !== '') {
-      const p = parseFloat(existingPrice);
-      if (listing && listing.intent === 'Rent') {
-        // Show in Lac
-        unitField.value = 'lac';
-        dispField.value = (p * 100).toFixed(2);
-      } else {
-        unitField.value = 'cr';
-        dispField.value = p;
-      }
-      // Trigger update of hidden input and preview
-      dispField.dispatchEvent(new Event('input'));
+    const priceHidden = document.getElementById('modal-price');
+    if (listing) {
+        populateListingPriceFields(listing, dispField, unitField, priceHidden);
+    } else {
+        if (dispField) dispField.value = '';
+        if (priceHidden) priceHidden.value = '';
+        syncListingPriceUnitForIntent('Buy', unitField);
     }
     document.getElementById('modal-intent').value        = listing ? listing.intent    : 'Buy';
+    const brokerageEl = document.getElementById('modal-brokerage');
+    const brokerageTypeEl = document.getElementById('modal-brokerage-type');
+    const depositEl = document.getElementById('modal-deposit');
+    if (brokerageEl) brokerageEl.value = listing ? (listing.brokerage ?? '') : '';
+    if (brokerageTypeEl) brokerageTypeEl.value = listing ? normalizeBrokerageType(listing.brokerage_type) : 'one_time';
+    if (depositEl) depositEl.value = listing ? (listing.deposit ?? '') : '';
     document.getElementById('modal-type').value          = listing ? listing.type      : 'Apartment';
     const statusSelect = document.getElementById('modal-status');
     if (statusSelect) {
@@ -1484,6 +1552,9 @@ async function saveListingForm() {
     const sqftEl     = document.getElementById('modal-sqft');
     const latEl      = document.getElementById('modal-lat');
     const lngEl      = document.getElementById('modal-lng');
+    const brokerageEl = document.getElementById('modal-brokerage');
+    const brokerageTypeEl = document.getElementById('modal-brokerage-type');
+    const depositEl  = document.getElementById('modal-deposit');
 
     const title    = titleEl.value.trim();
     const location = locationEl.value.trim();
@@ -1497,12 +1568,15 @@ async function saveListingForm() {
     const views    = parseInt(document.getElementById('modal-views').value) || 0;
     const lat      = parseFloat(latEl.value) || null;
     const lng      = parseFloat(lngEl.value) || null;
+    const brokerage = parseFloat(brokerageEl?.value) || 0;
+    const brokerage_type = brokerageTypeEl?.value || 'one_time';
+    const deposit = parseFloat(depositEl?.value) || 0;
     const coverItem = uploadedMedia.find(m => m.is_cover && m.media_type === 'image');
     const firstImage = uploadedMedia.find(m => m.media_type === 'image');
     const img = coverItem ? coverItem.url : (firstImage ? firstImage.url : MEDIA_PLACEHOLDER);
 
     // Reset styles
-    [titleEl, locationEl, priceEl, intentEl, typeEl, statusEl, bedsEl, bathsEl, sqftEl, latEl, lngEl].forEach(el => {
+    [titleEl, locationEl, priceEl, intentEl, typeEl, statusEl, bedsEl, bathsEl, sqftEl, latEl, lngEl, brokerageEl, brokerageTypeEl, depositEl].forEach(el => {
         if (el) {
             el.classList.remove('border-red-500', 'ring-2', 'ring-red-100');
             el.classList.add('border-outline-variant');
@@ -1528,6 +1602,8 @@ async function saveListingForm() {
     if (bedsEl.value.trim() === '' || beds < 0) markInvalid(bedsEl);
     if (bathsEl.value.trim() === '' || baths < 0) markInvalid(bathsEl);
     if (sqftEl.value.trim() === '' || sqft <= 0) markInvalid(sqftEl);
+    if (brokerageEl && (brokerageEl.value.trim() === '' || brokerage < 0)) markInvalid(brokerageEl);
+    if (depositEl && (depositEl.value.trim() === '' || deposit < 0)) markInvalid(depositEl);
     if (latEl.value.trim() === '' || isNaN(lat) || lat < -90 || lat > 90) markInvalid(latEl);
     if (lngEl.value.trim() === '' || isNaN(lng) || lng < -180 || lng > 180) markInvalid(lngEl);
 
@@ -1579,6 +1655,7 @@ async function saveListingForm() {
 
     const listingData = { 
         title, location, price, intent, type, status, beds, baths, sqft, views, lat, lng, img,
+        brokerage, brokerage_type, deposit,
         broker_id: user ? user.id : null
     };
 
@@ -1951,28 +2028,54 @@ function injectListingModal() {
               </div>
               <input type="hidden" id="modal-img" />
             </div>
-            <div>
+            <div class="min-w-0">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price *</label>
-              <div class="flex gap-2">
+              <div class="flex gap-2 min-w-0">
                 <input id="modal-price-display" type="number" step="0.01" placeholder="e.g. 45" 
-                  class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+                  class="flex-1 min-w-0 bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
                 <select id="modal-price-unit" 
-                  class="bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
-                  <option value="cr">Cr</option>
-                  <option value="lac">Lac</option>
+                  class="shrink-0 min-w-[5.5rem] bg-surface-container-low border border-outline-variant rounded-lg px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                   <option value="k">/mo (₹)</option>
+                  <option value="lac">Lac (₹)</option>
+                  <option value="cr">Cr (₹)</option>
                 </select>
               </div>
               <input type="hidden" id="modal-price" />
               <p id="modal-price-preview" class="text-[10px] text-slate-400 font-medium mt-1"></p>
             </div>
-            <div>
+            <div class="min-w-0">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Intent *</label>
-              <select id="modal-intent" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
-                <option value="Buy">Buy</option>
+              <select id="modal-intent" 
+                class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="Rent">Rent</option>
+                <option value="Buy">Sell</option>
               </select>
             </div>
+            <div class="min-w-0">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Brokerage *</label>
+            <div class="flex gap-2 min-w-0">
+                <input 
+                class="flex-1 min-w-0 bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"
+                id="modal-brokerage"
+                type="number"
+                min="0"
+                placeholder="0"/>
+                <select id="modal-brokerage-type" 
+                    class="shrink-0 min-w-[6.5rem] bg-surface-container-low border border-outline-variant rounded-lg px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
+                    <option value="one_time">One Time</option>
+                    <option value="annually">Annually</option>
+                </select>
+            </div>
+            </div>
+            <div class="min-w-0">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Deposit *</label>
+            <input id="modal-deposit"
+                type="number"
+                min="0"
+                placeholder="0"
+                class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
+            </div>
+
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Type *</label>
               <select id="modal-type" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
@@ -1997,17 +2100,11 @@ function injectListingModal() {
               <input id="modal-baths" type="number" step="0.5" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">SqFt *</label>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Carpet Area in SqFt *</label>
               <input id="modal-sqft" type="number" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
             </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Latitude *</label>
-              <input id="modal-lat" type="number" step="any" placeholder="19.0760" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Longitude *</label>
-              <input id="modal-lng" type="number" step="any" placeholder="72.8777" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
-            </div>
+            <input type="hidden" id="modal-lat" value="" />
+            <input type="hidden" id="modal-lng" value="" />
           </div>
         </div>
         <div class="px-6 py-4 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3">
@@ -2027,44 +2124,35 @@ function injectListingModal() {
 
     function convertPrice() {
       const val = parseFloat(priceDisplay.value);
+      const intent = document.getElementById('modal-intent')?.value || 'Buy';
       if (isNaN(val)) {
         priceHidden.value = '';
         pricePreview.textContent = '';
         return;
       }
       const unit = priceUnit.value;
-      let crores;
-      let preview;
-      if (unit === 'cr') {
-        crores = val;
-        preview = `₹${val} Crore${val !== 1 ? 's' : ''}`;
-      } else if (unit === 'lac') {
-        crores = val / 100;
-        preview = `₹${val} Lac = ₹${crores.toFixed(4)} Cr stored`;
-      } else if (unit === 'k') {
-        // Per month in rupees → convert to Crores
-        crores = val / 10000000;
-        const display = val >= 100000 
-          ? `₹${(val/100000).toFixed(2)} Lac/mo`
-          : `₹${val.toLocaleString('en-IN')}/mo`;
-        preview = `${display} = ₹${crores.toFixed(7)} Cr stored`;
+      if (intent === 'Rent' || unit === 'k') {
+        priceHidden.value = val;
+        pricePreview.textContent = `→ ₹${val.toLocaleString('en-IN')}/mo stored`;
+        return;
       }
-      priceHidden.value = crores;
-      pricePreview.textContent = `→ ${preview}`;
+      if (unit === 'cr') {
+        priceHidden.value = val;
+        pricePreview.textContent = `→ ₹${val} Crore${val !== 1 ? 's' : ''}`;
+      } else if (unit === 'lac') {
+        const crores = val / 100;
+        priceHidden.value = crores;
+        pricePreview.textContent = `→ ₹${val} Lac = ₹${crores.toFixed(4)} Cr stored`;
+      }
     }
 
     priceDisplay.addEventListener('input', convertPrice);
     priceUnit.addEventListener('change', convertPrice);
 
-    // Also sync unit with intent selector
     const intentSelect = document.getElementById('modal-intent');
     if (intentSelect) {
       intentSelect.addEventListener('change', () => {
-        if (intentSelect.value === 'Rent') {
-          priceUnit.value = 'lac';
-        } else {
-          priceUnit.value = 'cr';
-        }
+        syncListingPriceUnitForIntent(intentSelect.value, priceUnit);
         convertPrice();
       });
     }
@@ -2516,6 +2604,16 @@ function initModalLeafletMap(lat, lng) {
     });
 }
 
+function updateFilterPriceLabels() {
+    const intent = document.getElementById('filter-intent')?.value || 'Any';
+    const minLabel = document.getElementById('filter-price-min-label');
+    const maxLabel = document.getElementById('filter-price-max-label');
+    const labelText = intent === 'Buy' ? 'PRICE MIN (Cr (₹))' : 'PRICE MIN (/mo (₹))';
+    const labelTextMax = intent === 'Buy' ? 'PRICE MAX (Cr (₹))' : 'PRICE MAX (/mo (₹))';
+    if (minLabel) minLabel.textContent = labelText;
+    if (maxLabel) maxLabel.textContent = labelTextMax;
+}
+
 async function initCustomFiltersManager() {
     await renderCustomFilters();
     injectCustomFilterModal();
@@ -2553,7 +2651,7 @@ async function renderCustomFilters() {
             parts.push(`Near: ${escHtml(crit.centerLabel)}${radStr}`);
         }
         if (crit.type && crit.type !== 'Any') parts.push(`Type: ${crit.type}`);
-        if (crit.intent && crit.intent !== 'Any') parts.push(`Intent: ${crit.intent}`);
+        if (crit.intent && crit.intent !== 'Any') parts.push(`Intent: ${formatIntentLabel(crit.intent)}`);
         
         if (crit.bedsMin || crit.bedsMax) {
             const minB = crit.bedsMin || '1';
@@ -2561,9 +2659,8 @@ async function renderCustomFilters() {
             parts.push(`Beds: ${minB}-${maxB}`);
         }
         if (crit.priceMin || crit.priceMax) {
-            const minP = crit.priceMin ? `₹${crit.priceMin}Cr` : '0';
-            const maxP = crit.priceMax ? `₹${crit.priceMax}Cr` : '∞';
-            parts.push(`Price: ${minP}-${maxP}`);
+            const priceIntent = crit.priceUnit === 'crore' || crit.intent === 'Buy' ? 'Buy' : 'Rent';
+            parts.push(`Price: ${formatListingPriceRange(crit.priceMin, crit.priceMax, priceIntent)}`);
         }
         if (crit.sqftMin || crit.sqftMax) {
             const minS = crit.sqftMin ? `${crit.sqftMin}` : '0';
@@ -2646,8 +2743,8 @@ function injectCustomFilterModal() {
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Intent</label>
               <select id="filter-intent" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="Any">Any</option>
-                <option value="Buy">Buy</option>
                 <option value="Rent">Rent</option>
+                <option value="Buy">Sell</option>
               </select>
             </div>
           </div>
@@ -2681,12 +2778,12 @@ function injectCustomFilterModal() {
           <!-- Price Min / Max -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price Min (Cr)</label>
-              <input id="filter-price-min" type="number" step="0.1" placeholder="Min Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+              <label id="filter-price-min-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MIN (/mo (₹))</label>
+              <input id="filter-price-min" type="number" step="1" placeholder="Min Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price Max (Cr)</label>
-              <input id="filter-price-max" type="number" step="0.1" placeholder="Max Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+              <label id="filter-price-max-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MAX (/mo (₹))</label>
+              <input id="filter-price-max" type="number" step="1" placeholder="Max Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
           </div>
 
@@ -2704,10 +2801,10 @@ function injectCustomFilterModal() {
 
           <!-- Geospatial Location curation -->
           <div class="border-t border-slate-100 pt-4 space-y-4">
-            <h4 class="text-sm font-bold text-slate-800">Geospatial Center & Radius</h4>
+            <!-- <h4 class="text-sm font-bold text-slate-800">Geospatial Center & Radius</h4> -->
             
             <div class="relative">
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Center Location Label *</label>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Location Center *</label>
               <input id="filter-center-label" type="text" placeholder="Search address or neighborhood..." class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
               <div id="filter-location-results" class="absolute left-0 right-0 z-[1050] bg-white rounded-xl shadow-lg border border-slate-200 mt-1 hidden flex-col max-h-48 overflow-y-auto"></div>
             </div>
@@ -2715,12 +2812,12 @@ function injectCustomFilterModal() {
             <!-- Latitude & Longitude displays -->
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Latitude</label>
-                <input id="filter-center-lat" type="number" readonly placeholder="Auto geocoded lat" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
+                <!-- <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Latitude</label> -->
+                <input type = 'hidden' id="filter-center-lat" type="number" readonly placeholder="Auto geocoded lat" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
               </div>
               <div>
-                <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Longitude</label>
-                <input id="filter-center-lng" type="number" readonly placeholder="Auto geocoded lng" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
+                <!-- <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Center Longitude</label> -->
+                <input type = 'hidden' id="filter-center-lng" type="number" readonly placeholder="Auto geocoded lng" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 cursor-not-allowed outline-none"/>
               </div>
             </div>
 
@@ -2840,6 +2937,12 @@ function injectCustomFilterModal() {
         labelInputId: 'filter-center-label'
     });
 
+    const filterIntentSelect = document.getElementById('filter-intent');
+    if (filterIntentSelect) {
+        filterIntentSelect.addEventListener('change', updateFilterPriceLabels);
+        updateFilterPriceLabels();
+    }
+
     // Radius range slider updating text labels
     const radiusSlider = document.getElementById('filter-radius');
     const radiusText = document.getElementById('filter-radius-val');
@@ -2901,6 +3004,8 @@ window.openCustomFilterModal = async function(id) {
 
         document.getElementById('filter-is-public').checked = filter.is_public !== false;
 
+        updateFilterPriceLabels();
+
         // Leaflet map refresh if not hidden
         const mapDiv = document.getElementById('filter-modal-map');
         if (mapDiv && !mapDiv.classList.contains('hidden')) {
@@ -2939,6 +3044,7 @@ window.openCustomFilterModal = async function(id) {
         if (mapDiv) mapDiv.classList.add('hidden');
         const toggleMapBtn = document.getElementById('filter-toggle-map-btn');
         if (toggleMapBtn) toggleMapBtn.textContent = 'Choose on Map';
+        updateFilterPriceLabels();
     }
 
     modal.classList.remove('hidden');
@@ -2999,6 +3105,7 @@ async function saveCustomFilter() {
             bedsMax,
             priceMin,
             priceMax,
+            priceUnit: intent === 'Buy' ? 'crore' : 'monthly',
             sqftMin,
             sqftMax,
             centerLabel,
@@ -3213,7 +3320,7 @@ async function initBuyerHomePage() {
                     <div class="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest">Just Listed</div>
                   </div>
                   <div class="w-full md:w-1/2 p-8 flex flex-col justify-center">
-                    <h3 class="text-2xl font-black text-slate-900 mb-2">₹${top3[0].price}${top3[0].intent === 'Rent' ? '' : ' Cr'}</h3>
+                    <h3 class="text-2xl font-black text-slate-900 mb-2">${formatListingPrice(top3[0].price, top3[0].intent, { html: true })}</h3>
                     <p class="text-sm font-bold text-slate-500 mb-6">${escHtml(top3[0].title)}, ${escHtml(top3[0].location)}</p>
                     <div class="flex items-center gap-6 pt-6 border-t border-slate-100">
                       <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${top3[0].beds}</span></div>
@@ -3242,7 +3349,7 @@ async function initBuyerHomePage() {
                     <div class="absolute top-4 left-4 bg-white/90 backdrop-blur px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest text-slate-900">${l.type}</div>
                   </div>
                   <div class="p-6 flex-1 flex flex-col">
-                    <h3 class="text-lg font-black text-slate-900 mb-1">₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}</h3>
+                    <h3 class="text-lg font-black text-slate-900 mb-1">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
                     <p class="text-xs font-bold text-slate-500 mb-4 truncate">${escHtml(l.title)}</p>
                     <div class="flex items-center gap-4 mt-auto pt-4 border-t border-slate-50">
                       <div class="flex items-center gap-1.5 text-slate-400"><span class="material-symbols-outlined text-[14px]">bed</span><span class="text-[10px] font-black text-slate-900">${l.beds}</span></div>
@@ -3299,7 +3406,7 @@ async function initBuyerListingsPage() {
              data-type="${l.type}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}">
           <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
             <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
-            <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${l.intent}</div>
+            <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${formatIntentLabel(l.intent)}</div>
             <button aria-label="Save Property" class="save-property-btn absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow text-slate-400 hover:text-error transition-colors">
               <span class="material-symbols-outlined text-[20px]">favorite</span>
             </button>
@@ -3312,7 +3419,7 @@ async function initBuyerListingsPage() {
           </div>
           <div class="p-5">
             <div class="flex justify-between items-start mb-1">
-              <h3 class="text-xl font-black text-slate-900">₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}</h3>
+              <h3 class="text-xl font-black text-slate-900">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
             </div>
             <p class="text-slate-500 text-sm font-medium mb-4 truncate">${escHtml(l.title)}, ${escHtml(l.location)}</p>
             <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
@@ -3602,15 +3709,7 @@ async function initBuyerListingsPage() {
 
 async function initBuyerMapPage() {
   function formatMapPrice(price, intent) {
-    const p = parseFloat(price);
-    if (isNaN(p)) return '—';
-    if (intent === 'Rent') {
-      const lac = p * 100;
-      if (lac >= 1) return `₹${lac % 1 === 0 ? lac : lac.toFixed(1)}L/mo`;
-      return `₹${(lac * 100000).toLocaleString('en-IN')}`;
-    }
-    if (p >= 1) return `₹${p % 1 === 0 ? p : p.toFixed(1)} Cr`;
-    return `₹${(p * 100).toFixed(0)} L`;
+    return formatListingPrice(price, intent);
   }
 
     console.log('Initializing Map with Supabase data...');
@@ -3764,7 +3863,7 @@ async function initBuyerMapPage() {
         
         marker.bindPopup(`
             <div class="p-2 min-w-[150px]">
-                <h4 class="font-bold text-sm text-slate-900">₹${p.price}${p.intent === 'Rent' ? '' : ' Cr'}</h4>
+                <h4 class="font-bold text-sm text-slate-900">${formatListingPrice(p.price, p.intent)}</h4>
                 <p class="text-xs font-medium text-slate-500 mt-0.5">${escHtml(p.title)}</p>
                 <div class="flex items-center gap-2 mt-2 text-slate-600 text-[10px] font-bold">
                     <span>${p.beds} BEDS</span> &bull; <span>${p.baths} BATHS</span>
@@ -3875,11 +3974,11 @@ async function initBuyerMapPage() {
             <div id="card-${l.id}" class="listing-card cursor-pointer bg-white rounded-3xl border ${activeClasses} overflow-hidden transition-all duration-300" onclick="clickSidebarCard(${l.id})">
               <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
                 <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover transition-transform duration-700 ${isActive ? '' : 'group-hover:scale-105'}">
-                <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${escHtml(l.intent)}</div>
+                <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${formatIntentLabel(l.intent)}</div>
               </div>
               <div class="p-5">
                 <div class="flex justify-between items-start mb-1">
-                  <h3 class="text-xl font-black text-slate-900">₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}</h3>
+                  <h3 class="text-xl font-black text-slate-900">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
                   <div class="flex items-center gap-2">
                     <button class="transition-colors text-slate-200 hover:text-red-500 flex items-center justify-center" onclick="event.stopPropagation(); window.openReportModal('listing', ${l.id}, '${escHtml(l.title)}');" title="Report Listing">
                       <span class="material-symbols-outlined text-[20px]">flag</span>
@@ -3995,7 +4094,7 @@ async function initBuyerMapPage() {
                         const marker = L.marker([lat, lng], { icon }).addTo(map);
                         marker.bindPopup(`
                             <div class="p-2 min-w-[150px]">
-                                <h4 class="font-bold text-sm text-slate-900">₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}</h4>
+                                <h4 class="font-bold text-sm text-slate-900">${formatListingPrice(l.price, l.intent)}</h4>
                                 <p class="text-xs font-medium text-slate-500 mt-0.5">${escHtml(l.title)}</p>
                                 <div class="flex items-center gap-2 mt-2 text-slate-600 text-[10px] font-bold">
                                     <span>${l.beds} BEDS</span> &bull; <span>${l.baths} BATHS</span>
@@ -4455,7 +4554,7 @@ async function initBuyerDetailsPage() {
 
     // Price
     const priceEl = document.getElementById('detail-price');
-    if (priceEl) priceEl.innerHTML = `₹${l.price}${l.intent === 'Rent' ? '' : ' Cr'}`;
+    if (priceEl) priceEl.innerHTML = formatListingPrice(l.price, l.intent, { html: true });
 
     // Title & address
     const titleEl = document.getElementById('detail-title');

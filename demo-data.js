@@ -12,13 +12,15 @@ const DEMO_LISTINGS = [
   }
 ];
 
-// Utility: format price in Cr / L / Lac
-function formatPrice(crore, intent = "Buy") {
+// Utility: format price for display
+function formatPrice(price, intent = "Buy") {
   if (intent === "Rent") {
-    const lac = crore * 100;
-    if (lac >= 1) return `₹${lac.toFixed(lac % 1 === 0 ? 0 : 1)} Lac<span class="text-[10px] font-normal text-slate-400">/mo</span>`;
-    return `₹${(lac * 100000).toLocaleString('en-IN')}<span class="text-[10px] font-normal text-slate-400">/mo</span>`;
+    const p = parseFloat(price);
+    if (isNaN(p)) return "—";
+    return `₹${p.toLocaleString('en-IN')}<span class="text-[10px] font-normal text-slate-400">/mo</span>`;
   }
+  const crore = parseFloat(price);
+  if (isNaN(crore)) return "—";
   if (crore >= 1) return `₹${crore.toFixed(crore % 1 === 0 ? 0 : 1)} Cr`;
   return `₹${(crore * 100).toFixed(0)} L`;
 }
