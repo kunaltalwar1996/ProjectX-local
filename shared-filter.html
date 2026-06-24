@@ -357,10 +357,14 @@
       }
     }
 
-    if (document.readyState === 'loading') {
-      window.addEventListener('DOMContentLoaded', initSharedFilter);
+    if (typeof window.registerPageInit === 'function') {
+      window.registerPageInit('shared-filter.html', initSharedFilter);
     } else {
-      initSharedFilter();
+      if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', initSharedFilter);
+      } else {
+        initSharedFilter();
+      }
     }
   </script>
 </body>

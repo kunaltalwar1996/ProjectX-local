@@ -23,6 +23,7 @@ let isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.h
 let activeInquiryId = null;
 let updateHeaderVisibility = null;
 let referrerId = null;
+let uploadedMedia = [];
 
 // Parse ref parameter on boot
 try {
@@ -1140,6 +1141,17 @@ function initAppPage() {
     if (userRole === 'Employee' && currentPage === 'employee-panel.html') {
         initEmployeePanelInteractions();
     }
+
+    // Run the page's registered SPA initializer if it exists
+    if (window.spaPageInit && window.spaPageInit[currentPage]) {
+        try {
+            window.spaPageInit[currentPage]();
+        } catch (e) {
+            console.error(`Error executing SPA page initializer for ${currentPage}:`, e);
+        }
+    }
+
+    window.initAppPageHasRun = true;
 }
 document.addEventListener('DOMContentLoaded', initAppPage);
 
@@ -1356,6 +1368,35 @@ async function openListingModal(id) {
         listing = data;
     }
 
+    // Reset media state for this modal session
+    uploadedMedia = [];
+
+    // Load existing media from listing_media when editing
+    if (id) {
+        const { data: mediaRows } = await supabase
+            .from('listing_media')
+            .select('*')
+            .eq('listing_id', id)
+            .order('sort_order', { ascending: true });
+        if (mediaRows && mediaRows.length > 0) {
+            uploadedMedia = mediaRows.map(row => ({
+                url: row.url,
+                media_type: row.media_type,
+                is_cover: row.is_cover || false,
+                alt_text: row.alt_text || null,
+                thumbnail_url: row.thumbnail_url || null
+            }));
+        } else if (listing && listing.img) {
+            // Fallback: listing has img but no listing_media rows — treat img as single cover image
+            uploadedMedia = [{
+                url: listing.img,
+                media_type: 'image',
+                is_cover: true,
+                alt_text: null
+            }];
+        }
+    }
+
     document.getElementById('modal-title').textContent   = listing ? 'Edit Listing' : 'Add New Listing';
     document.getElementById('modal-id').value            = listing ? listing.id : '';
     document.getElementById('modal-prop-title').value    = listing ? listing.title    : '';
@@ -1407,25 +1448,9 @@ async function openListingModal(id) {
     document.getElementById('modal-views').value         = listing ? listing.views     : '0';
     document.getElementById('modal-lat').value           = listing ? (listing.lat || '') : '';
     document.getElementById('modal-lng').value           = listing ? (listing.lng || '') : '';
-    const imgUrl = listing ? (listing.img || '') : '';
-    document.getElementById('modal-img').value = imgUrl;
 
-    const previewEl = document.getElementById('modal-image-preview');
-    const previewImg = document.getElementById('modal-preview-img');
-    const uploadZone = document.getElementById('modal-upload-zone');
-    const fileInput = document.getElementById('modal-file-input');
-
-    if (previewEl && previewImg && uploadZone) {
-        if (imgUrl) {
-            previewImg.src = imgUrl;
-            previewEl.classList.remove('hidden');
-            uploadZone.classList.add('hidden');
-        } else {
-            previewEl.classList.add('hidden');
-            uploadZone.classList.remove('hidden');
-            if (fileInput) fileInput.value = '';
-        }
-    }
+    // Render the media grid (populated from listing_media or empty)
+    renderMediaGrid();
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1454,9 +1479,6 @@ async function saveListingForm() {
     const sqftEl     = document.getElementById('modal-sqft');
     const latEl      = document.getElementById('modal-lat');
     const lngEl      = document.getElementById('modal-lng');
-    const uploadZone = document.getElementById('modal-upload-zone');
-    const imgEl      = document.getElementById('modal-img');
-
     const title    = titleEl.value.trim();
     const location = locationEl.value.trim();
     const price    = parseFloat(priceEl.value) || 0;
@@ -1469,7 +1491,10 @@ async function saveListingForm() {
     const views    = parseInt(document.getElementById('modal-views').value) || 0;
     const lat      = parseFloat(latEl.value) || null;
     const lng      = parseFloat(lngEl.value) || null;
-    const img      = imgEl.value.trim();
+    // Compute cover image from uploadedMedia (first image marked as cover, or placeholder if no images)
+    const coverItem = uploadedMedia.find(m => m.is_cover && m.media_type === 'image');
+    const firstImage = uploadedMedia.find(m => m.media_type === 'image');
+    const img = coverItem ? coverItem.url : (firstImage ? firstImage.url : MEDIA_PLACEHOLDER);
 
     // Reset styles
     [titleEl, locationEl, priceEl, intentEl, typeEl, statusEl, bedsEl, bathsEl, sqftEl, latEl, lngEl].forEach(el => {
@@ -1478,10 +1503,6 @@ async function saveListingForm() {
             el.classList.add('border-outline-variant');
         }
     });
-    if (uploadZone) {
-        uploadZone.classList.remove('border-red-500', 'bg-red-50/20');
-        uploadZone.classList.add('border-slate-200');
-    }
 
     let hasErrors = false;
     function markInvalid(el) {
@@ -1494,13 +1515,7 @@ async function saveListingForm() {
 
     if (title === '') markInvalid(titleEl);
     if (location === '') markInvalid(locationEl);
-    if (img === '') {
-        if (uploadZone) {
-            uploadZone.classList.remove('border-slate-200');
-            uploadZone.classList.add('border-red-500', 'bg-red-50/20');
-        }
-        hasErrors = true;
-    }
+    // Media is optional — no image required validation
     if (priceEl.value.trim() === '' || price <= 0) markInvalid(priceEl);
     if (intent === '') markInvalid(intentEl);
     if (type === '') markInvalid(typeEl);
@@ -1572,7 +1587,8 @@ async function saveListingForm() {
     if (result.error) {
         showToast('Error saving listing: ' + result.error.message);
     } else {
-        // Log status change
+        // Resolve listing ID (for inserts we need to fetch the newly created row)
+        let resolvedId = id || null;
         if (!id) {
             const { data: newListing } = await supabase
                 .from('listings')
@@ -1582,10 +1598,16 @@ async function saveListingForm() {
                 .limit(1)
                 .single();
             if (newListing) {
-                await logListingStatusChange(newListing.id, null, status, 'Listing created.');
+                resolvedId = newListing.id;
+                await logListingStatusChange(resolvedId, null, status, 'Listing created.');
             }
         } else if (oldStatus !== status) {
             await logListingStatusChange(id, oldStatus, status, 'Status updated by owner.');
+        }
+
+        // Save listing media rows to listing_media table
+        if (resolvedId) {
+            await saveListingMedia(resolvedId, user ? user.id : null);
         }
 
         await renderListings();
@@ -1593,16 +1615,8 @@ async function saveListingForm() {
 
         // Only show share popup for NEW listings (no id means it was an insert)
         if (!id) {
-            // Get the newly inserted listing id
-            const { data: newListing } = await supabase
-                .from('listings')
-                .select('id')
-                .eq('broker_id', (await supabase.auth.getUser()).data.user.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+            const newId = resolvedId;
 
-            const newId = newListing?.id;
             const shareUrl = newId
                 ? `${window.location.origin}/property-details.html?id=${newId}`
                 : null;
@@ -1687,6 +1701,200 @@ async function saveListingForm() {
 
 window.saveListingForm = saveListingForm;
 
+// ══════════════════════════════════════════════════════
+//  LISTING MEDIA HELPERS
+// ══════════════════════════════════════════════════════
+
+const MEDIA_PLACEHOLDER = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+
+function renderMediaGrid() {
+    const grid = document.getElementById('modal-media-grid');
+    if (!grid) return;
+    if (uploadedMedia.length === 0) {
+        grid.innerHTML = '';
+        grid.classList.add('hidden');
+        const zone = document.getElementById('modal-upload-zone');
+        if (zone) zone.classList.remove('hidden');
+        return;
+    }
+    const zone = document.getElementById('modal-upload-zone');
+    if (zone) zone.classList.remove('hidden');
+    grid.classList.remove('hidden');
+    grid.innerHTML = uploadedMedia.map((item, idx) => {
+        const isImage = item.media_type === 'image';
+        const isCover = item.is_cover;
+        const thumbHtml = isImage
+            ? `<img src="${escHtml(item.url)}" class="w-full h-full object-cover" alt="Media ${idx+1}">`
+            : `<div class="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-white gap-1">
+                <span class="material-symbols-outlined text-[28px] text-slate-300">play_circle</span>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Video</span>
+               </div>`;
+        const coverBadge = isCover
+            ? `<span class="absolute top-1.5 left-1.5 bg-primary text-on-primary text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full">Cover</span>`
+            : '';
+        const setCoverBtn = isImage && !isCover
+            ? `<button type="button" onclick="setCoverItem(${idx})" title="Set as Cover" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors"><span class="material-symbols-outlined text-[14px]">star</span></button>`
+            : '';
+        return `
+        <div class="relative rounded-lg overflow-hidden border-2 ${isCover ? 'border-primary' : 'border-outline-variant'} bg-slate-100 aspect-[4/3]">
+            ${thumbHtml}
+            ${coverBadge}
+            <div class="absolute inset-0 bg-black/0 hover:bg-black/40 transition-all flex items-end justify-center pb-2 gap-1 opacity-0 hover:opacity-100">
+                <button type="button" onclick="moveMediaItem(${idx},-1)" title="Move Left" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors ${idx === 0 ? 'opacity-30 pointer-events-none' : ''}"><span class="material-symbols-outlined text-[14px]">arrow_back</span></button>
+                ${setCoverBtn}
+                <button type="button" onclick="removeMediaItem(${idx})" title="Remove" class="p-1 bg-red-600 hover:bg-red-700 rounded text-white transition-colors"><span class="material-symbols-outlined text-[14px]">delete</span></button>
+                <button type="button" onclick="moveMediaItem(${idx},1)" title="Move Right" class="p-1 bg-white/90 hover:bg-white rounded text-slate-700 transition-colors ${idx === uploadedMedia.length-1 ? 'opacity-30 pointer-events-none' : ''}"><span class="material-symbols-outlined text-[14px]">arrow_forward</span></button>
+            </div>
+            <span class="absolute bottom-1 right-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${isImage ? 'bg-slate-900/70 text-white' : 'bg-blue-600/90 text-white'}">${isImage ? 'IMG' : 'VID'}</span>
+        </div>`;
+    }).join('');
+}
+
+window.removeMediaItem = function(idx) {
+    const wasCover = uploadedMedia[idx]?.is_cover;
+    uploadedMedia.splice(idx, 1);
+    if (wasCover && uploadedMedia.length > 0) {
+        const firstImg = uploadedMedia.find(m => m.media_type === 'image');
+        if (firstImg) firstImg.is_cover = true;
+    }
+    renderMediaGrid();
+};
+
+window.setCoverItem = function(idx) {
+    uploadedMedia.forEach((m, i) => { m.is_cover = (i === idx); });
+    renderMediaGrid();
+};
+
+window.moveMediaItem = function(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= uploadedMedia.length) return;
+    [uploadedMedia[idx], uploadedMedia[newIdx]] = [uploadedMedia[newIdx], uploadedMedia[idx]];
+    renderMediaGrid();
+};
+
+async function handleMultipleUploads(files, listingIdHint) {
+    const progressEl = document.getElementById('modal-upload-progress');
+    const uploadZone = document.getElementById('modal-upload-zone');
+    if (progressEl) progressEl.classList.remove('hidden');
+    if (uploadZone) uploadZone.classList.add('opacity-50', 'pointer-events-none');
+
+    const folderName = listingIdHint ? `listing-media/${listingIdHint}` : `listing-media/temp-${Date.now()}`;
+
+    for (const file of files) {
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        if (!isImage && !isVideo) {
+            showToast(`Skipped unsupported file: ${file.name}`);
+            continue;
+        }
+        try {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const safeBase = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const filePath = `${folderName}/${Date.now()}-${safeBase}`;
+            const { error: upErr } = await supabase.storage
+                .from('properties')
+                .upload(filePath, file, { cacheControl: '3600', upsert: true });
+            if (upErr) throw upErr;
+            const { data: { publicUrl } } = supabase.storage.from('properties').getPublicUrl(filePath);
+            const hasNoCoverImage = !uploadedMedia.some(m => m.is_cover && m.media_type === 'image');
+            uploadedMedia.push({
+                url: publicUrl,
+                media_type: isImage ? 'image' : 'video',
+                is_cover: isImage && hasNoCoverImage,
+                alt_text: file.name
+            });
+        } catch (err) {
+            showToast(`Failed to upload ${file.name}: ${err.message}`, true);
+        }
+    }
+
+    if (progressEl) progressEl.classList.add('hidden');
+    if (uploadZone) uploadZone.classList.remove('opacity-50', 'pointer-events-none');
+    renderMediaGrid();
+}
+
+async function saveListingMedia(listingId, brokerId) {
+    // Delete existing rows for this listing
+    await supabase.from('listing_media').delete().eq('listing_id', listingId);
+
+    if (uploadedMedia.length === 0) return;
+
+    const rows = uploadedMedia.map((item, idx) => ({
+        listing_id: listingId,
+        broker_id: brokerId,
+        media_type: item.media_type,
+        url: item.url,
+        thumbnail_url: item.thumbnail_url || null,
+        sort_order: idx,
+        is_cover: item.is_cover || false,
+        alt_text: item.alt_text || null
+    }));
+
+    const { error } = await supabase.from('listing_media').insert(rows);
+    if (error) console.error('Error saving listing_media:', error.message);
+}
+
+function renderInteractiveGallery(container, mediaItems, fallbackImg) {
+    if (!container) return;
+    const PLACEHOLDER = MEDIA_PLACEHOLDER;
+
+    // Build display items with fallback
+    let items = mediaItems && mediaItems.length > 0 ? mediaItems : [];
+    if (items.length === 0 && fallbackImg) {
+        items = [{ url: fallbackImg, media_type: 'image', is_cover: true }];
+    }
+    if (items.length === 0) {
+        items = [{ url: PLACEHOLDER, media_type: 'image', is_cover: true }];
+    }
+
+    let activeIdx = 0;
+
+    function buildHtml() {
+        const item = items[activeIdx];
+        const isVideo = item.media_type === 'video';
+        const mainMediaHtml = isVideo
+            ? `<video src="${escHtml(item.url)}" controls playsinline class="w-full h-full object-contain bg-black"></video>`
+            : `<img src="${escHtml(item.url)}" alt="Property media ${activeIdx + 1}" class="w-full h-full object-cover transition-all duration-500">`;
+
+        const thumbsHtml = items.length > 1 ? `
+        <div class="flex gap-2 overflow-x-auto py-2 px-1 mt-3 scrollbar-hide">
+            ${items.map((m, i) => {
+                const thumbIsVideo = m.media_type === 'video';
+                const thumbContent = thumbIsVideo
+                    ? `<div class="w-full h-full flex items-center justify-center bg-slate-900"><span class="material-symbols-outlined text-white text-[20px]">play_circle</span></div>`
+                    : `<img src="${escHtml(m.url)}" class="w-full h-full object-cover" alt="Thumb ${i+1}">`;
+                return `<button type="button" data-idx="${i}" class="gallery-thumb shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${i === activeIdx ? 'border-slate-900 scale-105' : 'border-transparent opacity-60 hover:opacity-100'}">${thumbContent}</button>`;
+            }).join('')}
+        </div>` : '';
+
+        const counter = items.length > 1 ? `<span class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full">${activeIdx + 1} / ${items.length}</span>` : '';
+        const prevBtn = items.length > 1 && activeIdx > 0 ? `<button type="button" id="gallery-prev" class="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-full shadow-lg transition-all"><span class="material-symbols-outlined text-slate-800 text-[20px]">arrow_back</span></button>` : '';
+        const nextBtn = items.length > 1 && activeIdx < items.length - 1 ? `<button type="button" id="gallery-next" class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/80 hover:bg-white rounded-full shadow-lg transition-all"><span class="material-symbols-outlined text-slate-800 text-[20px]">arrow_forward</span></button>` : '';
+
+        container.innerHTML = `
+        <div class="w-full">
+            <div class="h-[400px] md:h-[580px] w-full rounded-[32px] overflow-hidden relative shadow-2xl bg-slate-100">
+                ${mainMediaHtml}
+                ${prevBtn}
+                ${nextBtn}
+                ${counter}
+            </div>
+            ${thumbsHtml}
+        </div>`;
+
+        // Wire up events
+        const prevEl = container.querySelector('#gallery-prev');
+        const nextEl = container.querySelector('#gallery-next');
+        if (prevEl) prevEl.onclick = () => { activeIdx--; buildHtml(); };
+        if (nextEl) nextEl.onclick = () => { activeIdx++; buildHtml(); };
+        container.querySelectorAll('.gallery-thumb').forEach(btn => {
+            btn.onclick = () => { activeIdx = parseInt(btn.dataset.idx); buildHtml(); };
+        });
+    }
+
+    buildHtml();
+}
+
 function injectListingModal() {
     if (document.getElementById('listing-modal')) return;
 
@@ -1721,25 +1929,21 @@ function injectListingModal() {
               </div>
             </div>
             <div class="md:col-span-2">
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Media (Image) *</label>
-              <div id="modal-upload-zone" class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center gap-2 bg-surface-container-low">
-                <span class="material-symbols-outlined text-[32px] text-slate-400">cloud_upload</span>
-                <p class="text-sm font-medium text-slate-600">Drag & drop your property photo here, or <span class="text-primary font-bold">browse</span></p>
-                <p class="text-xs text-slate-400">Supports PNG, JPG, JPEG up to 10MB</p>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Media <span class="text-slate-400 font-normal normal-case">(Images &amp; Videos — optional)</span></label>
+              <div id="modal-media-grid" class="hidden grid grid-cols-3 gap-2 mb-2"></div>
+              <div id="modal-upload-zone" class="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-primary hover:bg-slate-50/50 transition-all flex flex-col items-center justify-center gap-2 bg-surface-container-low">
+                <span class="material-symbols-outlined text-[28px] text-slate-400">perm_media</span>
+                <p class="text-sm font-medium text-slate-600">Drag &amp; drop images or videos, or <span class="text-primary font-bold">browse</span></p>
+                <p class="text-xs text-slate-400">Supports PNG, JPG, JPEG, MP4, MOV, WEBM — multiple files allowed</p>
               </div>
-              <input type="file" id="modal-file-input" class="hidden" accept="image/*" />
+              <input type="file" id="modal-file-input" class="hidden" accept="image/*,video/*" multiple />
               <div id="modal-upload-progress" class="hidden w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
                 <div class="bg-primary h-1.5 rounded-full animate-pulse" style="width: 100%"></div>
-              </div>
-              <div id="modal-image-preview" class="hidden mt-3 relative rounded-lg overflow-hidden border border-outline-variant aspect-[16/9] w-full max-h-48 bg-slate-50">
-                <img id="modal-preview-img" src="" alt="Preview" class="w-full h-full object-cover"/>
-                <button type="button" id="modal-remove-img" class="absolute top-2 right-2 p-1.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full transition-colors flex items-center justify-center" title="Remove Photo">
-                  <span class="material-symbols-outlined text-[16px]">close</span>
-                </button>
               </div>
               <input type="hidden" id="modal-img" />
             </div>
             <div>
+
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price *</label>
               <div class="flex gap-2">
                 <input id="modal-price-display" type="number" step="0.01" placeholder="e.g. 45" 
@@ -1857,14 +2061,9 @@ function injectListingModal() {
       });
     }
 
-    // File upload event listeners
+    // Multi-media upload event listeners
     const uploadZone = document.getElementById('modal-upload-zone');
     const fileInput = document.getElementById('modal-file-input');
-    const progressEl = document.getElementById('modal-upload-progress');
-    const previewEl = document.getElementById('modal-image-preview');
-    const previewImg = document.getElementById('modal-preview-img');
-    const removeBtn = document.getElementById('modal-remove-img');
-    const imgUrlInput = document.getElementById('modal-img');
 
     if (uploadZone && fileInput) {
         uploadZone.onclick = () => fileInput.click();
@@ -1881,66 +2080,19 @@ function injectListingModal() {
         uploadZone.ondrop = (e) => {
             e.preventDefault();
             uploadZone.classList.remove('border-primary', 'bg-slate-50');
-            const file = e.dataTransfer.files[0];
-            if (file) handleUpload(file);
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length) handleMultipleUploads(files, document.getElementById('modal-id')?.value || null);
         };
 
         fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) handleUpload(file);
-        };
-    }
-
-    async function handleUpload(file) {
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file.');
-            return;
-        }
-
-        progressEl.classList.remove('hidden');
-        uploadZone.classList.add('opacity-50', 'pointer-events-none');
-
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `listing-${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            const { data, error } = await supabase.storage
-                .from('properties')
-                .upload(filePath, file, { cacheControl: '3600', upsert: true });
-
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('properties')
-                .getPublicUrl(filePath);
-
-            imgUrlInput.value = publicUrl;
-            
-            previewImg.src = publicUrl;
-            previewEl.classList.remove('hidden');
-            uploadZone.classList.add('hidden');
-            showToast('Property photo uploaded successfully!');
-        } catch (err) {
-            console.error('Upload error:', err);
-            showToast('Failed to upload image: ' + err.message);
-        } finally {
-            progressEl.classList.add('hidden');
-            uploadZone.classList.remove('opacity-50', 'pointer-events-none');
-        }
-    }
-
-    if (removeBtn) {
-        removeBtn.onclick = () => {
-            imgUrlInput.value = '';
-            previewImg.src = '';
-            previewEl.classList.add('hidden');
-            uploadZone.classList.remove('hidden');
+            const files = Array.from(e.target.files);
+            if (files.length) handleMultipleUploads(files, document.getElementById('modal-id')?.value || null);
             fileInput.value = '';
         };
     }
 
     // Location Autocomplete with OpenStreetMap (Nominatim)
+
     const modalLocationInput = document.getElementById('modal-location');
     const modalLocationResults = document.getElementById('modal-location-results');
 
@@ -4221,9 +4373,24 @@ async function initBuyerDetailsPage() {
     // Update page title
     document.title = `${l.title} — EstatePro`;
 
-    // Hero image
-    const heroImg = document.querySelector('.hero-img');
-    if (heroImg) heroImg.src = l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+    // Property gallery from listing_media
+    const galleryContainer = document.getElementById('property-gallery-container');
+    if (galleryContainer) {
+        const { data: mediaRows } = await supabase
+            .from('listing_media')
+            .select('url, media_type, sort_order, is_cover')
+            .eq('listing_id', id)
+            .order('sort_order', { ascending: true });
+        const mediaItems = (mediaRows || []).map(row => ({
+            url: row.url,
+            media_type: row.media_type,
+            is_cover: row.is_cover
+        }));
+        renderInteractiveGallery(galleryContainer, mediaItems, l.img);
+    } else {
+        const heroImg = document.querySelector('.hero-img');
+        if (heroImg) heroImg.src = l.img || MEDIA_PLACEHOLDER;
+    }
 
     // Price
     const priceEl = document.getElementById('detail-price');
@@ -4886,9 +5053,36 @@ document.head.appendChild(style);
 
 let isNavigating = false;
 
+// Global page initialization registry for SPA pages
+window.spaPageInit = window.spaPageInit || {};
+window.initAppPageHasRun = false;
+window.registerPageInit = function(pageName, initFn) {
+    window.spaPageInit[pageName] = initFn;
+    
+    // Resolve current computed page to match pageName
+    const currentPath = window.location.pathname;
+    let computedPage = currentPath.split('/').pop() || 'index.html';
+    const isSharedFilterRoute = currentPath.includes('/shared-filter/') || computedPage === 'shared-filter';
+    if (isSharedFilterRoute) {
+        computedPage = 'shared-filter.html';
+    } else if (!computedPage.includes('.')) {
+        computedPage += '.html';
+    }
+    
+    // If the main initAppPage has already run for this page, execute immediately
+    if (window.initAppPageHasRun && computedPage === pageName) {
+        try {
+            initFn();
+        } catch (e) {
+            console.error(`Error running SPA page initializer for ${pageName}:`, e);
+        }
+    }
+};
+
 async function ajaxLoadPage(url, replaceState = false) {
     if (isNavigating) return;
     isNavigating = true;
+    window.initAppPageHasRun = false;
 
     // Create or find Progress Bar
     let progressBar = document.getElementById('spa-progress-bar');
