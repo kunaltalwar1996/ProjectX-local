@@ -10,8 +10,8 @@
       "destination": "/login.html"
     },
     {
-      "source": "/shared-filter/:slug",
-      "destination": "/shared-filter.html?slug=:slug"
+      "source": "/shared-filter/(.*)",
+      "destination": "/shared-filter.html?slug=$1"
     }
   ]
 }
