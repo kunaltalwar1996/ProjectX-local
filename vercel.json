@@ -10,7 +10,7 @@
       "destination": "/login.html"
     },
     {
-      "source": "/shared-filter/(.*)",
+      "source": "/s/(.*)",
       "destination": "/shared-filter.html?slug=$1"
     }
   ]
