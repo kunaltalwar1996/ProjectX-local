@@ -561,6 +561,7 @@ function initAppPage() {
     if (isLoginPage) {
         const roleButtons = document.querySelectorAll('#role-tabs button');
         const formTitle   = document.getElementById('form-title');
+        const roleSelectionLabel = document.getElementById('role-selection-label');
         const nameField   = document.getElementById('name-field') || document.getElementById('broker-name-field');
         const nameLabel   = document.getElementById('name-label');
         const modeText    = document.getElementById('mode-text');
@@ -618,6 +619,10 @@ function initAppPage() {
         }
 
         function updateUI() {
+            if (roleSelectionLabel) {
+                const staffAccess = currentPage === 'staff-login.html';
+                roleSelectionLabel.textContent = `${staffAccess ? 'Selected access' : 'Selected account type'}: ${selectedRole}`;
+            }
             if (formTitle) {
                 formTitle.textContent = isSignUp ? `Join as ${selectedRole}` : `${selectedRole} Sign In`;
             }
@@ -649,7 +654,8 @@ function initAppPage() {
 
         function resetRoleTabs() {
             roleButtons.forEach(b => {
-                b.className = 'flex-1 py-2.5 px-3 text-center text-[10px] font-black uppercase tracking-widest rounded-lg role-tab-inactive hover:text-slate-900 transition-colors';
+                b.className = 'flex-1 py-2.5 px-3 text-center text-[10px] font-black uppercase tracking-widest rounded-lg role-tab-inactive hover:text-slate-900 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400';
+                b.setAttribute('aria-pressed', 'false');
             });
         }
 
@@ -663,7 +669,8 @@ function initAppPage() {
             
             const btn = Array.from(roleButtons).find(b => b.textContent.trim().toLowerCase() === normalizedRole.toLowerCase());
             if (btn) {
-                btn.className = 'flex-1 py-2.5 px-3 text-center text-[10px] font-black uppercase tracking-widest rounded-lg role-tab-active font-bold scale-105 transition-all';
+                btn.className = 'flex-1 py-2.5 px-3 text-center text-[10px] font-black uppercase tracking-widest rounded-lg role-tab-active font-bold scale-[1.02] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400';
+                btn.setAttribute('aria-pressed', 'true');
             }
 
             updateUI();
