@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>ProjectX - Search Properties</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css">
+  
+  <!-- Leaflet Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <script type="module" src="/auth.js"></script>
+
+  <style>
+    #search-map { background: #f8fafc; }
+    .leaflet-popup-content-wrapper { border-radius: 16px; padding: 4px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); }
+    .leaflet-popup-tip { display: none; }
+    .leaflet-container { font-family: 'Outfit', sans-serif !important; z-index: 1; }
+
+    /* Custom Leaflet Pin Container */
+    .leaflet-marker-icon.search-pin-container {
+      background: transparent !important;
+      border: none !important;
+      overflow: visible !important;
+    }
+
+    /* Airbnb-style price pin badges */
+    .search-price-pin {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -100%);
+      background: #ffffff;
+      border: 2px solid #0f172a;
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+      text-align: center;
+      white-space: nowrap;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer;
+      user-select: none;
+      z-index: 1000;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .search-price-pin::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px 6px 0;
+      border-style: solid;
+      border-color: #0f172a transparent transparent transparent;
+      display: block;
+    }
+    .search-price-pin.rent-pin {
+      border-color: #059669;
+      color: #059669;
+    }
+    .search-price-pin.rent-pin::after {
+      border-color: #059669 transparent transparent transparent;
+    }
+    .search-price-pin.active-pin, .search-price-pin:hover {
+      background: #0f172a;
+      color: #ffffff;
+      transform: translate(-50%, -100%) scale(1.18);
+      z-index: 99999 !important;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    }
+    .search-price-pin.active-pin::after, .search-price-pin:hover::after {
+      border-color: #0f172a transparent transparent transparent;
+    }
+    .search-price-pin.rent-pin.active-pin, .search-price-pin.rent-pin:hover {
+      background: #059669;
+      color: #ffffff;
+    }
+    .search-price-pin.rent-pin.active-pin::after, .search-price-pin.rent-pin:hover::after {
+      border-color: #059669 transparent transparent transparent;
+    }
+
+    .view-mode-pill.active {
+      background: #0f172a;
+      color: #ffffff;
+    }
+
+    .price-range-control { position: relative; height: 24px; margin: 0 8px; }
+    .price-range-track { position: absolute; top: 10px; left: 0; right: 0; height: 4px; border-radius: 999px; background: #e2e8f0; }
+    #price-range-fill { position: absolute; height: 100%; left: 0; right: 0; border-radius: inherit; background: #0f172a; }
+    .price-range-control input[type="range"] { position: absolute; inset: 0; width: 100%; height: 24px; margin: 0; appearance: none; background: transparent; pointer-events: none; }
+    .price-range-control input[type="range"]::-webkit-slider-runnable-track { height: 4px; background: transparent; }
+    .price-range-control input[type="range"]::-moz-range-track { height: 4px; background: transparent; }
+    .price-range-control input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; margin-top: -7px; border: 3px solid #0f172a; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #0002; pointer-events: auto; cursor: grab; }
+    .price-range-control input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border: 3px solid #0f172a; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #0002; pointer-events: auto; cursor: grab; }
+
+    /* Mobile Bottom Sheet Styles (Mobile < 1024px) */
+    @media (max-width: 1023px) {
+      #search-list-section {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 30;
+        background: #ffffff;
+        border-radius: 24px 24px 0 0;
+        box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
+        transition: height 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        height: 52vh;
+      }
+    }
+
+    /* Desktop Normal Split Layout (Desktop >= 1024px) */
+    @media (min-width: 1024px) {
+      #search-list-section {
+        position: relative !important;
+        height: calc(100vh - 140px) !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        z-index: 10 !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-[#f8f9fa] text-slate-900 font-['Outfit'] antialiased min-h-screen flex flex-col overflow-x-hidden">
+  <!-- Top Navigation -->
+  <nav class="fixed top-0 w-full z-50 bg-white border-b border-slate-200 shadow-sm h-16 flex items-center">
+    <div class="max-w-[1440px] mx-auto px-6 w-full flex items-center justify-between gap-8">
+      <!-- Brand -->
+      <div class="flex items-center gap-2">
+        <a href="/index.html" class="text-xl font-black tracking-tighter text-slate-900">ProjectX</a>
+      </div>
+      <!-- Navigation Links -->
+      <div class="hidden md:flex items-center gap-8">
+        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
+          href="/search.html">Search Your Home</a>
+
+        <!-- Services Dropdown -->
+        <div class="relative group">
+          <button class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1 flex items-center gap-1">
+            Services
+            <span class="material-symbols-outlined text-[16px]">expand_more</span>
+          </button>
+          <div class="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            <a href="/sell.html" class="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+              <span class="material-symbols-outlined text-[18px] text-slate-400">sell</span>
+              Sell Property
+            </a>
+            <a href="/sell.html" class="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors border-t border-slate-100">
+              <span class="material-symbols-outlined text-[18px] text-slate-400">home</span>
+              Rent Your Property
+            </a>
+          </div>
+        </div>
+      </div>
+      <!-- Trailing Actions (Desktop) -->
+      <div class="hidden md:flex items-center gap-4">
+        <button class="text-slate-500 hover:text-slate-900 transition-colors">
+          <span class="material-symbols-outlined text-[24px]">account_circle</span>
+        </button>
+        <button
+          class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider ml-2">
+          Dashboard
+        </button>
+      </div>
+
+      <!-- Mobile Menu Toggle -->
+      <button id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors">
+        <span class="material-symbols-outlined text-[28px]">menu</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Sticky Airbnb-Style Search & Filters Header Bar -->
+  <header class="sticky top-16 z-40 bg-white border-b border-slate-200 shadow-sm py-3 px-6 mt-16">
+    <div class="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      
+      <!-- Compact Search Bar -->
+      <div class="w-full md:w-auto flex-1 max-w-xl relative">
+        <div class="bg-white rounded-full border border-slate-300 shadow-sm hover:shadow-md transition-shadow flex items-center p-1.5 pl-4 gap-3">
+          <span class="material-symbols-outlined text-slate-400 text-[20px]">location_on</span>
+          <input type="text" id="search-page-location" placeholder="City, Neighborhood, or ZIP"
+            class="w-full py-1 text-xs md:text-sm font-medium text-slate-900 outline-none placeholder-slate-400 bg-transparent"
+            autocomplete="off">
+          <button id="search-page-btn"
+            class="bg-slate-900 text-white w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-800 transition-colors shrink-0">
+            <span class="material-symbols-outlined text-[18px]">search</span>
+          </button>
+        </div>
+        
+        <!-- Live Autocomplete Suggestions Dropdown -->
+        <div id="search-page-results"
+          class="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden hidden flex-col z-50 max-h-64 overflow-y-auto text-left">
+        </div>
+      </div>
+
+      <!-- Quick Filters & View Selection Toolbar -->
+      <div class="flex items-center gap-3 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
+        
+        <!-- View Toggle Buttons (Split / List / Map) -->
+        <div class="hidden lg:flex items-center bg-slate-100 p-1 rounded-full shrink-0 border border-slate-200 shadow-inner">
+          <button data-view="split" class="view-mode-pill active px-3 py-1 rounded-full text-xs font-bold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">view_sidebar</span>
+            <span>Split</span>
+          </button>
+          <button data-view="list" class="view-mode-pill px-3 py-1 rounded-full text-xs font-bold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">view_list</span>
+            <span>List</span>
+          </button>
+          <button data-view="map" class="view-mode-pill px-3 py-1 rounded-full text-xs font-bold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">map</span>
+            <span>Map</span>
+          </button>
+        </div>
+
+        <div class="h-6 w-[1px] bg-slate-200 mx-0.5 hidden lg:block shrink-0"></div>
+
+        <!-- Intent Filter Buttons -->
+        <div class="flex items-center bg-slate-100 p-1 rounded-full shrink-0">
+          <button data-intent="all" class="intent-pill active px-3 py-1 rounded-full text-xs font-bold transition-all bg-slate-900 text-white">All</button>
+          <button data-intent="Buy" class="intent-pill px-3 py-1 rounded-full text-xs font-bold transition-all text-slate-600 hover:text-slate-900">Buy</button>
+          <button data-intent="Rent" class="intent-pill px-3 py-1 rounded-full text-xs font-bold transition-all text-slate-600 hover:text-slate-900">Rent</button>
+        </div>
+
+        <!-- Property Type Pills -->
+        <div class="flex items-center gap-1 shrink-0">
+          <button data-type="all" class="type-pill active px-3 py-1.5 rounded-full border border-slate-300 text-xs font-bold bg-slate-900 text-white transition-all">All Types</button>
+          <button data-type="Apartment" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Apartment</button>
+          <button data-type="Villa" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Villa</button>
+          <button data-type="Penthouse" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Penthouse</button>
+        </div>
+
+        <!-- Enhanced Price Range Filter Popover -->
+        <div class="relative shrink-0">
+          <button id="price-filter-btn" class="flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-slate-300 text-xs font-bold text-slate-800 hover:border-slate-900 transition-all shadow-sm">
+            <span class="material-symbols-outlined text-[16px] text-slate-500">payments</span>
+            <span id="price-filter-label">Price Range</span>
+            <span class="material-symbols-outlined text-[16px] text-slate-400">expand_more</span>
+          </button>
+          
+          <div id="price-filter-popover" class="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl p-5 hidden z-50 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span class="text-xs font-black uppercase tracking-wider text-slate-900">Price Range Filter</span>
+              <button id="reset-price-filter" class="text-[11px] font-bold text-slate-400 hover:text-slate-900 transition-colors">Reset</button>
+            </div>
+            
+            <!-- Quick Preset Chips -->
+            <div>
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Presets</p>
+              <div class="flex flex-wrap gap-1.5">
+                <button data-preset="under1" class="price-preset-chip px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-900 transition-all">&lt; ₹1 Cr</button>
+                <button data-preset="1to5" class="price-preset-chip px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-900 transition-all">₹1 - ₹5 Cr</button>
+                <button data-preset="5to15" class="price-preset-chip px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-900 transition-all">₹5 - ₹15 Cr</button>
+                <button data-preset="above15" class="price-preset-chip px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-900 transition-all">₹15 Cr+</button>
+              </div>
+            </div>
+
+            <!-- Custom Min & Max Inputs -->
+            <div>
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Custom Range (₹ Cr)</p>
+              <div class="flex items-center gap-2">
+                <div class="flex-1 relative">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                  <input type="number" id="search-price-min" step="0.5" placeholder="Min Cr" class="w-full pl-6 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-slate-900 focus:bg-white transition-colors">
+                </div>
+                <span class="text-slate-300 text-xs font-black">—</span>
+                <div class="flex-1 relative">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                  <input type="number" id="search-price-max" step="0.5" placeholder="Max Cr" class="w-full pl-6 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-slate-900 focus:bg-white transition-colors">
+                </div>
+              </div>
+              <div class="mt-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Adjust range (₹ Cr)</span>
+                  <span id="price-range-value" class="text-xs font-extrabold text-slate-900">Any price</span>
+                </div>
+                <div class="price-range-control">
+                  <div class="price-range-track"><div id="price-range-fill"></div></div>
+                  <input type="range" id="search-price-min-range" min="0" max="100" step="1" value="0" aria-label="Minimum price in crore">
+                  <input type="range" id="search-price-max-range" min="0" max="100" step="1" value="100" aria-label="Maximum price in crore">
+                </div>
+                <div class="flex justify-between mt-2 text-[10px] font-semibold text-slate-400" aria-hidden="true">
+                  <span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100+</span>
+                </div>
+              </div>
+            </div>
+
+            <button id="apply-price-filter" class="w-full bg-slate-900 text-white text-xs font-extrabold uppercase tracking-wider py-2.5 rounded-xl hover:bg-slate-800 transition-all shadow-md active:scale-95">Apply Price Filter</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Main View Area -->
+  <main id="search-main-container" class="relative flex-1 max-w-[1440px] mx-auto w-full flex flex-col lg:flex-row min-h-[calc(100vh-140px)]">
+    
+    <!-- Leaflet Map Section (Background map on Mobile, Right column on Desktop) -->
+    <section id="search-map-section" class="w-full h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)] lg:w-[42%] xl:w-[40%] lg:sticky lg:top-[140px] lg:border-l lg:border-slate-200 shrink-0 lg:order-2">
+      <div id="search-map" class="w-full h-full"></div>
+    </section>
+
+    <!-- Draggable Bottom Sheet (Mobile Airbnb style) / Left Grid (Desktop) -->
+    <section id="search-list-section" class="w-full lg:w-[58%] xl:w-[60%] lg:order-1 flex flex-col">
+      
+      <!-- Drag Handle Bar (Mobile only) -->
+      <div id="sheet-drag-handle" class="lg:hidden shrink-0 pt-3 pb-2 cursor-grab active:cursor-grabbing flex flex-col items-center select-none touch-none bg-white rounded-t-3xl border-b border-slate-100">
+        <div class="w-12 h-1.5 bg-slate-300 rounded-full mb-1"></div>
+        <p class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400" id="sheet-drag-title">Pull up to view listings</p>
+      </div>
+
+      <!-- Scrollable Container -->
+      <div id="sheet-scroll-area" class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- Results Summary Header -->
+        <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+          <div>
+            <h1 class="text-xl md:text-2xl font-black text-slate-900 tracking-tight" id="search-results-title">
+              Search Properties
+            </h1>
+            <p class="text-xs md:text-sm font-medium text-slate-500 mt-1 flex items-center gap-1">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+              Prices include all fees & verified listings
+            </p>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-extrabold uppercase tracking-widest text-slate-400" id="search-results-count">
+              Loading...
+            </span>
+          </div>
+        </div>
+
+        <!-- Listings Grid (2 columns on sm+, 1 column on mobile) -->
+        <div id="search-listings-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-6 min-h-[400px]">
+          <!-- Listing Cards injected dynamically by auth.js -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Floating Bottom Action Button (Show Map / Show List) -->
+  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 lg:hidden">
+    <button id="floating-toggle-btn" class="bg-slate-900/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider hover:bg-slate-900 transition-all border border-white/20 active:scale-95">
+      <span class="material-symbols-outlined text-[18px]" id="floating-toggle-icon">map</span>
+      <span id="floating-toggle-text">Show Map</span>
+    </button>
+  </div>
+
+  <!-- Mobile Menu Backdrop & Navigation -->
+  <div id="mobile-menu-backdrop" class="fixed inset-0 bg-slate-900/50 z-[60] hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
+  <nav id="mobile-menu" class="fixed right-0 top-0 bottom-0 w-64 bg-white z-[70] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col p-6 md:hidden">
+    <div class="flex items-center justify-between mb-8">
+      <span class="text-xl font-black tracking-tighter text-slate-900">Menu</span>
+      <button id="close-mobile-menu" class="text-slate-500 hover:text-slate-900">
+        <span class="material-symbols-outlined text-[28px]">close</span>
+      </button>
+    </div>
+    <div class="flex flex-col gap-6">
+      <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="/properties.html?intent=Buy">Sell</a>
+      <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="/properties.html?intent=Rent">Rent</a>
+      <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="/search.html">Search Page</a>
+      <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="/sell.html">Sell</a>
+    </div>
+  </nav>
+
+</body>
+</html>

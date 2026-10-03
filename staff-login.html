@@ -65,8 +65,8 @@
       <!-- Sign In Form -->
       <form class="space-y-6">
         <div id="broker-name-field" style="display: none;">
-          <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Company/Full Name</label>
-          <input type="text" id="input-name" placeholder="John Doe or Luxury Realty" class="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-slate-900 transition-colors font-medium">
+          <label id="name-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Full Name</label>
+          <input type="text" id="input-name" placeholder="Your full name" class="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-slate-900 transition-colors font-medium">
         </div>
         
         <div>
@@ -82,6 +82,12 @@
         <button id="sign-in-btn" type="button" class="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-800 transition-colors shadow-lg active:scale-[0.98]">
           Sign In
         </button>
+
+        <div class="text-center mt-4 mb-2">
+          <p class="text-sm text-slate-500 font-medium" id="mode-text">Don't have an account? <button
+              id="toggle-mode-btn" type="button" class="font-bold text-slate-900 hover:underline ml-1">Sign
+              Up</button></p>
+        </div>
 
       </form>
 

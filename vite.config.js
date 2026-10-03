@@ -38,7 +38,8 @@ export default defineConfig({
         privacy: 'privacy.html',
         staffLogin: 'staff-login.html',
         sitemap: 'sitemap.html',
-        sharedFilter: 'shared-filter.html'
+        sharedFilter: 'shared-filter.html',
+        search: 'search.html'
       }
     }
   }

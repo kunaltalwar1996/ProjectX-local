@@ -386,8 +386,8 @@ window.hasProfanity = hasProfanity;
 
 // ─── Route Maps ───────────────────────────────────────────────────────────────
 
-const buyerPages = ['index.html', 'properties.html', 'map.html', 'property-details.html', 'sell.html', 'profile.html', 'shared-filter.html'];
-const guestPages  = ['index.html', 'properties.html', 'map.html', 'property-details.html', 'sell.html', 'shared-filter.html'];
+const buyerPages = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'sell.html', 'profile.html', 'shared-filter.html'];
+const guestPages  = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'sell.html', 'shared-filter.html'];
 
 const roleHomePage = {
     'Admin':    'admin-panel.html',
@@ -398,9 +398,9 @@ const roleHomePage = {
 };
 
 const roleAllowedPages = {
-    'Admin':    ['admin-panel.html', 'employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
-    'Employee': ['employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
-    'Broker':   ['broker-dashboard.html', 'properties.html', 'map.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Admin':    ['admin-panel.html', 'employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Employee': ['employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Broker':   ['broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
     'Buyer':    buyerPages,
     'Guest':    guestPages
 };
@@ -705,6 +705,11 @@ function initAppPage() {
 
                 if (isSignUp && !name) {
                     showToast('Please enter your name to create an account.');
+                    return;
+                }
+
+                if (isSignUp && password.length < 8) {
+                    showToast('Password must be at least 8 characters.');
                     return;
                 }
 
@@ -3335,6 +3340,8 @@ function initBuyerPageInteractions() {
 
     if (currentPage === 'index.html') {
         initBuyerHomePage();
+    } else if (currentPage === 'search.html') {
+        initBuyerSearchPage();
     } else if (currentPage === 'properties.html') {
         initBuyerListingsPage();
     } else if (currentPage === 'map.html') {
@@ -3383,7 +3390,7 @@ async function initBuyerHomePage() {
     if (searchBtn && searchInput) {
         searchBtn.onclick = () => {
             const val = searchInput.value.trim();
-            navigateTo(`map.html${val ? `?q=${encodeURIComponent(val)}` : ''}`);
+            navigateTo(`search.html${val ? `?q=${encodeURIComponent(val)}` : ''}`);
         };
         searchInput.onkeypress = (e) => { if (e.key === 'Enter') searchBtn.click(); };
 
@@ -3407,7 +3414,7 @@ async function initBuyerHomePage() {
                                     div.onclick = () => {
                                         searchInput.value = item.display_name.split(',')[0];
                                         resultsContainer.classList.add('hidden');
-                                        navigateTo(`map.html?lat=${item.lat}&lng=${item.lon}&q=${encodeURIComponent(item.display_name)}`);
+                                        navigateTo(`search.html?lat=${item.lat}&lng=${item.lon}&q=${encodeURIComponent(item.display_name)}`);
                                     };
                                     resultsContainer.appendChild(div);
                                 });
@@ -3823,21 +3830,629 @@ async function initBuyerListingsPage() {
     }
 }
 
-async function initBuyerMapPage() {
-  function formatMapPrice(price, intent) {
+function formatMapPrice(price, intent) {
     return formatListingPrice(price, intent);
-  }
+}
 
+async function initBuyerSearchPage() {
+    console.log('Initializing Search Page with Supabase and Leaflet...');
+    const searchInput = document.getElementById('search-page-location');
+    const searchBtn = document.getElementById('search-page-btn');
+    const resultsContainer = document.getElementById('search-page-results');
+    const gridContainer = document.getElementById('search-listings-grid');
+    const countEl = document.getElementById('search-results-count');
+    const titleEl = document.getElementById('search-results-title');
+    const priceBtn = document.getElementById('price-filter-btn');
+    const pricePopover = document.getElementById('price-filter-popover');
+    const applyPriceBtn = document.getElementById('apply-price-filter');
+    const resetPriceBtn = document.getElementById('reset-price-filter');
+    const priceMinInput = document.getElementById('search-price-min');
+    const priceMaxInput = document.getElementById('search-price-max');
+    const priceLabel = document.getElementById('price-filter-label');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const qParam = urlParams.get('q') || '';
+    const latParam = urlParams.get('lat');
+    const lngParam = urlParams.get('lng');
+
+    let currentQuery = qParam;
+    let activeIntent = 'all';
+    let activeType = 'all';
+    let priceMin = null;
+    let priceMax = null;
+
+    if (searchInput && qParam) {
+        searchInput.value = qParam;
+    }
+
+    const mapContainer = document.getElementById('search-map');
+    if (!mapContainer || typeof L === 'undefined') return;
+
+    let center = [19.0760, 72.8777]; // Default Mumbai
+    let zoom = 12;
+
+    if (latParam && lngParam) {
+        center = [parseFloat(latParam), parseFloat(lngParam)];
+        zoom = 14;
+    }
+
+    const map = L.map('search-map', {
+        center: center,
+        zoom: zoom,
+        zoomControl: false
+    });
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | ProjectX',
+        maxZoom: 19
+    }).addTo(map);
+
+    setTimeout(() => map.invalidateSize(), 300);
+
+    // Coordinate mapping for listings missing exact lat/lng
+    const defaultCoordsMap = {
+        'marine drive': [18.9438, 72.8233],
+        'bkc': [19.0667, 72.8687],
+        'mumbai': [19.0760, 72.8777],
+        'bandra': [19.0596, 72.8295],
+        'powai': [19.1176, 72.9060],
+        'delhi': [28.6139, 77.2090],
+        'vasant vihar': [28.5562, 77.1610],
+        'connaught place': [28.6315, 77.2167],
+        'saket': [28.5244, 77.2100],
+        'pune': [18.5204, 73.8567],
+        'hinjewadi': [18.5912, 73.7389],
+        'koregaon': [18.5362, 73.8940],
+        'bangalore': [12.9716, 77.5946]
+    };
+
+    function resolveCoords(l, index) {
+        if (l.lat !== null && l.lng !== null && !isNaN(parseFloat(l.lat)) && !isNaN(parseFloat(l.lng))) {
+            return { lat: parseFloat(l.lat), lng: parseFloat(l.lng) };
+        }
+        const locLower = (l.location || '').toLowerCase();
+        for (const [key, coords] of Object.entries(defaultCoordsMap)) {
+            if (locLower.includes(key)) {
+                return { lat: coords[0] + (index * 0.005), lng: coords[1] + (index * 0.005) };
+            }
+        }
+        return { lat: 19.0760 + ((index - 2) * 0.015), lng: 72.8777 + ((index - 2) * 0.015) };
+    }
+
+    // Fetch active listings from Supabase
+    let rawListings = (await getListings()).filter(l => l.status === 'Active');
+
+    let markersData = rawListings.map((l, index) => {
+        const coords = resolveCoords(l, index);
+        return {
+            ...l,
+            priceNum: parseFloat(l.price) || 0,
+            lat: coords.lat,
+            lng: coords.lng
+        };
+    });
+
+    let mapMarkers = [];
+    let activeCardId = null;
+
+    function formatCardPrice(price, intent) {
+        const p = parseFloat(price);
+        if (intent === 'Rent') {
+            return `₹${p.toLocaleString('en-IN')}<span class="text-xs font-normal text-slate-500"> / mo</span>`;
+        }
+        if (p >= 1) {
+            return `₹${p} Cr`;
+        }
+        const lakhs = Math.round(p * 100);
+        return `₹${lakhs} Lakhs`;
+    }
+
+    function formatPinPrice(price, intent) {
+        const p = parseFloat(price);
+        if (intent === 'Rent') {
+            return `₹${p >= 1000 ? (p/1000).toFixed(0) + 'k' : p}`;
+        }
+        if (p >= 1) return `₹${p}Cr`;
+        return `₹${Math.round(p * 100)}L`;
+    }
+
+    function getFilteredListings() {
+        return markersData.filter(l => {
+            if (activeIntent !== 'all' && l.intent !== activeIntent) return false;
+            if (activeType !== 'all' && l.type !== activeType) return false;
+            if (priceMin !== null && !isNaN(priceMin) && l.priceNum < priceMin) return false;
+            if (priceMax !== null && !isNaN(priceMax) && l.priceNum > priceMax) return false;
+            if (currentQuery) {
+                const q = currentQuery.toLowerCase();
+                const match = (l.title && l.title.toLowerCase().includes(q)) ||
+                              (l.location && l.location.toLowerCase().includes(q)) ||
+                              (l.type && l.type.toLowerCase().includes(q));
+                if (!match) return false;
+            }
+            return true;
+        });
+    }
+
+    function renderMapAndListings() {
+        mapMarkers.forEach(m => map.removeLayer(m.marker));
+        mapMarkers = [];
+
+        const filtered = getFilteredListings();
+
+        if (titleEl) {
+            if (currentQuery) {
+                titleEl.textContent = `Over ${filtered.length} homes in ${currentQuery.split(',')[0]}`;
+            } else {
+                titleEl.textContent = `Over ${filtered.length} verified homes`;
+            }
+        }
+        if (countEl) {
+            countEl.textContent = `${filtered.length} PROPERTIES FOUND`;
+        }
+
+        const bounds = [];
+        filtered.forEach(l => {
+            if (l.lat === null || l.lng === null || isNaN(l.lat) || isNaN(l.lng)) return;
+
+            const isRent = l.intent === 'Rent';
+            const pinClass = isRent ? 'search-price-pin rent-pin' : 'search-price-pin';
+            
+            const icon = L.divIcon({
+                className: 'search-pin-container',
+                html: `<div id="search-pin-${l.id}" class="${pinClass}">${formatPinPrice(l.priceNum, l.intent)}</div>`,
+                iconSize: [0, 0],
+                iconAnchor: [0, 0]
+            });
+
+            const marker = L.marker([l.lat, l.lng], { icon }).addTo(map);
+            bounds.push([l.lat, l.lng]);
+
+            marker.bindPopup(`
+                <div class="p-2 min-w-[160px] text-left">
+                    <h4 class="font-bold text-sm text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h4>
+                    <p class="text-xs font-medium text-slate-500 mt-0.5">${escHtml(l.title || '')}</p>
+                    <button onclick="window.location.href='property-details.html?id=${l.id}'" class="mt-3 w-full bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold hover:bg-slate-800 transition-colors">View Property</button>
+                </div>
+            `, { closeButton: false, offset: [0, -20] });
+
+            marker.on('click', () => {
+                highlightCard(l.id);
+            });
+
+            mapMarkers.push({ id: l.id, marker, data: l });
+        });
+
+        if (bounds.length > 0 && !latParam) {
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+        }
+
+        if (!gridContainer) return;
+
+        if (filtered.length === 0) {
+            gridContainer.innerHTML = `
+                <div class="col-span-full py-16 text-center text-slate-500 space-y-3">
+                    <span class="material-symbols-outlined text-[48px] text-slate-300">search_off</span>
+                    <p class="text-base font-bold text-slate-700">No properties match your search criteria</p>
+                    <p class="text-xs text-slate-400">Try adjusting your filters or location search query.</p>
+                </div>`;
+            return;
+        }
+
+        let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
+
+        gridContainer.innerHTML = filtered.map(l => {
+            const isSaved = saved.includes(l.id);
+            const isRent = l.intent === 'Rent';
+            return `
+            <div id="search-card-${l.id}" 
+              class="search-card cursor-pointer bg-white rounded-3xl border border-slate-200 hover:border-slate-400 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col group"
+              onclick="window.location.href='property-details.html?id=${l.id}'"
+              onmouseenter="window.hoverSearchCard(${l.id})"
+              onmouseleave="window.unhoverSearchCard(${l.id})">
+              
+              <div class="aspect-[4/3] overflow-hidden relative bg-slate-100">
+                <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                
+                <div class="absolute top-3 left-3 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-slate-900">
+                  ${isRent ? 'For Rent' : 'For Sale'}
+                </div>
+                
+                <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur text-white px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px] text-amber-400" style="font-variation-settings: 'FILL' 1;">star</span> 5.0
+                </div>
+
+                <div class="absolute bottom-3 right-3 flex items-center gap-2">
+                  <button class="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-slate-400 hover:text-red-500 flex items-center justify-center shadow-md transition-colors"
+                    onclick="event.stopPropagation(); window.openReportModal('listing', ${l.id}, '${escHtml(l.title || '')}');" title="Report Listing">
+                    <span class="material-symbols-outlined text-[18px]">flag</span>
+                  </button>
+                  <button class="w-8 h-8 rounded-full bg-white/90 backdrop-blur ${isSaved ? 'text-red-500' : 'text-slate-400 hover:text-red-500'} flex items-center justify-center shadow-md transition-colors"
+                    onclick="event.stopPropagation(); window.toggleSearchFavorite(event, ${l.id})">
+                    <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' ${isSaved ? '1' : '0'};">favorite</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-5 flex-1 flex flex-col justify-between">
+                <div>
+                  <div class="flex justify-between items-baseline mb-1">
+                    <h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${escHtml(l.type || 'Property')}</span>
+                  </div>
+                  <h4 class="text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4>
+                  <p class="text-xs font-medium text-slate-500 truncate mb-4">${escHtml(l.location || '')}</p>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-medium">
+                  <div class="flex items-center gap-3">
+                    <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bed</span> ${l.beds || 0} beds</span>
+                    <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bathtub</span> ${l.baths || 0} baths</span>
+                  </div>
+                  <span class="flex items-center gap-1 font-bold text-slate-700">${(l.sqft || 0).toLocaleString()} sqft</span>
+                </div>
+              </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    function highlightCard(id) {
+        activeCardId = id;
+        document.querySelectorAll('.search-card').forEach(c => {
+            c.classList.remove('ring-4', 'ring-slate-900', 'shadow-2xl');
+        });
+        const card = document.getElementById(`search-card-${id}`);
+        if (card) {
+            card.classList.add('ring-4', 'ring-slate-900', 'shadow-2xl');
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        mapMarkers.forEach(m => {
+            const pinEl = document.getElementById(`search-pin-${m.id}`);
+            if (pinEl) {
+                if (m.id == id) {
+                    pinEl.classList.add('active-pin');
+                } else {
+                    pinEl.classList.remove('active-pin');
+                }
+            }
+        });
+    }
+
+    window.hoverSearchCard = function(id) {
+        const pinEl = document.getElementById(`search-pin-${id}`);
+        if (pinEl) pinEl.classList.add('active-pin');
+    };
+
+    window.unhoverSearchCard = function(id) {
+        if (activeCardId == id) return;
+        const pinEl = document.getElementById(`search-pin-${id}`);
+        if (pinEl) pinEl.classList.remove('active-pin');
+    };
+
+    window.toggleSearchFavorite = async function(e, id) {
+        e.stopPropagation();
+        let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
+        if (saved.includes(id)) {
+            saved = saved.filter(savedId => savedId != id);
+            showToast('Removed from saved properties');
+        } else {
+            saved.push(id);
+            showToast('Saved to your favorites');
+        }
+        localStorage.setItem('savedProperties', JSON.stringify(saved));
+        renderMapAndListings();
+    };
+
+    // View Mode Switcher (Split, List, Map)
+    const listSection = document.getElementById('search-list-section');
+    const mapSection = document.getElementById('search-map-section');
+
+    document.querySelectorAll('.view-mode-pill').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.view-mode-pill').forEach(b => {
+                b.classList.remove('active', 'bg-slate-900', 'text-white');
+                b.classList.add('text-slate-600');
+            });
+            btn.classList.add('active', 'bg-slate-900', 'text-white');
+            btn.classList.remove('text-slate-600');
+
+            const view = btn.dataset.view;
+            if (view === 'split') {
+                if (listSection) {
+                    listSection.classList.remove('hidden', 'w-full');
+                    listSection.classList.add('w-full', 'lg:w-[58%]', 'xl:w-[60%]');
+                }
+                if (mapSection) {
+                    mapSection.classList.remove('hidden', 'w-full', 'h-[calc(100vh-140px)]');
+                    mapSection.classList.add('w-full', 'lg:w-[42%]', 'xl:w-[40%]', 'h-[450px]', 'lg:h-[calc(100vh-140px)]');
+                }
+            } else if (view === 'list') {
+                if (listSection) {
+                    listSection.classList.remove('hidden', 'lg:w-[58%]', 'xl:w-[60%]');
+                    listSection.classList.add('w-full');
+                }
+                if (mapSection) {
+                    mapSection.classList.add('hidden');
+                }
+            } else if (view === 'map') {
+                if (listSection) {
+                    listSection.classList.add('hidden');
+                }
+                if (mapSection) {
+                    mapSection.classList.remove('hidden', 'lg:w-[42%]', 'xl:w-[40%]', 'h-[450px]');
+                    mapSection.classList.add('w-full', 'h-[calc(100vh-140px)]');
+                }
+            }
+            setTimeout(() => { map.invalidateSize(); }, 100);
+        };
+    });
+
+    // Location Search Autocomplete Handlers
+    let debounceTimer;
+    if (searchInput && resultsContainer) {
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            const query = e.target.value.trim();
+            if (query.length < 3) {
+                resultsContainer.classList.add('hidden');
+                resultsContainer.classList.remove('flex');
+                return;
+            }
+            debounceTimer = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=IN&limit=5`)
+                    .then(res => res.json())
+                    .then(data => {
+                        resultsContainer.innerHTML = '';
+                        if (data.length === 0) {
+                            resultsContainer.innerHTML = '<div class="p-4 text-xs text-slate-500 font-medium">No locations found.</div>';
+                        } else {
+                            data.forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 flex items-center gap-3 transition-colors';
+                                div.innerHTML = `<span class="material-symbols-outlined text-slate-400 text-[18px]">location_on</span><span class="text-xs font-bold text-slate-700 truncate">${item.display_name}</span>`;
+                                div.onclick = () => {
+                                    searchInput.value = item.display_name.split(',')[0];
+                                    resultsContainer.classList.add('hidden');
+                                    resultsContainer.classList.remove('flex');
+                                    currentQuery = item.display_name.split(',')[0];
+                                    map.flyTo([item.lat, item.lon], 14, { animate: true, duration: 1 });
+                                    renderMapAndListings();
+                                };
+                                resultsContainer.appendChild(div);
+                            });
+                        }
+                        resultsContainer.classList.remove('hidden');
+                        resultsContainer.classList.add('flex');
+                    });
+            }, 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                resultsContainer.classList.add('hidden');
+                resultsContainer.classList.remove('flex');
+            }
+        });
+    }
+
+    if (searchBtn && searchInput) {
+        searchBtn.onclick = () => {
+            const val = searchInput.value.trim();
+            currentQuery = val;
+            if (val) {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&countrycodes=IN&limit=1`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.length > 0) {
+                            map.flyTo([data[0].lat, data[0].lon], 14, { animate: true, duration: 1 });
+                        }
+                    });
+            }
+            renderMapAndListings();
+        };
+        searchInput.onkeypress = (e) => { if (e.key === 'Enter') searchBtn.click(); };
+    }
+
+    document.querySelectorAll('.intent-pill').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.intent-pill').forEach(b => {
+                b.classList.remove('bg-slate-900', 'text-white', 'active');
+                b.classList.add('text-slate-600');
+            });
+            btn.classList.add('bg-slate-900', 'text-white', 'active');
+            btn.classList.remove('text-slate-600');
+            activeIntent = btn.dataset.intent;
+            renderMapAndListings();
+        };
+    });
+
+    document.querySelectorAll('.type-pill').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.type-pill').forEach(b => {
+                b.classList.remove('bg-slate-900', 'text-white', 'border-slate-300', 'active');
+                b.classList.add('border-slate-200', 'text-slate-600');
+            });
+            btn.classList.add('bg-slate-900', 'text-white', 'border-slate-300', 'active');
+            btn.classList.remove('border-slate-200', 'text-slate-600');
+            activeType = btn.dataset.type;
+            renderMapAndListings();
+        };
+    });
+
+    // Price Filter Popover
+    if (priceBtn && pricePopover) {
+        priceBtn.onclick = (e) => {
+            e.stopPropagation();
+            pricePopover.classList.toggle('hidden');
+        };
+        document.addEventListener('click', (e) => {
+            if (!priceBtn.contains(e.target) && !pricePopover.contains(e.target)) {
+                pricePopover.classList.add('hidden');
+            }
+        });
+    }
+
+    // Mobile Bottom Sheet Drag & Floating Button Logic
+    const dragHandle = document.getElementById('sheet-drag-handle');
+    const floatingBtn = document.getElementById('floating-toggle-btn');
+    const floatingIcon = document.getElementById('floating-toggle-icon');
+    const floatingText = document.getElementById('floating-toggle-text');
+    const dragTitle = document.getElementById('sheet-drag-title');
+
+    let currentSheetState = 'half';
+
+    function isMobileView() {
+        return window.innerWidth < 1024;
+    }
+
+    function setSheetHeight(heightVh, animate = true) {
+        if (!listSection || !isMobileView()) return;
+        if (animate) {
+            listSection.style.transition = 'height 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+        } else {
+            listSection.style.transition = 'none';
+        }
+        listSection.style.height = `${heightVh}vh`;
+
+        if (heightVh <= 20) {
+            currentSheetState = 'peek';
+            if (floatingText) floatingText.textContent = 'Show List';
+            if (floatingIcon) floatingIcon.textContent = 'view_list';
+            if (dragTitle) dragTitle.textContent = 'Pull up to view listings';
+        } else {
+            currentSheetState = 'half';
+            if (floatingText) floatingText.textContent = 'Show Map';
+            if (floatingIcon) floatingIcon.textContent = 'map';
+            if (dragTitle) dragTitle.textContent = 'Swipe to resize';
+        }
+        setTimeout(() => map.invalidateSize(), 350);
+    }
+
+    if (floatingBtn) {
+        floatingBtn.onclick = () => {
+            if (currentSheetState === 'peek') {
+                setSheetHeight(52);
+            } else {
+                setSheetHeight(12);
+            }
+        };
+    }
+
+    if (dragHandle && listSection) {
+        let startY = 0;
+        let startHeight = 0;
+        let isDragging = false;
+
+        const onDragStart = (clientY) => {
+            if (!isMobileView()) return;
+            isDragging = true;
+            startY = clientY;
+            startHeight = listSection.offsetHeight;
+            listSection.style.transition = 'none';
+        };
+
+        const onDragMove = (clientY) => {
+            if (!isDragging || !isMobileView()) return;
+            const deltaY = startY - clientY;
+            const newHeightPx = startHeight + deltaY;
+            const newHeightVh = (newHeightPx / window.innerHeight) * 100;
+            const clampedVh = Math.max(10, Math.min(90, newHeightVh));
+            listSection.style.height = `${clampedVh}vh`;
+        };
+
+        const onDragEnd = () => {
+            if (!isDragging || !isMobileView()) return;
+            isDragging = false;
+            const currentVh = (listSection.offsetHeight / window.innerHeight) * 100;
+            if (currentVh < 25) {
+                setSheetHeight(12);
+            } else if (currentVh < 70) {
+                setSheetHeight(52);
+            } else {
+                setSheetHeight(88);
+            }
+        };
+
+        dragHandle.addEventListener('touchstart', (e) => onDragStart(e.touches[0].clientY), { passive: true });
+        window.addEventListener('touchmove', (e) => { if (isDragging) onDragMove(e.touches[0].clientY); }, { passive: true });
+        window.addEventListener('touchend', onDragEnd);
+
+        dragHandle.addEventListener('mousedown', (e) => onDragStart(e.clientY));
+        window.addEventListener('mousemove', (e) => { if (isDragging) onDragMove(e.clientY); });
+        window.addEventListener('mouseup', onDragEnd);
+    }
+
+    // Price Preset Chips
+    document.querySelectorAll('.price-preset-chip').forEach(chip => {
+        chip.onclick = () => {
+            document.querySelectorAll('.price-preset-chip').forEach(c => {
+                c.classList.remove('bg-slate-900', 'text-white', 'border-slate-900');
+                c.classList.add('border-slate-200', 'text-slate-700');
+            });
+            chip.classList.add('bg-slate-900', 'text-white', 'border-slate-900');
+            chip.classList.remove('border-slate-200', 'text-slate-700');
+
+            const preset = chip.dataset.preset;
+            if (preset === 'under1') { priceMin = 0; priceMax = 1; }
+            else if (preset === '1to5') { priceMin = 1; priceMax = 5; }
+            else if (preset === '5to15') { priceMin = 5; priceMax = 15; }
+            else if (preset === 'above15') { priceMin = 15; priceMax = null; }
+
+            if (priceMinInput) priceMinInput.value = priceMin !== null ? priceMin : '';
+            if (priceMaxInput) priceMaxInput.value = priceMax !== null ? priceMax : '';
+        };
+    });
+
+    if (resetPriceBtn) {
+        resetPriceBtn.onclick = () => {
+            priceMin = null;
+            priceMax = null;
+            if (priceMinInput) priceMinInput.value = '';
+            if (priceMaxInput) priceMaxInput.value = '';
+            document.querySelectorAll('.price-preset-chip').forEach(c => {
+                c.classList.remove('bg-slate-900', 'text-white', 'border-slate-900');
+                c.classList.add('border-slate-200', 'text-slate-700');
+            });
+            if (priceLabel) priceLabel.textContent = 'Price Range';
+            if (pricePopover) pricePopover.classList.add('hidden');
+            renderMapAndListings();
+        };
+    }
+
+    if (applyPriceBtn) {
+        applyPriceBtn.onclick = () => {
+            const minVal = parseFloat(priceMinInput.value);
+            const maxVal = parseFloat(priceMaxInput.value);
+            priceMin = !isNaN(minVal) ? minVal : null;
+            priceMax = !isNaN(maxVal) ? maxVal : null;
+
+            if (priceMin !== null && priceMax !== null) {
+                priceLabel.textContent = `₹${priceMin} - ₹${priceMax} Cr`;
+            } else if (priceMin !== null) {
+                priceLabel.textContent = `₹${priceMin}+ Cr`;
+            } else if (priceMax !== null) {
+                priceLabel.textContent = `Up to ₹${priceMax} Cr`;
+            } else {
+                priceLabel.textContent = 'Price Range';
+            }
+
+            if (pricePopover) pricePopover.classList.add('hidden');
+            renderMapAndListings();
+        };
+    }
+
+    renderMapAndListings();
+}
+
+async function initBuyerMapPage() {
     console.log('Initializing Map with Supabase data...');
     if (typeof L === 'undefined') {
         console.error('Leaflet is not loaded!');
         return;
     }
-
-    const indiaBounds = L.latLngBounds(
-        L.latLng(6.5, 68.1), // Southwest
-        L.latLng(35.6, 97.4)  // Northeast
-    );
 
     const urlParams = new URLSearchParams(window.location.search);
     const latParam = urlParams.get('lat');
@@ -3855,8 +4470,6 @@ async function initBuyerMapPage() {
     const map = L.map('map', {
         center: initialCenter,
         zoom: initialZoom,
-        maxBounds: indiaBounds,
-        maxBoundsViscosity: 1.0, 
         zoomControl: false
     });
     
@@ -3866,14 +4479,11 @@ async function initBuyerMapPage() {
         }, 800);
     }
     
-    map.setMinZoom(map.getBoundsZoom(indiaBounds));
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; ProjectX India',
-        subdomains: 'abcd',
-        maxZoom: 18,
-        bounds: indiaBounds
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors | ProjectX',
+        maxZoom: 19
     }).addTo(map);
 
     document.getElementById('map').style.background = '#ebebeb';
@@ -3881,12 +4491,41 @@ async function initBuyerMapPage() {
     // Load Listings from Supabase
     const listings = (await getListings()).filter(l => l.status === 'Active');
     
-    // Filter to those with coordinates
-    const markersData = listings.filter(l => l.lat !== null && l.lng !== null).map(l => {
-        return { ...l, lat: parseFloat(l.lat), lng: parseFloat(l.lng) };
+    const defaultCoordsMap = {
+        'marine drive': [18.9438, 72.8233],
+        'bkc': [19.0667, 72.8687],
+        'mumbai': [19.0760, 72.8777],
+        'bandra': [19.0596, 72.8295],
+        'powai': [19.1176, 72.9060],
+        'delhi': [28.6139, 77.2090],
+        'vasant vihar': [28.5562, 77.1610],
+        'connaught place': [28.6315, 77.2167],
+        'saket': [28.5244, 77.2100],
+        'pune': [18.5204, 73.8567],
+        'hinjewadi': [18.5912, 73.7389],
+        'koregaon': [18.5362, 73.8940],
+        'bangalore': [12.9716, 77.5946]
+    };
+
+    function resolveMapCoords(l, index) {
+        if (l.lat !== null && l.lng !== null && !isNaN(parseFloat(l.lat)) && !isNaN(parseFloat(l.lng))) {
+            return { lat: parseFloat(l.lat), lng: parseFloat(l.lng) };
+        }
+        const locLower = (l.location || '').toLowerCase();
+        for (const [key, coords] of Object.entries(defaultCoordsMap)) {
+            if (locLower.includes(key)) {
+                return { lat: coords[0] + (index * 0.005), lng: coords[1] + (index * 0.005) };
+            }
+        }
+        return { lat: 19.0760 + ((index - 2) * 0.015), lng: 72.8777 + ((index - 2) * 0.015) };
+    }
+
+    const markersData = listings.map((l, index) => {
+        const c = resolveMapCoords(l, index);
+        return { ...l, lat: c.lat, lng: c.lng };
     });
 
-    const withoutCoords = listings.filter(l => l.lat === null || l.lng === null);
+    const withoutCoords = [];
 
     const markers = [];
     let activeListingId = null;

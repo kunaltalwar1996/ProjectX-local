@@ -107,7 +107,10 @@
 <h1 class="font-h2 text-h2 text-on-background mb-1">Employee Operations Panel</h1>
 <p class="font-body-md text-body-md text-on-surface-variant">Manage listings, support requests, and platform moderation.</p>
 </div>
-<div class="flex gap-3">
+<div class="flex gap-3 items-center">
+<button id="create-staff-btn" class="bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold text-sm hover:bg-slate-700 transition-colors flex items-center gap-2">
+  <span class="material-symbols-outlined text-[18px]">person_add</span> Create Staff Account
+</button>
 <span class="inline-flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full font-label-caps text-label-caps text-on-surface">
 <span class="w-2 h-2 rounded-full bg-secondary"></span>
                         System Operational
@@ -245,6 +248,44 @@
 </div>
 </div>
 </main>
+<!-- Create Staff Modal -->
+<div id="create-staff-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 transform scale-95 transition-transform duration-300" id="create-staff-inner">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div>
+        <h3 class="text-lg font-black text-slate-900">Create Staff Account</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Creates a new Employee or Admin login. Share credentials privately.</p>
+      </div>
+      <button id="close-staff-modal" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Full Name</label>
+        <input id="staff-name" type="text" placeholder="e.g. Rahul Sharma" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all"/>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Email Address</label>
+        <input id="staff-email" type="email" placeholder="employee@company.com" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all"/>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Role</label>
+        <select id="staff-role" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 transition-all">
+          <option value="Employee">Employee</option>
+          <option value="Admin">Admin</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Password</label>
+        <input id="staff-password" type="password" placeholder="Min. 8 characters" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all"/>
+      </div>
+      <button id="submit-staff-btn" class="w-full bg-slate-900 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-colors mt-2">
+        Create Account
+      </button>
+    </div>
+  </div>
+</div>
 <script type="module">
 import { supabase } from './lib/supabase.js';
 
@@ -850,6 +891,79 @@ if (mobileMenuBtn && sidebar && backdrop) {
     });
   });
 }
+
+const staffModal = document.getElementById('create-staff-modal');
+const staffInner = document.getElementById('create-staff-inner');
+
+function openStaffModal() {
+  staffModal.classList.remove('opacity-0', 'pointer-events-none');
+  setTimeout(() => staffInner.classList.remove('scale-95'), 10);
+}
+function closeStaffModal() {
+  staffModal.classList.add('opacity-0', 'pointer-events-none');
+  staffInner.classList.add('scale-95');
+  document.getElementById('staff-name').value = '';
+  document.getElementById('staff-email').value = '';
+  document.getElementById('staff-password').value = '';
+  document.getElementById('staff-role').value = 'Employee';
+}
+
+document.getElementById('create-staff-btn')?.addEventListener('click', openStaffModal);
+document.getElementById('close-staff-modal')?.addEventListener('click', closeStaffModal);
+staffModal?.addEventListener('click', (e) => { if (e.target === staffModal) closeStaffModal(); });
+
+['staff-name', 'staff-email', 'staff-password'].forEach(id => {
+  document.getElementById(id)?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('submit-staff-btn')?.click();
+  });
+});
+
+document.getElementById('submit-staff-btn')?.addEventListener('click', async () => {
+  const full_name = document.getElementById('staff-name').value.trim();
+  const email     = document.getElementById('staff-email').value.trim();
+  const password  = document.getElementById('staff-password').value;
+  const role      = document.getElementById('staff-role').value;
+  const btn       = document.getElementById('submit-staff-btn');
+
+  if (!full_name || !email || !password) {
+    showEmployeeToast('Please fill in all fields.', true);
+    return;
+  }
+  if (password.length < 8) {
+    showEmployeeToast('Password must be at least 8 characters.', true);
+    return;
+  }
+  if (!session?.access_token) {
+    showEmployeeToast('You must be signed in to create a staff account.', true);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+
+  try {
+    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-staff-user`;
+    const res = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ full_name, email, password, role })
+    });
+
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to create account.');
+
+    showEmployeeToast(`✓ ${role} account created for ${email}`);
+    closeStaffModal();
+  } catch (err) {
+    showEmployeeToast(err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Create Account';
+  }
+});
 
 // Run boot Auth verification
 checkAuth();
