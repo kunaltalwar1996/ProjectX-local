@@ -4831,7 +4831,19 @@ async function initBuyerMapPage() {
             }
         }
 
-        const visibleListings = markersData.filter(p => bounds.contains([p.lat, p.lng]));
+        const visibleListings = markersData.filter(p => {
+            if (!bounds.contains([p.lat, p.lng])) return false;
+            if (window._mapIntentFilter && p.intent !== window._mapIntentFilter) return false;
+            const normalizedType = typeof normalizePropertyType === 'function' ? normalizePropertyType(p.type) : p.type;
+            if (window._mapTypeFilter && normalizedType !== window._mapTypeFilter) return false;
+            if (p.intent !== 'Rent' && (p.price < Number(window._mapPriceMin ?? 0) || p.price > Number(window._mapPriceMax ?? 50))) return false;
+            return true;
+        }).sort((a, b) => {
+            const mode = window._mapSort || 'newest';
+            if (mode === 'price-low') return Number(a.price) - Number(b.price);
+            if (mode === 'price-high') return Number(b.price) - Number(a.price);
+            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        });
         
         if (matchesCountEl) {
             matchesCountEl.textContent = `${visibleListings.length} MATCHES FOUND`;
@@ -4916,6 +4928,12 @@ async function initBuyerMapPage() {
         }
     }
 
+    window._refreshMapListings = () => {
+        const wasProgrammaticMove = isProgrammaticMove;
+        isProgrammaticMove = false;
+        updateSidebar();
+        isProgrammaticMove = wasProgrammaticMove;
+    };
     map.on('moveend', updateSidebar);
     setTimeout(updateSidebar, 100);
 
@@ -5089,6 +5107,7 @@ async function initBuyerDetailsPage() {
         showToast('Property not found.');
         return;
     }
+
     l.type = normalizePropertyType(l.type);
 
     // Check if the user is authorized to view non-Active properties

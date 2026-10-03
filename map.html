@@ -62,6 +62,18 @@
       color: white;
     }
     .price-slider { accent-color:#0f172a; width:100%; height:20px; }
+    .price-range-control { position:relative; height:24px; margin:0 10px; }
+    .price-range-track,.price-range-fill { position:absolute; height:6px; top:9px; border-radius:999px; }
+    .price-range-track { left:0; right:0; background:#e2e8f0; }
+    .price-range-fill { background:#0f172a; }
+    .price-range-control input[type=range] { position:absolute; inset:0; width:100%; height:24px; margin:0; pointer-events:none; appearance:none; background:transparent; }
+    .price-range-control input[type=range]::-webkit-slider-runnable-track { height:6px; background:transparent; }
+    .price-range-control input[type=range]::-moz-range-track { height:6px; background:transparent; }
+    .price-range-control input[type=range]::-webkit-slider-thumb { appearance:none; pointer-events:auto; width:20px; height:20px; border-radius:50%; margin-top:-7px; background:#0f172a; border:0; cursor:grab; }
+    .price-range-control input[type=range]::-moz-range-thumb { pointer-events:auto; width:20px; height:20px; border-radius:50%; background:#0f172a; border:0; cursor:grab; }
+    #list-price-min { z-index:2; }
+    #list-price-max { z-index:3; }
+    #list-price-min:focus, #list-price-max:focus { z-index:4; }
     .price-ticks { display:flex; justify-content:space-between; color:#64748b; font-size:10px; font-weight:700; padding:0 2px; }
     .price-ticks span { position:relative; }
     .price-ticks span::before { content:''; position:absolute; width:1px; height:5px; background:#94a3b8; top:-7px; left:50%; }
@@ -236,11 +248,20 @@
             <button data-type="Bungalow/ Villa" class="type-btn px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Bungalow/ Villa</button>
             <button data-type="Office/Commercial" class="type-btn px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Office/Commercial</button>
           </div>
+          <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <label for="map-sort" class="shrink-0">Sort by</label>
+            <select id="map-sort" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 outline-none">
+              <option value="newest">Newest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option>
+            </select>
+          </div>
           <!-- Price range -->
           <div class="price-filter space-y-1.5">
             <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400"><span>Price range (₹ Cr)</span><span id="price-range-label" class="text-slate-900">₹0 – ₹50 Cr</span></div>
-            <input type="range" id="list-price-min" class="price-slider" min="0" max="50" step="1" value="0" aria-label="Minimum price in crore">
-            <input type="range" id="list-price-max" class="price-slider" min="0" max="50" step="1" value="50" aria-label="Maximum price in crore">
+            <div class="price-range-control" id="price-range-control">
+              <div class="price-range-track"></div><div class="price-range-fill" id="price-range-fill"></div>
+              <input type="range" id="list-price-min" min="0" max="50" step="0.1" value="0" aria-label="Minimum price in crore">
+              <input type="range" id="list-price-max" min="0" max="50" step="0.1" value="50" aria-label="Maximum price in crore">
+            </div>
             <div class="price-ticks" aria-hidden="true"><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span></div>
           </div>
         </div>
@@ -324,10 +345,10 @@
     if (!listingsLoaded) return false;
     if (window._mapIntentFilter && listing.intent !== window._mapIntentFilter) return true;
     if (window._mapTypeFilter && listing.type !== window._mapTypeFilter) return true;
-    if (window._mapPriceMin !== null && window._mapPriceMin !== undefined && !isNaN(window._mapPriceMin)) {
+    if (listing.intent !== 'Rent' && window._mapPriceMin !== null && window._mapPriceMin !== undefined && !isNaN(window._mapPriceMin)) {
       if (listing.price < window._mapPriceMin) return true;
     }
-    if (window._mapPriceMax !== null && window._mapPriceMax !== undefined && !isNaN(window._mapPriceMax)) {
+    if (listing.intent !== 'Rent' && window._mapPriceMax !== null && window._mapPriceMax !== undefined && !isNaN(window._mapPriceMax)) {
       if (listing.price > window._mapPriceMax) return true;
     }
     return false;
@@ -372,6 +393,7 @@
         }
       }
     });
+    if (typeof window._refreshMapListings === 'function') window._refreshMapListings();
     if (mapInstance) mapInstance.fire('moveend');
   };
 
@@ -396,7 +418,7 @@
         if (mapPane)  { mapPane.style.display  = ''; }
         if (listPane) { listPane.style.display = 'none'; }
       } else if (mode === 'list') {
-        if (mapPane)  { mapPane.style.display  = ''; } // keep map alive for getBounds()
+        if (mapPane)  { mapPane.style.display  = 'none'; }
         if (listPane) { listPane.style.display = ''; }
       }
       setTimeout(() => window.dispatchEvent(new Event('resize')), 350);
@@ -455,6 +477,14 @@
     const maxRange = document.getElementById('list-price-max');
     if (minRange && maxRange) {
       const label = document.getElementById('price-range-label');
+      const fill = document.getElementById('price-range-fill');
+      const sort = document.getElementById('map-sort');
+      const updateRangeVisual = () => {
+        const min = Number(minRange.value), max = Number(maxRange.value);
+        if (fill) { fill.style.left = `${min / 50 * 100}%`; fill.style.width = `${(max - min) / 50 * 100}%`; }
+        const format = value => Number(value.toFixed(1)).toString();
+        if (label) label.textContent = `₹${format(min)} – ₹${format(max)} Cr`;
+      };
       const priceHandler = () => {
         if (+minRange.value > +maxRange.value) {
           if (document.activeElement === minRange) maxRange.value = minRange.value;
@@ -462,11 +492,16 @@
         }
         window._mapPriceMin = +minRange.value;
         window._mapPriceMax = +maxRange.value;
-        label.textContent = `₹${minRange.value} – ₹${maxRange.value} Cr`;
+        updateRangeVisual();
         if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
       };
       minRange.addEventListener('input', priceHandler);
       maxRange.addEventListener('input', priceHandler);
+      updateRangeVisual();
+      sort?.addEventListener('change', () => {
+        window._mapSort = sort.value;
+        if (typeof window._refreshMapListings === 'function') window._refreshMapListings();
+      });
     }
 
     // ── Bottom Sheet Logic (mobile only, < 768px) ──
