@@ -247,10 +247,10 @@
               <label class="profile-label" for="pref-type">Property Type</label>
               <select class="profile-input" id="pref-type">
                 <option value="">No preference</option>
-                <option value="apartment">Apartment</option>
-                <option value="house">House / Villa</option>
-                <option value="plot">Plot / Land</option>
-                <option value="commercial">Commercial</option>
+                <option value="Apartment/ High Rise">Apartment/ High Rise</option>
+                <option value="Builder Floor/ Low Rise">Builder Floor/ Low Rise</option>
+                <option value="Bungalow/ Villa">Bungalow/ Villa</option>
+                <option value="Office/Commercial">Office/Commercial</option>
               </select>
             </div>
             <div>
@@ -712,7 +712,9 @@
         // Load preferences
         if (profile.prefs) {
           const prefType = document.getElementById('pref-type');
-          if (prefType) prefType.value = profile.prefs.type || '';
+          if (prefType) prefType.value = profile.prefs.type
+            ? (window.normalizePropertyType?.(profile.prefs.type) || profile.prefs.type)
+            : '';
           
           const prefBudget = document.getElementById('pref-budget');
           if (prefBudget) prefBudget.value = profile.prefs.budget || '';

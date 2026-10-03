@@ -25,6 +25,36 @@ let updateHeaderVisibility = null;
 let referrerId = null;
 let uploadedMedia = [];
 
+const PROPERTY_TYPE_OPTIONS = [
+    'Apartment/ High Rise',
+    'Builder Floor/ Low Rise',
+    'Bungalow/ Villa',
+    'Office/Commercial'
+];
+
+function normalizePropertyType(type) {
+    if (!type) return type;
+    const normalized = String(type).trim().toLowerCase().replace(/\s*\/\s*/g, '/');
+    const aliases = {
+        'apartment': 'Apartment/ High Rise',
+        'high rise': 'Apartment/ High Rise',
+        'apartment/high rise': 'Apartment/ High Rise',
+        'penthouse': 'Apartment/ High Rise',
+        'builder floor': 'Builder Floor/ Low Rise',
+        'low rise': 'Builder Floor/ Low Rise',
+        'builder floor/low rise': 'Builder Floor/ Low Rise',
+        'villa': 'Bungalow/ Villa',
+        'bungalow': 'Bungalow/ Villa',
+        'house': 'Bungalow/ Villa',
+        'bungalow/villa': 'Bungalow/ Villa',
+        'office': 'Office/Commercial',
+        'commercial': 'Office/Commercial',
+        'office/commercial': 'Office/Commercial'
+    };
+    return aliases[normalized] || type;
+}
+window.normalizePropertyType = normalizePropertyType;
+
 // ── Listing price & intent helpers ──
 function formatIntentLabel(intent) {
     if (intent === 'Buy') return 'Sell';
@@ -1355,7 +1385,7 @@ async function getListings() {
         console.error('Error fetching listings:', error);
         return [];
     }
-    return data;
+    return (data || []).map(listing => ({ ...listing, type: normalizePropertyType(listing.type) }));
 }
 
 async function saveListings(listings) {
@@ -1608,7 +1638,7 @@ async function openListingModal(id) {
     if (brokerageEl) brokerageEl.value = listing ? (listing.brokerage ?? '') : '';
     if (brokerageTypeEl) brokerageTypeEl.value = listing ? normalizeBrokerageType(listing.brokerage_type) : 'one_time';
     if (depositEl) depositEl.value = listing ? (listing.deposit ?? '') : '';
-    document.getElementById('modal-type').value          = listing ? listing.type      : 'Apartment';
+    document.getElementById('modal-type').value          = listing ? normalizePropertyType(listing.type) : PROPERTY_TYPE_OPTIONS[0];
     const statusSelect = document.getElementById('modal-status');
     if (statusSelect) {
         statusSelect.innerHTML = '';
@@ -2200,10 +2230,7 @@ function injectListingModal() {
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Type *</label>
               <select id="modal-type" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
-                <option value="Apartment">Apartment</option>
-                <option value="Villa">Villa</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Office">Office</option>
+                ${PROPERTY_TYPE_OPTIONS.map(type => `<option value="${type}">${type}</option>`).join('')}
               </select>
             </div>
             <div>
@@ -2771,7 +2798,7 @@ async function renderCustomFilters() {
             const radStr = crit.radius ? ` (${crit.radius >= 1000 ? (crit.radius/1000).toFixed(1) + 'km' : crit.radius + 'm'})` : '';
             parts.push(`Near: ${escHtml(crit.centerLabel)}${radStr}`);
         }
-        if (crit.type && crit.type !== 'Any') parts.push(`Type: ${crit.type}`);
+        if (crit.type && crit.type !== 'Any') parts.push(`Type: ${normalizePropertyType(crit.type)}`);
         if (crit.intent && crit.intent !== 'Any') parts.push(`Intent: ${formatIntentLabel(crit.intent)}`);
         
         if (crit.bedsMin || crit.bedsMax) {
@@ -2854,10 +2881,7 @@ function injectCustomFilterModal() {
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Type</label>
               <select id="filter-type" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="Any">Any</option>
-                <option value="Apartment">Apartment</option>
-                <option value="Villa">Villa</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Office">Office</option>
+                ${PROPERTY_TYPE_OPTIONS.map(type => `<option value="${type}">${type}</option>`).join('')}
               </select>
             </div>
             <div>
@@ -3105,7 +3129,7 @@ window.openCustomFilterModal = async function(id) {
 
         document.getElementById('filter-name').value = filter.name || '';
         const crit = filter.criteria || {};
-        document.getElementById('filter-type').value = crit.type || 'Any';
+        document.getElementById('filter-type').value = crit.type && crit.type !== 'Any' ? normalizePropertyType(crit.type) : 'Any';
         document.getElementById('filter-intent').value = crit.intent || 'Any';
         document.getElementById('filter-beds-min').value = crit.bedsMin || '';
         document.getElementById('filter-beds-max').value = crit.bedsMax || '';
@@ -3182,7 +3206,8 @@ window.closeCustomFilterModal = function() {
 
 async function saveCustomFilter() {
     const name = document.getElementById('filter-name').value.trim();
-    const type = document.getElementById('filter-type').value;
+    const selectedType = document.getElementById('filter-type').value;
+    const type = selectedType === 'Any' ? 'Any' : normalizePropertyType(selectedType);
     const intent = document.getElementById('filter-intent').value;
     const bedsMin = document.getElementById('filter-beds-min').value;
     const bedsMax = document.getElementById('filter-beds-max').value;
@@ -3390,7 +3415,13 @@ async function initBuyerHomePage() {
     if (searchBtn && searchInput) {
         searchBtn.onclick = () => {
             const val = searchInput.value.trim();
-            navigateTo(`search.html${val ? `?q=${encodeURIComponent(val)}` : ''}`);
+            const selectedTypes = Array.from(document.querySelectorAll('#property-dropdown input[name="type"]:checked'))
+                .map(input => normalizePropertyType(input.value));
+            const params = new URLSearchParams();
+            if (val) params.set('q', val);
+            if (selectedTypes.length) params.set('type', selectedTypes.join(','));
+            const query = params.toString();
+            navigateTo(`search.html${query ? `?${query}` : ''}`);
         };
         searchInput.onkeypress = (e) => { if (e.key === 'Enter') searchBtn.click(); };
 
@@ -3796,7 +3827,7 @@ async function initBuyerListingsPage() {
         }
     }
     if (typeParam) {
-        const types = typeParam.split(',');
+        const types = typeParam.split(',').map(normalizePropertyType);
         document.querySelectorAll('input[name="type"]').forEach(checkbox => {
             if (types.includes(checkbox.value)) {
                 checkbox.checked = true;
@@ -3844,25 +3875,40 @@ async function initBuyerSearchPage() {
     const titleEl = document.getElementById('search-results-title');
     const priceBtn = document.getElementById('price-filter-btn');
     const pricePopover = document.getElementById('price-filter-popover');
+    const pricePopoverParent = pricePopover?.parentElement;
+    const pricePopoverNextSibling = pricePopover?.nextSibling;
     const applyPriceBtn = document.getElementById('apply-price-filter');
     const resetPriceBtn = document.getElementById('reset-price-filter');
-    const priceMinInput = document.getElementById('search-price-min');
-    const priceMaxInput = document.getElementById('search-price-max');
+    const priceRange = document.getElementById('search-price-range');
+    const priceRangeValue = document.getElementById('price-range-value');
     const priceLabel = document.getElementById('price-filter-label');
 
     const urlParams = new URLSearchParams(window.location.search);
     const qParam = urlParams.get('q') || '';
+    const typeParam = urlParams.get('type') || '';
     const latParam = urlParams.get('lat');
     const lngParam = urlParams.get('lng');
 
     let currentQuery = qParam;
     let activeIntent = 'all';
-    let activeType = 'all';
-    let priceMin = null;
-    let priceMax = null;
+    const validTypes = new Set(PROPERTY_TYPE_OPTIONS);
+    let activeTypes = typeParam.split(',').map(type => normalizePropertyType(type.trim())).filter(type => validTypes.has(type));
+    let priceMin = 0;
+    let priceMax = 50;
 
     if (searchInput && qParam) {
         searchInput.value = qParam;
+    }
+    if (activeTypes.length) {
+        document.querySelectorAll('.type-pill').forEach(button => {
+            const active = activeTypes.includes(button.dataset.type);
+            button.classList.toggle('active', active);
+            button.classList.toggle('bg-slate-900', active);
+            button.classList.toggle('text-white', active);
+            button.classList.toggle('border-slate-300', active);
+            button.classList.toggle('border-slate-200', !active);
+            button.classList.toggle('text-slate-600', !active);
+        });
     }
 
     const mapContainer = document.getElementById('search-map');
@@ -3899,6 +3945,8 @@ async function initBuyerSearchPage() {
         'bandra': [19.0596, 72.8295],
         'powai': [19.1176, 72.9060],
         'delhi': [28.6139, 77.2090],
+        'gurgaon': [28.4595, 77.0266],
+        'gurugram': [28.4595, 77.0266],
         'vasant vihar': [28.5562, 77.1610],
         'connaught place': [28.6315, 77.2167],
         'saket': [28.5244, 77.2100],
@@ -3923,6 +3971,39 @@ async function initBuyerSearchPage() {
 
     // Fetch active listings from Supabase
     let rawListings = (await getListings()).filter(l => l.status === 'Active');
+
+    // Listing photos are stored in listing_media, while older listings may still
+    // keep their cover URL directly on the listing row.
+    if (rawListings.length && typeof supabase !== 'undefined') {
+        try {
+            const { data: mediaRows } = await supabase
+                .from('listing_media')
+                .select('listing_id, url, thumbnail_url, media_type, is_cover, sort_order')
+                .in('listing_id', rawListings.map(listing => listing.id))
+                .order('sort_order', { ascending: true });
+            const imageByListing = new Map();
+            (mediaRows || []).filter(media => media.media_type?.toLowerCase() !== 'video').forEach(media => {
+                const current = imageByListing.get(media.listing_id);
+                if (!current || media.is_cover) imageByListing.set(media.listing_id, media.thumbnail_url || media.url);
+            });
+            const toPropertyImageUrl = (source) => {
+                if (source && typeof source === 'object') source = source.url || source.src || source.path;
+                if (typeof source !== 'string' || !source.trim()) return null;
+                source = source.trim();
+                if (/^(https?:|data:|blob:|\/)/i.test(source)) return source;
+                return supabase.storage.from('properties').getPublicUrl(source).data.publicUrl;
+            };
+            rawListings = rawListings.map(listing => ({
+                ...listing,
+                img: [listing.img, listing.thumbnail_url, listing.image_url, listing.cover_image, listing.image, listing.photo_url,
+                    ...(Array.isArray(listing.images) ? listing.images : []),
+                    ...(Array.isArray(listing.photos) ? listing.photos : []), imageByListing.get(listing.id)]
+                    .map(toPropertyImageUrl).find(Boolean) || null
+            }));
+        } catch (error) {
+            console.warn('Could not load listing thumbnails:', error);
+        }
+    }
 
     let markersData = rawListings.map((l, index) => {
         const coords = resolveCoords(l, index);
@@ -3961,9 +4042,11 @@ async function initBuyerSearchPage() {
     function getFilteredListings() {
         return markersData.filter(l => {
             if (activeIntent !== 'all' && l.intent !== activeIntent) return false;
-            if (activeType !== 'all' && l.type !== activeType) return false;
-            if (priceMin !== null && !isNaN(priceMin) && l.priceNum < priceMin) return false;
-            if (priceMax !== null && !isNaN(priceMax) && l.priceNum > priceMax) return false;
+            if (activeTypes.length && !activeTypes.includes(l.type)) return false;
+            if (l.intent !== 'Rent') {
+                if (priceMin !== null && !isNaN(priceMin) && l.priceNum < priceMin) return false;
+                if (priceMax !== null && !isNaN(priceMax) && l.priceNum > priceMax) return false;
+            }
             if (currentQuery) {
                 const q = currentQuery.toLowerCase();
                 const match = (l.title && l.title.toLowerCase().includes(q)) ||
@@ -3975,22 +4058,57 @@ async function initBuyerSearchPage() {
         });
     }
 
+    function renderListingCards(filtered) {
+        if (!gridContainer) return;
+
+        if (filtered.length === 0) {
+            gridContainer.innerHTML = `
+                <div class="col-span-full py-16 text-center text-slate-500 space-y-3">
+                    <span class="material-symbols-outlined text-[48px] text-slate-300">search_off</span>
+                    <p class="text-base font-bold text-slate-700">No properties match your search criteria</p>
+                    <p class="text-xs text-slate-400">Try adjusting your filters or map area.</p>
+                </div>`;
+            return;
+        }
+
+        const saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
+        gridContainer.innerHTML = filtered.map(l => {
+            const isSaved = saved.includes(l.id);
+            const isRent = l.intent === 'Rent';
+            return `
+            <div id="search-card-${l.id}" class="search-card cursor-pointer bg-white rounded-3xl border border-slate-200 hover:border-slate-400 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col group" onclick="window.location.href='property-details.html?id=${l.id}'" onmouseenter="window.hoverSearchCard(${l.id})" onmouseleave="window.unhoverSearchCard(${l.id})">
+              <div class="aspect-[4/3] overflow-hidden relative bg-slate-100">
+                <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <div class="absolute top-3 left-3 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-slate-900">${isRent ? 'For Rent' : 'For Sale'}</div>
+                <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur text-white px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[12px] text-amber-400" style="font-variation-settings: 'FILL' 1;">star</span> 5.0</div>
+                <div class="absolute bottom-3 right-3 flex items-center gap-2">
+                  <button class="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-slate-400 hover:text-red-500 flex items-center justify-center shadow-md transition-colors" onclick="event.stopPropagation(); window.openReportModal('listing', ${l.id}, '${escHtml(l.title || '')}');" title="Report Listing"><span class="material-symbols-outlined text-[18px]">flag</span></button>
+                  <button class="w-8 h-8 rounded-full bg-white/90 backdrop-blur ${isSaved ? 'text-red-500' : 'text-slate-400 hover:text-red-500'} flex items-center justify-center shadow-md transition-colors" onclick="event.stopPropagation(); window.toggleSearchFavorite(event, ${l.id})"><span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' ${isSaved ? '1' : '0'};">favorite</span></button>
+                </div>
+              </div>
+              <div class="p-5 flex-1 flex flex-col justify-between">
+                <div><div class="flex justify-between items-baseline mb-1"><h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3><span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${escHtml(l.type || 'Property')}</span></div><h4 class="text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4><p class="text-xs font-medium text-slate-500 truncate mb-4">${escHtml(l.location || '')}</p></div>
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-medium"><div class="flex items-center gap-3"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bed</span> ${l.beds || 0} beds</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bathtub</span> ${l.baths || 0} baths</span></div><span class="flex items-center gap-1 font-bold text-slate-700">${(l.sqft || 0).toLocaleString()} sqft</span></div>
+              </div>
+            </div>`;
+        }).join('');
+    }
+
+    function updateListingsForMapArea(filtered = getFilteredListings()) {
+        const bounds = map.getBounds();
+        const visible = filtered.filter(listing => bounds.contains([listing.lat, listing.lng]));
+        if (titleEl) titleEl.textContent = currentQuery
+            ? `Over ${visible.length} homes in ${currentQuery.split(',')[0]}`
+            : `Over ${visible.length} verified homes in this area`;
+        if (countEl) countEl.textContent = `${visible.length} PROPERTIES FOUND`;
+        renderListingCards(visible);
+    }
+
     function renderMapAndListings() {
         mapMarkers.forEach(m => map.removeLayer(m.marker));
         mapMarkers = [];
 
         const filtered = getFilteredListings();
-
-        if (titleEl) {
-            if (currentQuery) {
-                titleEl.textContent = `Over ${filtered.length} homes in ${currentQuery.split(',')[0]}`;
-            } else {
-                titleEl.textContent = `Over ${filtered.length} verified homes`;
-            }
-        }
-        if (countEl) {
-            countEl.textContent = `${filtered.length} PROPERTIES FOUND`;
-        }
 
         const bounds = [];
         filtered.forEach(l => {
@@ -4028,6 +4146,9 @@ async function initBuyerSearchPage() {
             map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
         }
 
+        updateListingsForMapArea(filtered);
+        return;
+
         if (!gridContainer) return;
 
         if (filtered.length === 0) {
@@ -4053,7 +4174,7 @@ async function initBuyerSearchPage() {
               onmouseleave="window.unhoverSearchCard(${l.id})">
               
               <div class="aspect-[4/3] overflow-hidden relative bg-slate-100">
-                <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 
                 <div class="absolute top-3 left-3 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-slate-900">
                   ${isRent ? 'For Rent' : 'For Sale'}
@@ -4097,6 +4218,8 @@ async function initBuyerSearchPage() {
             `;
         }).join('');
     }
+
+    map.on('moveend', () => updateListingsForMapArea());
 
     function highlightCard(id) {
         activeCardId = id;
@@ -4277,22 +4400,36 @@ async function initBuyerSearchPage() {
             });
             btn.classList.add('bg-slate-900', 'text-white', 'border-slate-300', 'active');
             btn.classList.remove('border-slate-200', 'text-slate-600');
-            activeType = btn.dataset.type;
+            activeTypes = btn.dataset.type === 'all' ? [] : [btn.dataset.type];
             renderMapAndListings();
         };
     });
 
     // Price Filter Popover
     if (priceBtn && pricePopover) {
+        const setPricePopoverOpen = (open) => {
+            if (open && window.innerWidth < 1024 && pricePopover.parentElement !== document.body) {
+                document.body.appendChild(pricePopover);
+            }
+            if (open) {
+                pricePopover.classList.remove('hidden');
+            } else {
+                pricePopover.classList.add('hidden');
+                if (pricePopover.parentElement === document.body && pricePopoverParent) {
+                    pricePopoverParent.insertBefore(pricePopover, pricePopoverNextSibling);
+                }
+            }
+        };
         priceBtn.onclick = (e) => {
             e.stopPropagation();
-            pricePopover.classList.toggle('hidden');
+            setPricePopoverOpen(pricePopover.classList.contains('hidden'));
         };
         document.addEventListener('click', (e) => {
             if (!priceBtn.contains(e.target) && !pricePopover.contains(e.target)) {
-                pricePopover.classList.add('hidden');
+                setPricePopoverOpen(false);
             }
         });
+        pricePopover._close = () => setPricePopoverOpen(false);
     }
 
     // Mobile Bottom Sheet Drag & Floating Button Logic
@@ -4315,13 +4452,20 @@ async function initBuyerSearchPage() {
         } else {
             listSection.style.transition = 'none';
         }
-        listSection.style.height = `${heightVh}vh`;
+        const clampedVh = Math.max(12, Math.min(96, heightVh));
+        listSection.style.height = `${clampedVh}dvh`;
+        listSection.classList.toggle('sheet-expanded', clampedVh >= 70);
 
-        if (heightVh <= 20) {
+        if (clampedVh <= 20) {
             currentSheetState = 'peek';
             if (floatingText) floatingText.textContent = 'Show List';
             if (floatingIcon) floatingIcon.textContent = 'view_list';
             if (dragTitle) dragTitle.textContent = 'Pull up to view listings';
+        } else if (clampedVh >= 70) {
+            currentSheetState = 'expanded';
+            if (floatingText) floatingText.textContent = 'Show Map';
+            if (floatingIcon) floatingIcon.textContent = 'map';
+            if (dragTitle) dragTitle.textContent = 'Swipe down to show map';
         } else {
             currentSheetState = 'half';
             if (floatingText) floatingText.textContent = 'Show Map';
@@ -4334,7 +4478,7 @@ async function initBuyerSearchPage() {
     if (floatingBtn) {
         floatingBtn.onclick = () => {
             if (currentSheetState === 'peek') {
-                setSheetHeight(52);
+                setSheetHeight(44);
             } else {
                 setSheetHeight(12);
             }
@@ -4359,8 +4503,8 @@ async function initBuyerSearchPage() {
             const deltaY = startY - clientY;
             const newHeightPx = startHeight + deltaY;
             const newHeightVh = (newHeightPx / window.innerHeight) * 100;
-            const clampedVh = Math.max(10, Math.min(90, newHeightVh));
-            listSection.style.height = `${clampedVh}vh`;
+            const clampedVh = Math.max(12, Math.min(96, newHeightVh));
+            listSection.style.height = `${clampedVh}dvh`;
         };
 
         const onDragEnd = () => {
@@ -4370,76 +4514,58 @@ async function initBuyerSearchPage() {
             if (currentVh < 25) {
                 setSheetHeight(12);
             } else if (currentVh < 70) {
-                setSheetHeight(52);
+                setSheetHeight(44);
             } else {
-                setSheetHeight(88);
+                setSheetHeight(96);
             }
         };
 
-        dragHandle.addEventListener('touchstart', (e) => onDragStart(e.touches[0].clientY), { passive: true });
-        window.addEventListener('touchmove', (e) => { if (isDragging) onDragMove(e.touches[0].clientY); }, { passive: true });
-        window.addEventListener('touchend', onDragEnd);
-
-        dragHandle.addEventListener('mousedown', (e) => onDragStart(e.clientY));
-        window.addEventListener('mousemove', (e) => { if (isDragging) onDragMove(e.clientY); });
-        window.addEventListener('mouseup', onDragEnd);
+        dragHandle.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            e.preventDefault();
+            onDragStart(e.clientY);
+            dragHandle.setPointerCapture(e.pointerId);
+        });
+        dragHandle.addEventListener('pointermove', (e) => {
+            if (isDragging) onDragMove(e.clientY);
+        });
+        dragHandle.addEventListener('pointerup', (e) => {
+            if (!isDragging) return;
+            onDragEnd();
+            if (dragHandle.hasPointerCapture(e.pointerId)) dragHandle.releasePointerCapture(e.pointerId);
+        });
+        dragHandle.addEventListener('pointercancel', onDragEnd);
     }
 
-    // Price Preset Chips
-    document.querySelectorAll('.price-preset-chip').forEach(chip => {
-        chip.onclick = () => {
-            document.querySelectorAll('.price-preset-chip').forEach(c => {
-                c.classList.remove('bg-slate-900', 'text-white', 'border-slate-900');
-                c.classList.add('border-slate-200', 'text-slate-700');
-            });
-            chip.classList.add('bg-slate-900', 'text-white', 'border-slate-900');
-            chip.classList.remove('border-slate-200', 'text-slate-700');
+    function syncPriceRangeLabel() {
+        if (!priceRange) return;
+        const maxValue = Number(priceRange.value);
+        if (priceRangeValue) priceRangeValue.textContent = `₹0 – ₹${maxValue} Cr`;
+    }
 
-            const preset = chip.dataset.preset;
-            if (preset === 'under1') { priceMin = 0; priceMax = 1; }
-            else if (preset === '1to5') { priceMin = 1; priceMax = 5; }
-            else if (preset === '5to15') { priceMin = 5; priceMax = 15; }
-            else if (preset === 'above15') { priceMin = 15; priceMax = null; }
-
-            if (priceMinInput) priceMinInput.value = priceMin !== null ? priceMin : '';
-            if (priceMaxInput) priceMaxInput.value = priceMax !== null ? priceMax : '';
-        };
-    });
+    priceRange?.addEventListener('input', syncPriceRangeLabel);
+    syncPriceRangeLabel();
 
     if (resetPriceBtn) {
         resetPriceBtn.onclick = () => {
-            priceMin = null;
-            priceMax = null;
-            if (priceMinInput) priceMinInput.value = '';
-            if (priceMaxInput) priceMaxInput.value = '';
-            document.querySelectorAll('.price-preset-chip').forEach(c => {
-                c.classList.remove('bg-slate-900', 'text-white', 'border-slate-900');
-                c.classList.add('border-slate-200', 'text-slate-700');
-            });
-            if (priceLabel) priceLabel.textContent = 'Price Range';
-            if (pricePopover) pricePopover.classList.add('hidden');
+            priceMin = 0;
+            priceMax = 50;
+            if (priceRange) priceRange.value = '50';
+            syncPriceRangeLabel();
+            if (priceLabel) priceLabel.textContent = '₹0 – ₹50 Cr';
+            pricePopover?._close?.();
             renderMapAndListings();
         };
     }
 
     if (applyPriceBtn) {
         applyPriceBtn.onclick = () => {
-            const minVal = parseFloat(priceMinInput.value);
-            const maxVal = parseFloat(priceMaxInput.value);
-            priceMin = !isNaN(minVal) ? minVal : null;
-            priceMax = !isNaN(maxVal) ? maxVal : null;
+            priceMin = 0;
+            priceMax = Number(priceRange?.value ?? 50);
+            syncPriceRangeLabel();
+            if (priceLabel) priceLabel.textContent = `₹${priceMin} – ₹${priceMax} Cr`;
 
-            if (priceMin !== null && priceMax !== null) {
-                priceLabel.textContent = `₹${priceMin} - ₹${priceMax} Cr`;
-            } else if (priceMin !== null) {
-                priceLabel.textContent = `₹${priceMin}+ Cr`;
-            } else if (priceMax !== null) {
-                priceLabel.textContent = `Up to ₹${priceMax} Cr`;
-            } else {
-                priceLabel.textContent = 'Price Range';
-            }
-
-            if (pricePopover) pricePopover.classList.add('hidden');
+            pricePopover?._close?.();
             renderMapAndListings();
         };
     }
@@ -4963,6 +5089,7 @@ async function initBuyerDetailsPage() {
         showToast('Property not found.');
         return;
     }
+    l.type = normalizePropertyType(l.type);
 
     // Check if the user is authorized to view non-Active properties
     const { data: { session } } = await supabase.auth.getSession();

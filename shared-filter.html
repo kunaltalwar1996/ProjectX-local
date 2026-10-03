@@ -211,9 +211,12 @@
         const chipsContainer = document.getElementById('filter-criteria-chips');
         chipsContainer.innerHTML = '';
         const crit = filter.criteria || {};
+        const filterType = crit.type && crit.type !== 'Any'
+          ? (window.normalizePropertyType?.(crit.type) || crit.type)
+          : 'Any';
 
-        if (crit.type && crit.type !== 'Any') {
-          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${crit.type}</span>`;
+        if (filterType !== 'Any') {
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${filterType}</span>`;
         }
         if (crit.intent && crit.intent !== 'Any') {
           chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${formatIntentDisplay(crit.intent)}</span>`;
@@ -256,7 +259,8 @@
         // Filter listings using criteria dynamically
         const matchingListings = (listings || []).filter(l => {
           // Property type
-          if (crit.type && crit.type !== 'Any' && l.type !== crit.type) {
+          const listingType = window.normalizePropertyType?.(l.type) || l.type;
+          if (filterType !== 'Any' && listingType !== filterType) {
             return false;
           }
           // Intent

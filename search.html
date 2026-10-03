@@ -98,14 +98,12 @@
       color: #ffffff;
     }
 
-    .price-range-control { position: relative; height: 24px; margin: 0 8px; }
-    .price-range-track { position: absolute; top: 10px; left: 0; right: 0; height: 4px; border-radius: 999px; background: #e2e8f0; }
-    #price-range-fill { position: absolute; height: 100%; left: 0; right: 0; border-radius: inherit; background: #0f172a; }
-    .price-range-control input[type="range"] { position: absolute; inset: 0; width: 100%; height: 24px; margin: 0; appearance: none; background: transparent; pointer-events: none; }
-    .price-range-control input[type="range"]::-webkit-slider-runnable-track { height: 4px; background: transparent; }
-    .price-range-control input[type="range"]::-moz-range-track { height: 4px; background: transparent; }
-    .price-range-control input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; margin-top: -7px; border: 3px solid #0f172a; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #0002; pointer-events: auto; cursor: grab; }
-    .price-range-control input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border: 3px solid #0f172a; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #0002; pointer-events: auto; cursor: grab; }
+    .price-single-range { display:block; width:100%; height:20px; margin:8px 0 0; accent-color:#0f172a; touch-action:pan-x; cursor:pointer; }
+    #search-header { z-index:40; }
+    #price-filter-popover { z-index:100 !important; }
+    .price-ticks { display:flex; justify-content:space-between; padding:0 2px; color:#64748b; font-size:10px; font-weight:700; }
+    .price-ticks span { position:relative; }
+    .price-ticks span::before { content:''; position:absolute; top:-7px; left:50%; width:1px; height:5px; background:#94a3b8; }
 
     /* Mobile Bottom Sheet Styles (Mobile < 1024px) */
     @media (max-width: 1023px) {
@@ -114,7 +112,7 @@
         bottom: 0;
         left: 0;
         right: 0;
-        z-index: 30;
+        z-index: 60;
         background: #ffffff;
         border-radius: 24px 24px 0 0;
         box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
@@ -122,12 +120,14 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        height: 52vh;
+        height: 44dvh;
+        max-height: 96dvh;
       }
     }
 
     /* Desktop Normal Split Layout (Desktop >= 1024px) */
     @media (min-width: 1024px) {
+      #search-map-section { margin:12px 12px 12px 0; height:calc(100vh - 164px) !important; border:1px solid #e2e8f0; border-radius:22px; overflow:hidden; box-shadow:0 8px 24px rgba(15,23,42,.08); }
       #search-list-section {
         position: relative !important;
         height: calc(100vh - 140px) !important;
@@ -137,6 +137,28 @@
         display: flex !important;
         flex-direction: column !important;
       }
+    }
+    @media (max-width: 1023px) {
+      #search-map-section { position:fixed; top:142px; left:12px; right:12px; width:auto; height:42dvh !important; z-index:1; border-radius:22px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 8px 24px rgba(15,23,42,.10); }
+      #search-list-section { z-index:60; height:44dvh; }
+      #sheet-drag-handle { min-height:82px; padding:16px 0 12px; touch-action:none; cursor:grab; }
+      #sheet-scroll-area { padding:12px 18px calc(78px + env(safe-area-inset-bottom)); gap:16px; }
+      #search-listings-grid { grid-template-columns:minmax(0,1fr); gap:14px; }
+      #search-listings-grid .search-card { border-radius:20px; }
+      #search-listings-grid .search-card > div:first-child { aspect-ratio: 1.45 / 1; }
+      #search-filter-row { gap:8px; }
+      #search-filter-row > div { flex-shrink:0; }
+      #search-main-container { min-height:0; }
+      #floating-toggle-btn { bottom:calc(10px + env(safe-area-inset-bottom)); }
+      #price-filter-popover { position:fixed; top:auto; right:12px; left:12px; bottom:calc(72px + env(safe-area-inset-bottom)); width:auto; max-width:480px; margin-left:auto; }
+    }
+    @media (min-width: 768px) and (max-width: 1023px) {
+      #search-map-section { top:142px; left:20px; right:20px; height:38dvh !important; }
+      #search-listings-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      #search-list-section.sheet-expanded #search-listings-grid { grid-template-columns:minmax(0,1fr); }
+    }
+    @media (max-width: 767px) {
+      #search-map-section { top:202px; }
     }
   </style>
 </head>
@@ -191,7 +213,7 @@
   </nav>
 
   <!-- Sticky Airbnb-Style Search & Filters Header Bar -->
-  <header class="sticky top-16 z-40 bg-white border-b border-slate-200 shadow-sm py-3 px-6 mt-16">
+  <header id="search-header" class="sticky top-16 z-40 bg-white border-b border-slate-200 shadow-sm py-3 px-6 mt-16">
     <div class="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
       
       <!-- Compact Search Bar -->
@@ -214,7 +236,7 @@
       </div>
 
       <!-- Quick Filters & View Selection Toolbar -->
-      <div class="flex items-center gap-3 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
+      <div id="search-filter-row" class="flex items-center gap-3 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
         
         <!-- View Toggle Buttons (Split / List / Map) -->
         <div class="hidden lg:flex items-center bg-slate-100 p-1 rounded-full shrink-0 border border-slate-200 shadow-inner">
@@ -244,16 +266,17 @@
         <!-- Property Type Pills -->
         <div class="flex items-center gap-1 shrink-0">
           <button data-type="all" class="type-pill active px-3 py-1.5 rounded-full border border-slate-300 text-xs font-bold bg-slate-900 text-white transition-all">All Types</button>
-          <button data-type="Apartment" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Apartment</button>
-          <button data-type="Villa" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Villa</button>
-          <button data-type="Penthouse" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Penthouse</button>
+          <button data-type="Apartment/ High Rise" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Apartment/ High Rise</button>
+          <button data-type="Builder Floor/ Low Rise" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Builder Floor/ Low Rise</button>
+          <button data-type="Bungalow/ Villa" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Bungalow/ Villa</button>
+          <button data-type="Office/Commercial" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Office/Commercial</button>
         </div>
 
         <!-- Enhanced Price Range Filter Popover -->
         <div class="relative shrink-0">
           <button id="price-filter-btn" class="flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-slate-300 text-xs font-bold text-slate-800 hover:border-slate-900 transition-all shadow-sm">
             <span class="material-symbols-outlined text-[16px] text-slate-500">payments</span>
-            <span id="price-filter-label">Price Range</span>
+                  <span id="price-filter-label">₹0 – ₹50 Cr</span>
             <span class="material-symbols-outlined text-[16px] text-slate-400">expand_more</span>
           </button>
           
@@ -265,42 +288,14 @@
             
             <!-- Quick Preset Chips -->
             <div>
-              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Presets</p>
-              <div class="flex flex-wrap gap-1.5">
-                <button data-preset="under1" class="price-preset-chip px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-900 transition-all">&lt; ₹1 Cr</button>
-                <button data-preset="1to5" class="price-preset-chip px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-900 transition-all">₹1 - ₹5 Cr</button>
-                <button data-preset="5to15" class="price-preset-chip px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-900 transition-all">₹5 - ₹15 Cr</button>
-                <button data-preset="above15" class="price-preset-chip px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-900 transition-all">₹15 Cr+</button>
-              </div>
-            </div>
-
-            <!-- Custom Min & Max Inputs -->
-            <div>
-              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Custom Range (₹ Cr)</p>
-              <div class="flex items-center gap-2">
-                <div class="flex-1 relative">
-                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
-                  <input type="number" id="search-price-min" step="0.5" placeholder="Min Cr" class="w-full pl-6 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-slate-900 focus:bg-white transition-colors">
-                </div>
-                <span class="text-slate-300 text-xs font-black">—</span>
-                <div class="flex-1 relative">
-                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
-                  <input type="number" id="search-price-max" step="0.5" placeholder="Max Cr" class="w-full pl-6 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-slate-900 focus:bg-white transition-colors">
-                </div>
-              </div>
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Price range (₹ Cr)</p>
               <div class="mt-4">
                 <div class="flex items-center justify-between mb-2">
-                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Adjust range (₹ Cr)</span>
-                  <span id="price-range-value" class="text-xs font-extrabold text-slate-900">Any price</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Select minimum and maximum</span>
+                  <span id="price-range-value" class="text-xs font-extrabold text-slate-900">₹0 – ₹50 Cr</span>
                 </div>
-                <div class="price-range-control">
-                  <div class="price-range-track"><div id="price-range-fill"></div></div>
-                  <input type="range" id="search-price-min-range" min="0" max="100" step="1" value="0" aria-label="Minimum price in crore">
-                  <input type="range" id="search-price-max-range" min="0" max="100" step="1" value="100" aria-label="Maximum price in crore">
-                </div>
-                <div class="flex justify-between mt-2 text-[10px] font-semibold text-slate-400" aria-hidden="true">
-                  <span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100+</span>
-                </div>
+                <input type="range" id="search-price-range" class="price-single-range" min="0" max="50" step="1" value="50" aria-label="Maximum price in crore">
+                <div class="price-ticks mt-2" aria-hidden="true"><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span></div>
               </div>
             </div>
 

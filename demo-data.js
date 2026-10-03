@@ -5,7 +5,7 @@ const DEMO_LISTINGS = [
   {
     id: 1, title: "Mehdi's house",
     address: "Bandra West, Mumbai",
-    location: "Mumbai", type: "Apartment", beds: 1, baths: 1, price: 0.45, intent: "Rent",
+    location: "Mumbai", type: "Apartment/ High Rise", beds: 1, baths: 1, price: 0.45, intent: "Rent",
     sqft: 4500, date: "2026-05-17", badge: "Premium", badgeColor: "bg-amber-500",
     img: "https://images.unsplash.com/photo-1600587771525-78b9dba3b914?w=800&auto=format&fit=crop",
     coords: [19.0596, 72.8295]
