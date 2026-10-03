@@ -24,6 +24,7 @@ let activeInquiryId = null;
 let updateHeaderVisibility = null;
 let referrerId = null;
 let uploadedMedia = [];
+let listingEditSnapshot = null;
 
 const PROPERTY_TYPE_OPTIONS = [
     'Apartment/ High Rise',
@@ -1646,19 +1647,22 @@ async function openListingModal(id) {
     if (brokerageTypeEl) brokerageTypeEl.value = listing ? normalizeBrokerageType(listing.brokerage_type) : 'one_time';
     if (depositEl) depositEl.value = listing ? (listing.deposit ?? '') : '';
     document.getElementById('modal-type').value          = listing ? normalizePropertyType(listing.type) : PROPERTY_TYPE_OPTIONS[0];
+    listingEditSnapshot = null;
     const statusSelect = document.getElementById('modal-status');
-    if (statusSelect) {
+    if (userRole === 'Broker') {
+        const brokerStatus = listing ? listing.status : 'Pending';
+        if (statusSelect) statusSelect.value = brokerStatus;
+        if (listing) {
+            listingEditSnapshot = buildListingEditSnapshot(listing, uploadedMedia);
+        }
+    } else if (statusSelect && statusSelect.tagName === 'SELECT') {
         statusSelect.innerHTML = '';
-        const allowedStatuses = userRole === 'Broker' 
-            ? ['Draft', 'Pending', 'Sold']
-            : ['Draft', 'Pending', 'Under Review', 'Active', 'Rejected', 'Suspended', 'Sold'];
-        
-        const currentStatus = listing ? listing.status : (userRole === 'Broker' ? 'Draft' : 'Active');
+        const allowedStatuses = ['Draft', 'Pending', 'Under Review', 'Active', 'Rejected', 'Suspended', 'Sold'];
+        const currentStatus = listing ? listing.status : 'Active';
         const finalStatuses = [...allowedStatuses];
         if (!finalStatuses.includes(currentStatus)) {
             finalStatuses.push(currentStatus);
         }
-        
         finalStatuses.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s;
@@ -1697,6 +1701,72 @@ function closeListingModal() {
 
 window.closeListingModal = closeListingModal;
 
+function buildListingEditSnapshot(listing, media) {
+    return {
+        title: (listing.title ?? '').trim(),
+        location: (listing.location ?? '').trim(),
+        price: parseFloat(listing.price) || 0,
+        intent: listing.intent ?? '',
+        type: listing.type ?? '',
+        brokerage: parseFloat(listing.brokerage) || 0,
+        brokerage_type: normalizeBrokerageType(listing.brokerage_type),
+        deposit: parseFloat(listing.deposit) || 0,
+        beds: parseInt(listing.beds, 10) || 0,
+        baths: parseFloat(listing.baths) || 0,
+        sqft: parseInt(listing.sqft, 10) || 0,
+        lat: listing.lat != null && listing.lat !== '' ? parseFloat(listing.lat) : null,
+        lng: listing.lng != null && listing.lng !== '' ? parseFloat(listing.lng) : null,
+        media: JSON.parse(JSON.stringify(media || []))
+    };
+}
+
+function listingMediaMeaningfullyChanged(baselineMedia, currentMedia) {
+    const normalize = (items) => (items || []).map((m, idx) => ({
+        url: m.url,
+        media_type: m.media_type,
+        is_cover: !!m.is_cover,
+        idx
+    }));
+    const baseline = normalize(baselineMedia);
+    const current = normalize(currentMedia);
+    if (baseline.length !== current.length) return true;
+    for (let i = 0; i < baseline.length; i++) {
+        if (baseline[i].url !== current[i].url ||
+            baseline[i].media_type !== current[i].media_type ||
+            baseline[i].is_cover !== current[i].is_cover) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function hasMeaningfulListingChanges(snapshot, current) {
+    if (!snapshot) return true;
+    if (snapshot.title !== current.title) return true;
+    if (snapshot.location !== current.location) return true;
+    if (snapshot.price !== current.price) return true;
+    if (snapshot.intent !== current.intent) return true;
+    if (snapshot.type !== current.type) return true;
+    if (snapshot.brokerage !== current.brokerage) return true;
+    if (snapshot.brokerage_type !== current.brokerage_type) return true;
+    if (snapshot.deposit !== current.deposit) return true;
+    if (snapshot.beds !== current.beds) return true;
+    if (snapshot.baths !== current.baths) return true;
+    if (snapshot.sqft !== current.sqft) return true;
+    if (snapshot.lat !== current.lat) return true;
+    if (snapshot.lng !== current.lng) return true;
+    if (listingMediaMeaningfullyChanged(snapshot.media, current.media)) return true;
+    return false;
+}
+
+function deriveBrokerStatusOnMeaningfulEdit(oldStatus, hasMeaningfulChange) {
+    if (!hasMeaningfulChange) return oldStatus;
+    if (oldStatus === 'Suspended') return 'Suspended';
+    if (oldStatus === 'Sold') return 'Sold';
+    if (oldStatus === 'Active' || oldStatus === 'Pending' || oldStatus === 'Rejected') return 'Pending';
+    return 'Pending';
+}
+
 async function saveListingForm() {
     const id       = document.getElementById('modal-id').value;
     const titleEl    = document.getElementById('modal-prop-title');
@@ -1719,7 +1789,7 @@ async function saveListingForm() {
     const price    = parseFloat(priceEl.value) || 0;
     const intent   = intentEl.value;
     const type     = typeEl.value;
-    const status   = statusEl.value;
+    let status     = statusEl.value;
     const beds     = parseInt(bedsEl.value) || 0;
     const baths    = parseFloat(bathsEl.value) || 0;
     const sqft     = parseInt(sqftEl.value) || 0;
@@ -1803,10 +1873,50 @@ async function saveListingForm() {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
-    
-    // Retrieve old status if this is an update
+
     let oldStatus = null;
-    if (id) {
+
+    if (userRole === 'Broker') {
+        if (!id) {
+            status = 'Pending';
+        } else {
+            const { data: originalListing, error: originalError } = await supabase
+                .from('listings')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (originalError || !originalListing) {
+                showToast('Error fetching listing: ' + (originalError?.message || 'Could not retrieve the existing listing.'));
+                return;
+            }
+
+            oldStatus = originalListing.status;
+            if (oldStatus == null || oldStatus === '') {
+                showToast('Error fetching listing: Could not retrieve the existing listing.');
+                return;
+            }
+
+            const currentFields = {
+                title,
+                location,
+                price,
+                intent,
+                type,
+                brokerage,
+                brokerage_type,
+                deposit,
+                beds,
+                baths,
+                sqft,
+                lat,
+                lng,
+                media: uploadedMedia
+            };
+            const meaningfulChange = hasMeaningfulListingChanges(listingEditSnapshot, currentFields);
+            status = deriveBrokerStatusOnMeaningfulEdit(oldStatus, meaningfulChange);
+        }
+    } else if (id) {
         const { data: oldListing } = await supabase.from('listings').select('status').eq('id', id).single();
         if (oldListing) oldStatus = oldListing.status;
     }
@@ -2240,12 +2350,18 @@ function injectListingModal() {
                 ${PROPERTY_TYPE_OPTIONS.map(type => `<option value="${type}">${type}</option>`).join('')}
               </select>
             </div>
+            ${userRole === 'Broker' ? `
+            <div class="md:col-span-2">
+              <input type="hidden" id="modal-status" value="Pending"/>
+              <p class="text-xs text-on-surface-variant font-medium">All new listings and listing updates require approval before becoming visible.</p>
+            </div>
+            ` : `
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Status *</label>
               <select id="modal-status" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
               </select>
-              ${userRole === 'Broker' ? '<p class="text-[10px] text-amber-600 font-semibold mt-1">Note: All new/edited listings require employee approval before going Active.</p>' : ''}
             </div>
+            `}
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bedrooms *</label>
               <input id="modal-beds" type="number" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
