@@ -1474,7 +1474,7 @@ async function renderListings() {
     // Render widget (max 3)
     const tbodyWidget = document.getElementById('listings-tbody-widget');
     if (tbodyWidget) {
-        tbodyWidget.innerHTML = generateListingsHTML(listings.slice(0, 3), false);
+        tbodyWidget.innerHTML = generateListingsHTML(listings.slice(0, 3), true);
     }
     
     // Render full
@@ -1498,7 +1498,7 @@ function generateListingsHTML(listings, showViews) {
         <tr class="border-b border-surface-variant hover:bg-surface-container transition-colors group" data-id="${l.id}">
           <td class="p-4">
             <div class="flex items-center gap-3">
-              <img src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" alt="Property" class="w-12 h-12 rounded object-cover shadow-sm border border-outline-variant">
+              <img src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" alt="Property" class="w-12 h-12 rounded object-cover shadow-sm border border-outline-variant">
               <div>
                 <p class="font-medium text-primary">${escHtml(l.title)}</p>
                 <p class="text-on-surface-variant text-xs">${escHtml(l.location)}</p>
@@ -2052,7 +2052,7 @@ window.saveListingForm = saveListingForm;
 //  LISTING MEDIA HELPERS
 // ══════════════════════════════════════════════════════
 
-const MEDIA_PLACEHOLDER = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+const MEDIA_PLACEHOLDER = 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png';
 
 function renderMediaGrid() {
     const grid = document.getElementById('modal-media-grid');
@@ -2262,7 +2262,7 @@ function injectListingModal() {
             <input type="hidden" id="modal-views"/>
             <div class="md:col-span-2">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Property Title *</label>
-              <input id="modal-prop-title" type="text" placeholder="e.g. 12 Marine Drive, Penthouse" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
+              <input id="modal-prop-title" type="text" placeholder="e.g. Fully Furnished 3BHK, Near Metro" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
             <div class="md:col-span-2 relative">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Location *</label>
@@ -3594,7 +3594,7 @@ async function initBuyerHomePage() {
                 <div onclick="window.location.href='property-details.html?id=${top3[0].id}'"
                      class="md:col-span-2 bg-white border border-slate-200 flex flex-col md:flex-row shadow-sm cursor-pointer hover:shadow-lg transition-all">
                   <div class="w-full md:w-1/2 h-64 md:h-auto relative overflow-hidden">
-                    <img src="${top3[0].img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover">
+                    <img src="${top3[0].img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover">
                     <div class="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest">Just Listed</div>
                   </div>
                   <div class="w-full md:w-1/2 p-8 flex flex-col justify-center">
@@ -3623,7 +3623,7 @@ async function initBuyerHomePage() {
                 <div onclick="window.location.href='property-details.html?id=${l.id}'"
                      class="bg-white border border-slate-200 flex flex-col shadow-sm cursor-pointer hover:shadow-lg transition-all">
                   <div class="h-48 relative overflow-hidden">
-                    <img src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover">
+                    <img src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover">
                     <div class="absolute top-4 left-4 bg-white/90 backdrop-blur px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest text-slate-900">${l.type}</div>
                   </div>
                   <div class="p-6 flex-1 flex flex-col">
@@ -3683,7 +3683,7 @@ async function initBuyerListingsPage() {
              data-id="${l.id}" data-title="${escHtml(l.title)}" data-location="${escHtml(l.location)}" 
              data-type="${l.type}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}">
           <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
-            <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+            <img loading="lazy" src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
             <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${formatIntentLabel(l.intent)}</div>
             <button aria-label="Save Property" class="save-property-btn absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow text-slate-400 hover:text-error transition-colors">
               <span class="material-symbols-outlined text-[20px]">favorite</span>
@@ -4202,7 +4202,7 @@ async function initBuyerSearchPage() {
             return `
             <div id="search-card-${l.id}" class="search-card cursor-pointer bg-white rounded-3xl border border-slate-200 hover:border-slate-400 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col group" onclick="window.location.href='property-details.html?id=${l.id}'" onmouseenter="window.hoverSearchCard(${l.id})" onmouseleave="window.unhoverSearchCard(${l.id})">
               <div class="aspect-[4/3] overflow-hidden relative bg-slate-100">
-                <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <img loading="lazy" src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 <div class="absolute top-3 left-3 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-slate-900">${isRent ? 'For Rent' : 'For Sale'}</div>
                 <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur text-white px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[12px] text-amber-400" style="font-variation-settings: 'FILL' 1;">star</span> 5.0</div>
                 <div class="absolute bottom-3 right-3 flex items-center gap-2">
@@ -4298,7 +4298,7 @@ async function initBuyerSearchPage() {
               onmouseleave="window.unhoverSearchCard(${l.id})">
               
               <div class="aspect-[4/3] overflow-hidden relative bg-slate-100">
-                <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <img loading="lazy" src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 
                 <div class="absolute top-3 left-3 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-slate-900">
                   ${isRent ? 'For Rent' : 'For Sale'}
