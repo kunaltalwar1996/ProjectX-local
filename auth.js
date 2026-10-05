@@ -2881,7 +2881,7 @@ function updateFilterPriceLabels() {
     const minLabel = document.getElementById('filter-price-min-label');
     const maxLabel = document.getElementById('filter-price-max-label');
     const labelText = intent === 'Buy' ? 'PRICE MIN (Cr (₹))' : 'PRICE MIN (/mo (₹))';
-    const labelTextMax = intent === 'Buy' ? 'PRICE MAX (Cr (₹))' : 'PRICE MAX (/mo (₹))';
+    const labelTextMax = intent === 'Buy' ? 'PRICE MAX (Cr (₹))' : 'PRICE MAX ';
     if (minLabel) minLabel.textContent = labelText;
     if (maxLabel) maxLabel.textContent = labelTextMax;
 }
@@ -3051,7 +3051,7 @@ function injectCustomFilterModal() {
               <input id="filter-price-min" type="number" step="1" placeholder="Min Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
             <div>
-              <label id="filter-price-max-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MAX (/mo (₹))</label>
+              <label id="filter-price-max-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MAX </label>
               <input id="filter-price-max" type="number" step="1" placeholder="Max Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
             <div>
@@ -3066,11 +3066,9 @@ function injectCustomFilterModal() {
           </div>
 
           
-          <div class="grid grid-cols-2 gap-4">
-          </div>
 
           <!-- Geospatial Location curation -->
-          <div class="border-t border-slate-100 pt-4 space-y-4">
+          <div class="border-t border-slate-100 pt-3 space-y-3">
             <!-- <h4 class="text-sm font-bold text-slate-800">Geospatial Center & Radius</h4> -->
             
             <div class="relative">
