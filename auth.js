@@ -33,6 +33,19 @@ const PROPERTY_TYPE_OPTIONS = [
     'Office/Commercial'
 ];
 
+const BHK_OPTIONS = [
+    { value: 0, label: 'Room/1RK' },
+    { value: 1, label: '1BHK' },
+    { value: 2, label: '2RK/2BHK' },
+    { value: 3, label: '3BHK' },
+    { value: 4, label: '4BHK' },
+    { value: 5, label: '5BHK+' }
+];
+function formatBhk(value) {
+    const numericValue = parseInt(value, 10) || 0;
+    return BHK_OPTIONS.find(option => option.value === numericValue)?.label || `${numericValue}BHK`;
+}
+
 function normalizePropertyType(type) {
     if (!type) return type;
     const normalized = String(type).trim().toLowerCase().replace(/\s*\/\s*/g, '/');
@@ -532,11 +545,26 @@ window.login = async function(role, name, targetRole = null) {
 };
 
 window.logout = async function() {
-    await supabase.auth.signOut();
-    localStorage.removeItem('role');
-    localStorage.removeItem('userName');
-    navigateTo('login.html');
+    try {
+        await supabase.auth.signOut();
+    } finally {
+        localStorage.removeItem('role');
+        localStorage.removeItem('userName');
+        navigateTo('login.html');
+    }
 };
+
+// Route logout controls on every page, including dashboard mobile sidebars, here.
+document.addEventListener('click', (event) => {
+    const control = event.target.closest('button, a');
+    if (!control) return;
+    const icon = control.querySelector('.material-symbols-outlined')?.textContent.trim();
+    const label = `${control.textContent} ${control.getAttribute('aria-label') || ''} ${control.title || ''}`.toLowerCase();
+    if (icon !== 'logout' && !label.includes('logout') && !label.includes('sign out')) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.logout();
+}, true);
 
 // ─── DOM-ready handlers ───────────────────────────────────────────────────────
 
@@ -924,7 +952,7 @@ function initAppPage() {
                             <span class="material-symbols-outlined text-[18px]">account_circle</span>
                             Profile
                         </a>
-                        <button onclick="window.logout()" class="w-full text-center bg-slate-100 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors uppercase tracking-wider flex items-center justify-center gap-2">
+                        <button type="button" onclick="window.logout()" class="w-full text-center bg-slate-100 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors uppercase tracking-wider flex items-center justify-center gap-2">
                             <span class="material-symbols-outlined text-[18px]">logout</span>
                             Sign Out
                         </button>
@@ -934,7 +962,7 @@ function initAppPage() {
                         <button onclick="window.location.href=window.toAppUrl('profile.html')" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" title="Signed in as Buyer — Go to Profile">
                             <span class="material-symbols-outlined text-[24px]">account_circle</span>
                         </button>
-                        <button onclick="window.logout()" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center ml-2" title="Sign Out">
+                        <button type="button" onclick="window.logout()" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center ml-2" title="Sign Out">
                             <span class="material-symbols-outlined text-[24px]">logout</span>
                         </button>
                     `;
@@ -946,7 +974,7 @@ function initAppPage() {
                             <span class="material-symbols-outlined text-[18px]">dashboard</span>
                             Dashboard
                         </a>
-                        <button onclick="window.logout()" class="w-full text-center bg-slate-100 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors uppercase tracking-wider flex items-center justify-center gap-2">
+                        <button type="button" onclick="window.logout()" class="w-full text-center bg-slate-100 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors uppercase tracking-wider flex items-center justify-center gap-2">
                             <span class="material-symbols-outlined text-[18px]">logout</span>
                             Sign Out
                         </button>
@@ -956,7 +984,7 @@ function initAppPage() {
                         <a href="${window.toAppUrl(roleHomePage[currentRole] || 'index.html')}" class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider shadow-sm mr-2 flex items-center">
                             Dashboard
                         </a>
-                        <button onclick="window.logout()" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" title="Signed in as ${currentRole} — Sign Out">
+                        <button type="button" onclick="window.logout()" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" title="Signed in as ${currentRole} — Sign Out">
                             <span class="material-symbols-outlined text-[24px]">logout</span>
                         </button>
                     `;
@@ -967,17 +995,17 @@ function initAppPage() {
 
     // Fix hover-only dropdowns for touch devices
     function initTouchDropdowns() {
-        document.querySelectorAll('.group').forEach(group => {
-            const trigger = group.querySelector('button, a');
-            const dropdown = group.querySelector('[class*="group-hover"]');
+        const dropdowns = document.querySelectorAll('.group > [class*="group-hover:visible"]');
+        dropdowns.forEach(dropdown => {
+            const trigger = dropdown.previousElementSibling;
             if (!trigger || !dropdown) return;
 
-            trigger.addEventListener('touchend', (e) => {
+            trigger.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const isVisible = dropdown.style.opacity === '1';
                 // Close all
-                document.querySelectorAll('.group [class*="group-hover"]').forEach(d => {
+                dropdowns.forEach(d => {
                     d.style.opacity = '0';
                     d.style.visibility = 'hidden';
                     d.style.pointerEvents = 'none';
@@ -991,10 +1019,13 @@ function initAppPage() {
             });
         });
 
-        // Close on outside touch
-        document.addEventListener('touchend', (e) => {
-            if (!e.target.closest('.group')) {
-                document.querySelectorAll('.group [class*="group-hover"]').forEach(d => {
+        // Close when the click lands outside the dropdown and its trigger.
+        document.addEventListener('click', (e) => {
+            const isDropdownClick = Array.from(dropdowns).some(dropdown =>
+                dropdown.contains(e.target) || dropdown.previousElementSibling.contains(e.target)
+            );
+            if (!isDropdownClick) {
+                dropdowns.forEach(d => {
                     d.style.opacity = '0';
                     d.style.visibility = 'hidden';
                     d.style.pointerEvents = 'none';
@@ -1202,7 +1233,7 @@ function initAppPage() {
     </Table>
   </Worksheet>`;
 
-                const listingHeaders = ['ID', 'Title', 'Location', 'Price (Cr)', 'Intent', 'Type', 'Status', 'Beds', 'Baths', 'SqFt', 'Views', 'Listed On'];
+                const listingHeaders = ['ID', 'Title', 'Location', 'Price (Cr)', 'Intent', 'Type', 'Status', 'BHK', 'Baths', 'SqFt', 'Views', 'Listed On'];
                 const listingRows = listings.map(l => [
                     l.id,
                     l.title,
@@ -2355,12 +2386,14 @@ function injectListingModal() {
               <input id="modal-sqft" type="number" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bedrooms *</label>
-              <input id="modal-beds" type="number" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">BHK *</label>
+              <select id="modal-beds" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
+                ${BHK_OPTIONS.map(option => `<option value="${option.value}">${option.label}</option>`).join('')}
+              </select>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bathrooms *</label>
-              <input id="modal-baths" type="number" step="0.5" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
+              <input id="modal-baths" type="number" min="0" step="1" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
             </div>
             ${userRole === 'Broker' ? `
             <div class="md:col-span-2">
@@ -2928,7 +2961,7 @@ async function renderCustomFilters() {
         if (crit.bedsMin || crit.bedsMax) {
             const minB = crit.bedsMin || '1';
             const maxB = crit.bedsMax || '5+';
-            parts.push(`Beds: ${minB}-${maxB}`);
+            parts.push(`BHK: ${formatBhk(minB)}-${formatBhk(maxB)}`);
         }
         if (crit.priceMin || crit.priceMax) {
             const priceIntent = crit.priceUnit === 'crore' || crit.intent === 'Buy' ? 'Buy' : 'Rent';
@@ -3021,25 +3054,25 @@ function injectCustomFilterModal() {
           <!-- Bedrooms Min / Max -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bedrooms Min</label>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">BHK Min</label>
               <select id="filter-beds-min" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="">Any</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
+                <option value="1">1BHK</option>
+                <option value="2">2BHK</option>
+                <option value="3">3BHK</option>
+                <option value="4">4BHK</option>
+                <option value="5">5BHK+</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bedrooms Max</label>
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">BHK Max</label>
               <select id="filter-beds-max" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed">
                 <option value="">Any</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5+">5+</option>
+                <option value="1">1BHK</option>
+                <option value="2">2BHK</option>
+                <option value="3">3BHK</option>
+                <option value="4">4BHK</option>
+                <option value="5+">5BHK+</option>
               </select>
             </div>
           </div>
@@ -3600,7 +3633,7 @@ async function initBuyerHomePage() {
                     <h3 class="text-2xl font-black text-slate-900 mb-2">${formatListingPrice(top3[0].price, top3[0].intent, { html: true })}</h3>
                     <p class="text-sm font-bold text-slate-500 mb-6">${escHtml(top3[0].title)}, ${escHtml(top3[0].location)}</p>
                     <div class="flex items-center gap-6 pt-6 border-t border-slate-100">
-                      <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${top3[0].beds}</span></div>
+                      <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${formatBhk(top3[0].beds)}</span></div>
                       <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bathtub</span><span class="text-xs font-black text-slate-900">${top3[0].baths}</span></div>
                       <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">square_foot</span><span class="text-xs font-black text-slate-900">${(top3[0].sqft || 0).toLocaleString()}</span></div>
                     </div>
@@ -3629,7 +3662,7 @@ async function initBuyerHomePage() {
                     <h3 class="text-lg font-black text-slate-900 mb-1">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
                     <p class="text-xs font-bold text-slate-500 mb-4 truncate">${escHtml(l.title)}</p>
                     <div class="flex items-center gap-4 mt-auto pt-4 border-t border-slate-50">
-                      <div class="flex items-center gap-1.5 text-slate-400"><span class="material-symbols-outlined text-[14px]">bed</span><span class="text-[10px] font-black text-slate-900">${l.beds}</span></div>
+                      <div class="flex items-center gap-1.5 text-slate-400"><span class="material-symbols-outlined text-[14px]">bed</span><span class="text-[10px] font-black text-slate-900">${formatBhk(l.beds)}</span></div>
                       <div class="flex items-center gap-1.5 text-slate-400"><span class="material-symbols-outlined text-[14px]">square_foot</span><span class="text-[10px] font-black text-slate-900">${(l.sqft || 0).toLocaleString()}</span></div>
                     </div>
                     <div class="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
@@ -3700,7 +3733,7 @@ async function initBuyerListingsPage() {
             </div>
             <p class="text-slate-500 text-sm font-medium mb-4 truncate">${escHtml(l.title)}, ${escHtml(l.location)}</p>
             <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
-              <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${l.beds}</span></div>
+              <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${formatBhk(l.beds)}</span></div>
               <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bathtub</span><span class="text-xs font-black text-slate-900">${l.baths}</span></div>
               <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">square_foot</span><span class="text-xs font-black text-slate-900">${(l.sqft || 0).toLocaleString()} <span class="font-normal text-slate-400">sqft</span></span></div>
             </div>
@@ -4211,7 +4244,7 @@ async function initBuyerSearchPage() {
               </div>
               <div class="p-5 flex-1 flex flex-col justify-between">
                 <div><div class="flex justify-between items-baseline mb-1"><h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3><span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${escHtml(l.type || 'Property')}</span></div><h4 class="text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4><p class="text-xs font-medium text-slate-500 truncate mb-4">${escHtml(l.location || '')}</p></div>
-                <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-medium"><div class="flex items-center gap-3"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bed</span> ${l.beds || 0} beds</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bathtub</span> ${l.baths || 0} baths</span></div><span class="flex items-center gap-1 font-bold text-slate-700">${(l.sqft || 0).toLocaleString()} sqft</span></div>
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-medium"><div class="flex items-center gap-3"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bed</span> ${formatBhk(l.beds)}</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bathtub</span> ${l.baths || 0} baths</span></div><span class="flex items-center gap-1 font-bold text-slate-700">${(l.sqft || 0).toLocaleString()} sqft</span></div>
               </div>
             </div>`;
         }).join('');
@@ -4331,7 +4364,7 @@ async function initBuyerSearchPage() {
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-medium">
                   <div class="flex items-center gap-3">
-                    <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bed</span> ${l.beds || 0} beds</span>
+                    <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bed</span> ${formatBhk(l.beds)}</span>
                     <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bathtub</span> ${l.baths || 0} baths</span>
                   </div>
                   <span class="flex items-center gap-1 font-bold text-slate-700">${(l.sqft || 0).toLocaleString()} sqft</span>
@@ -4870,7 +4903,7 @@ async function initBuyerMapPage() {
                 <h4 class="font-bold text-sm text-slate-900">${formatListingPrice(p.price, p.intent)}</h4>
                 <p class="text-xs font-medium text-slate-500 mt-0.5">${escHtml(p.title)}</p>
                 <div class="flex items-center gap-2 mt-2 text-slate-600 text-[10px] font-bold">
-                    <span>${p.beds} BEDS</span> &bull; <span>${p.baths} BATHS</span>
+                    <span>${formatBhk(p.beds)}</span> &bull; <span>${p.baths} BATHS</span>
                 </div>
                 <button onclick="window.location.href='property-details.html?id=${p.id}'" class="mt-3 w-full bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] uppercase font-bold hover:bg-slate-800 transition-colors">View Details</button>
             </div>
@@ -5008,7 +5041,7 @@ async function initBuyerMapPage() {
                 <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
                   <div class="flex items-center gap-1.5">
                     <span class="material-symbols-outlined text-[18px]">bed</span>
-                    <span class="text-xs font-black text-slate-900">${l.beds}</span>
+                    <span class="text-xs font-black text-slate-900">${formatBhk(l.beds)}</span>
                   </div>
                   <div class="flex items-center gap-1.5">
                     <span class="material-symbols-outlined text-[18px]">bathtub</span>
@@ -5119,7 +5152,7 @@ async function initBuyerMapPage() {
                                 <h4 class="font-bold text-sm text-slate-900">${formatListingPrice(l.price, l.intent)}</h4>
                                 <p class="text-xs font-medium text-slate-500 mt-0.5">${escHtml(l.title)}</p>
                                 <div class="flex items-center gap-2 mt-2 text-slate-600 text-[10px] font-bold">
-                                    <span>${l.beds} BEDS</span> &bull; <span>${l.baths} BATHS</span>
+                                    <span>${formatBhk(l.beds)}</span> &bull; <span>${l.baths} BATHS</span>
                                 </div>
                                 <button onclick="window.location.href='property-details.html?id=${l.id}'" class="mt-3 w-full bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] uppercase font-bold hover:bg-slate-800 transition-colors">View Details</button>
                             </div>
@@ -5588,7 +5621,7 @@ async function initBuyerDetailsPage() {
 
     // Stats
     const bedsEl = document.getElementById('detail-beds');
-    if (bedsEl) bedsEl.textContent = l.beds;
+    if (bedsEl) bedsEl.textContent = formatBhk(l.beds);
     const bathsEl = document.getElementById('detail-baths');
     if (bathsEl) bathsEl.textContent = l.baths;
     const sqftEl = document.getElementById('detail-sqft');
@@ -5617,7 +5650,7 @@ async function initBuyerDetailsPage() {
     // Description
     const descEl = document.getElementById('detail-desc');
     if (descEl) {
-        descEl.innerHTML = `<p>This exquisite ${l.type.toLowerCase()} located in ${l.location} offers a premium living experience with ${l.beds} spacious bedrooms and ${l.baths} modern bathrooms. Spanning ${(l.sqft || 0).toLocaleString()} sqft, the property features high-end finishes, abundant natural light, and breathtaking views.</p>
+        descEl.innerHTML = `<p>This exquisite ${l.type.toLowerCase()} located in ${l.location} offers a premium living experience with ${formatBhk(l.beds)} of living space and ${l.baths} modern bathrooms. Spanning ${(l.sqft || 0).toLocaleString()} sqft, the property features high-end finishes, abundant natural light, and breathtaking views.</p>
         <p>Perfect for those seeking luxury and comfort, this home includes state-of-the-art amenities and is situated in a prime neighborhood with easy access to the city's best attractions.</p>`;
     }
 

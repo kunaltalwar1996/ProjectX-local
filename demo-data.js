@@ -82,7 +82,7 @@ function buildCardHTML(l) {
         </div>
         <p class="text-slate-500 text-sm font-medium mb-4 truncate">${l.address}</p>
         <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
-          ${l.beds > 0 ? `<div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${l.beds}</span></div>` : ''}
+          ${l.beds > 0 ? `<div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${l.beds >= 5 ? '5BHK+' : `${l.beds}BHK`}</span></div>` : ''}
           ${l.baths > 0 ? `<div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bathtub</span><span class="text-xs font-black text-slate-900">${l.baths}</span></div>` : ''}
           <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">square_foot</span><span class="text-xs font-black text-slate-900">${l.sqft.toLocaleString()} <span class="font-normal text-slate-400">sqft</span></span></div>
         </div>

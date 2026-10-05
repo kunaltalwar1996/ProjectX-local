@@ -596,7 +596,7 @@ async function loadReviewQueue() {
               <p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Submitted by Broker: <span class="font-mono text-[10px] text-primary select-all">${lst.broker_id || 'System'}</span> • ${timeStr}</p>
               <div class="flex flex-wrap gap-4 font-body-sm text-body-sm text-on-background">
                 <span class="flex items-center gap-1"><span class="material-symbols-outlined text-outline text-[18px]">sell</span> ${priceStr}</span>
-                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-outline text-[18px]">bed</span> ${lst.beds || 0} Beds</span>
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-outline text-[18px]">bed</span> ${parseInt(lst.beds, 10) >= 5 ? '5BHK+' : `${lst.beds || 0}BHK`}</span>
                 <span class="flex items-center gap-1"><span class="material-symbols-outlined text-outline text-[18px]">shower</span> ${lst.baths || 0} Baths</span>
                 <span class="flex items-center gap-1"><span class="material-symbols-outlined text-outline text-[18px]">square_foot</span> ${lst.sqft || 0} SqFt</span>
               </div>

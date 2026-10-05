@@ -224,7 +224,7 @@
         if (crit.bedsMin || crit.bedsMax) {
           const min = crit.bedsMin || '1';
           const max = crit.bedsMax || '5+';
-          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${min}-${max} Beds</span>`;
+          chipsContainer.innerHTML += `<span class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-full">${min}-${max} BHK</span>`;
         }
         if (crit.priceMin || crit.priceMax) {
           const priceIntent = crit.priceUnit === 'crore' || crit.intent === 'Buy' ? 'Buy' : 'Rent';
@@ -342,7 +342,7 @@
                 </div>
                 <p class="text-slate-500 text-sm font-medium mb-4 truncate">${l.title}, ${l.location}</p>
                 <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
-                  <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${l.beds}</span></div>
+                  <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${parseInt(l.beds, 10) >= 5 ? '5BHK+' : `${l.beds || 0}BHK`}</span></div>
                   <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bathtub</span><span class="text-xs font-black text-slate-900">${l.baths || 1}</span></div>
                   <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">square_foot</span><span class="text-xs font-black text-slate-900">${(l.sqft || 0).toLocaleString()} <span class="font-normal text-slate-400">sqft</span></span></div>
                 </div>
