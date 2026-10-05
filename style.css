@@ -233,9 +233,27 @@ body.estate-admin-theme .heading-md {
 
 @media (max-width: 767px) {
     body.estate-admin-theme main {
-        padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)) !important;
+        padding-bottom: calc(9.5rem + env(safe-area-inset-bottom)) !important;
     }
 }
+
+/* --- Floating Add Listing Mobile Action (Overview Tab Only) --- */
+.floating-add-listing-btn {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+    width: 56px;
+    height: 56px;
+    border-radius: 9999px;
+    z-index: 150;
+}
+
+@media (min-width: 768px) {
+    .floating-add-listing-btn {
+        display: none !important;
+    }
+}
+
 
 
 
