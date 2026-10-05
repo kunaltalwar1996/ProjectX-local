@@ -3144,6 +3144,12 @@ function injectCustomFilterModal() {
                 <span id="filter-radius-val" class="text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded">1.0 km</span>
               </div>
               <input id="filter-radius" type="range" min="250" max="10000" step="250" value="1000" class="w-full accent-primary h-1.5 bg-slate-200 rounded-lg cursor-pointer mt-2"/>
+              <div class="relative w-full h-5 mt-1">
+                <button type="button" data-radius="1000" aria-label="Set radius to 1 km" class="radius-marker-btn absolute -translate-x-1/2 text-[10px] font-medium text-slate-400 hover:text-slate-900 focus:text-slate-900 focus:outline-none transition-colors" style="left: 7.69%;">1 km</button>
+                <button type="button" data-radius="3000" aria-label="Set radius to 3 km" class="radius-marker-btn absolute -translate-x-1/2 text-[10px] font-medium text-slate-400 hover:text-slate-900 focus:text-slate-900 focus:outline-none transition-colors" style="left: 28.21%;">3 km</button>
+                <button type="button" data-radius="5000" aria-label="Set radius to 5 km" class="radius-marker-btn absolute -translate-x-1/2 text-[10px] font-medium text-slate-400 hover:text-slate-900 focus:text-slate-900 focus:outline-none transition-colors" style="left: 48.72%;">5 km</button>
+                <button type="button" data-radius="8000" aria-label="Set radius to 8 km" class="radius-marker-btn absolute -translate-x-1/2 text-[10px] font-medium text-slate-400 hover:text-slate-900 focus:text-slate-900 focus:outline-none transition-colors" style="left: 79.49%;">8 km</button>
+              </div>
             </div>
           </div>
 
@@ -3259,6 +3265,17 @@ function injectCustomFilterModal() {
             }
         };
         radiusSlider.addEventListener('input', updateText);
+
+        const markerBtns = document.querySelectorAll('.radius-marker-btn');
+        markerBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetRadius = btn.getAttribute('data-radius');
+                if (targetRadius) {
+                    radiusSlider.value = targetRadius;
+                    radiusSlider.dispatchEvent(new Event('input'));
+                }
+            });
+        });
     }
 }
 
