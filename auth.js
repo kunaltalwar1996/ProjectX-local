@@ -3046,12 +3046,12 @@ function injectCustomFilterModal() {
 
           <!-- Price Min / Max -->
           <div class="grid grid-cols-2 gap-4">
-            <div>
+            <div class="hidden">
               <label id="filter-price-min-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MIN (/mo (₹))</label>
               <input id="filter-price-min" type="number" step="1" placeholder="Min Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
             <div>
-              <label id="filter-price-max-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MAX (/mo (₹))</label>
+              <label id="filter-price-max-label" class="block text-xs font-semibold text-slate-500 tracking-wider mb-1">PRICE MAX </label>
               <input id="filter-price-max" type="number" step="1" placeholder="Max Price" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
           </div>
@@ -3062,7 +3062,8 @@ function injectCustomFilterModal() {
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Area Min (sqft)</label>
               <input id="filter-sqft-min" type="number" step="50" placeholder="Min Area" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
-            <div>
+            
+            <div class="hidden">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Area Max (sqft)</label>
               <input id="filter-sqft-max" type="number" step="50" placeholder="Max Area" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-transparent"/>
             </div>
