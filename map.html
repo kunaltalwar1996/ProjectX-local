@@ -81,9 +81,6 @@
       body.map-page { height:100dvh; }
       body.map-page > nav { height:58px; }
       body.map-page > nav .max-w-\[1280px\] { padding:0 18px; }
-      body.map-page > nav .hidden.md\:flex, body.map-page > nav .account_circle, body.map-page > nav .ml-2 { display:none; }
-      body.map-page > nav .flex.items-center.gap-4 { display:none; }
-      body.map-page > nav .mobile-menu-button { display:flex; }
       #main-split { position:relative; overflow:hidden; flex-direction:column; }
       #map-pane { height:44dvh !important; min-height:250px; }
       #map-pane > div:first-child + div { top:10px; width:calc(100% - 32px); max-width:460px; }
@@ -181,7 +178,7 @@
         </button>
         <button class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider ml-2">Dashboard</button>
       </div>
-      <button class="mobile-menu-button hidden items-center justify-center text-slate-900" aria-label="Open menu"><span class="material-symbols-outlined text-[26px]">menu</span></button>
+      <button type="button" id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false"><span class="material-symbols-outlined text-[28px]">menu</span></button>
     </div>
   </nav>
 

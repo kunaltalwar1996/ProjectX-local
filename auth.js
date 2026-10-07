@@ -158,6 +158,186 @@ function toAppUrl(page) {
 
 window.toAppUrl = toAppUrl;
 
+const GUEST_BUYER_MEGA_MENU_STYLE_ID = 'guest-buyer-mega-menu-style';
+let megaMenuCloseTimer = null;
+
+function normalizedCurrentRole() {
+    const raw = localStorage.getItem('role') || 'Guest';
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+function shouldUseGuestBuyerMegaMenu() {
+    const role = normalizedCurrentRole();
+    if (role === 'Buyer') return buyerPages.includes(currentPage);
+    if (role === 'Guest') return guestPages.includes(currentPage);
+    return false;
+}
+
+function ensureGuestBuyerMegaMenuStyle() {
+    if (document.getElementById(GUEST_BUYER_MEGA_MENU_STYLE_ID)) return;
+    const styleEl = document.createElement('style');
+    styleEl.id = GUEST_BUYER_MEGA_MENU_STYLE_ID;
+    // Sit above Map's mobile #list-pane (z-index: 1000) without changing other app layers.
+    styleEl.textContent = `
+        #mobile-menu-backdrop { z-index: 1100; }
+        #mobile-menu { z-index: 1110; }
+    `;
+    document.head.appendChild(styleEl);
+}
+
+function removeGuestBuyerMegaMenuNodes() {
+    document.querySelectorAll('[id="mobile-menu-backdrop"]').forEach(el => el.remove());
+    document.querySelectorAll('[id="mobile-menu"]').forEach(el => el.remove());
+}
+
+function isMegaMenuOpen() {
+    const menu = document.getElementById('mobile-menu');
+    return !!(menu && !menu.classList.contains('translate-x-full'));
+}
+
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobile-menu');
+    const backdrop = document.getElementById('mobile-menu-backdrop');
+    const trigger = document.getElementById('hamburger-btn');
+    if (!menu || !backdrop) return;
+
+    if (megaMenuCloseTimer) {
+        clearTimeout(megaMenuCloseTimer);
+        megaMenuCloseTimer = null;
+    }
+
+    if (menu.classList.contains('translate-x-full')) {
+        menu.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+        setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+        if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    } else {
+        menu.classList.add('translate-x-full');
+        backdrop.classList.add('opacity-0');
+        megaMenuCloseTimer = setTimeout(() => {
+            backdrop.classList.add('hidden');
+            megaMenuCloseTimer = null;
+        }, 300);
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    }
+}
+
+window.toggleMobileMenu = toggleMobileMenu;
+
+function ensureHamburgerTrigger() {
+    const nav = document.querySelector('body > nav');
+    if (!nav) return null;
+
+    const row = nav.querySelector(':scope > div') || nav;
+    const candidates = Array.from(row.querySelectorAll('[id="hamburger-btn"], .mobile-menu-button'));
+    let btn = candidates.find(el => el.id === 'hamburger-btn') || candidates[0] || null;
+
+    candidates.forEach(el => {
+        if (el !== btn) el.remove();
+    });
+
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.innerHTML = '<span class="material-symbols-outlined text-[28px]">menu</span>';
+        row.appendChild(btn);
+    }
+
+    if (btn.tagName !== 'BUTTON') {
+        const replacement = document.createElement('button');
+        replacement.innerHTML = btn.innerHTML;
+        btn.replaceWith(replacement);
+        btn = replacement;
+    }
+
+    btn.type = 'button';
+    btn.id = 'hamburger-btn';
+    btn.className = 'md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors';
+    btn.setAttribute('aria-label', 'Open menu');
+    btn.setAttribute('aria-controls', 'mobile-menu');
+    btn.setAttribute('aria-expanded', isMegaMenuOpen() ? 'true' : 'false');
+    btn.style.touchAction = 'manipulation';
+    btn.style.webkitTapHighlightColor = 'transparent';
+    btn.style.cursor = 'pointer';
+    btn.style.minWidth = '44px';
+    btn.style.minHeight = '44px';
+
+    if (btn.dataset.megaMenuBound !== '1') {
+        btn.dataset.megaMenuBound = '1';
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleMobileMenu();
+        });
+    }
+
+    return btn;
+}
+
+function ensureMegaMenuDrawer() {
+    removeGuestBuyerMegaMenuNodes();
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'mobile-menu-backdrop';
+    backdrop.className = 'fixed inset-0 bg-slate-900/50 z-[60] hidden opacity-0 transition-opacity duration-300 md:hidden';
+    backdrop.addEventListener('click', toggleMobileMenu);
+
+    const menu = document.createElement('nav');
+    menu.id = 'mobile-menu';
+    menu.className = 'fixed right-0 top-0 bottom-0 w-64 bg-white z-[70] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col p-6 md:hidden';
+    menu.setAttribute('aria-label', 'Menu');
+    menu.innerHTML = `
+        <div class="flex items-center justify-between mb-8">
+            <span class="text-xl font-black tracking-tighter text-slate-900">Menu</span>
+            <button type="button" id="close-mobile-menu" class="text-slate-500 hover:text-slate-900" aria-label="Close menu">
+                <span class="material-symbols-outlined text-[28px]">close</span>
+            </button>
+        </div>
+        <div class="flex flex-col gap-6">
+            <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('properties.html?intent=Buy')}">Sell</a>
+            <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('properties.html?intent=Rent')}">Rent</a>
+            <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('map.html')}">Map View</a>
+            <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('sell.html')}">Sell</a>
+        </div>
+        <div class="mt-auto pt-8 border-t border-slate-100 flex flex-col gap-4" id="mobile-trailing-actions">
+        </div>
+    `;
+
+    document.body.appendChild(backdrop);
+    document.body.appendChild(menu);
+
+    const closeBtn = document.getElementById('close-mobile-menu');
+    if (closeBtn) closeBtn.addEventListener('click', toggleMobileMenu);
+}
+
+function initGuestBuyerMegaMenu() {
+    if (!shouldUseGuestBuyerMegaMenu()) {
+        removeGuestBuyerMegaMenuNodes();
+        document.querySelectorAll('[id="hamburger-btn"], .mobile-menu-button').forEach(el => {
+            el.classList.add('hidden');
+        });
+        return;
+    }
+
+    ensureGuestBuyerMegaMenuStyle();
+    ensureHamburgerTrigger();
+    ensureMegaMenuDrawer();
+
+    const nav = document.querySelector('body > nav');
+    const row = nav && nav.querySelector(':scope > div');
+    if (row) {
+        Array.from(row.children).forEach(child => {
+            if (child.id === 'hamburger-btn') return;
+            if (child.classList.contains('items-center') && child.classList.contains('gap-4')) {
+                child.classList.add('hidden', 'md:flex');
+            }
+        });
+    }
+
+    if (typeof updateHeaderVisibility === 'function') {
+        updateHeaderVisibility();
+    }
+}
+
 function navigateTo(page) {
     if (window.ajaxLoadPage) {
         window.ajaxLoadPage(toAppUrl(page), true);
@@ -1409,6 +1589,8 @@ function initAppPage() {
             console.error(`Error executing SPA page initializer for ${currentPage}:`, e);
         }
     }
+
+    initGuestBuyerMegaMenu();
 
     window.initAppPageHasRun = true;
 }

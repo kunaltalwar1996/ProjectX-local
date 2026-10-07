@@ -206,7 +206,7 @@
       </div>
 
       <!-- Mobile Menu Toggle -->
-      <button id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors">
+      <button type="button" id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false">
         <span class="material-symbols-outlined text-[28px]">menu</span>
       </button>
     </div>
@@ -360,23 +360,6 @@
       <span id="floating-toggle-text">Show Map</span>
     </button>
   </div>
-
-  <!-- Mobile Menu Backdrop & Navigation -->
-  <div id="mobile-menu-backdrop" class="fixed inset-0 bg-slate-900/50 z-[60] hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
-  <nav id="mobile-menu" class="fixed right-0 top-0 bottom-0 w-64 bg-white z-[70] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col p-6 md:hidden">
-    <div class="flex items-center justify-between mb-8">
-      <span class="text-xl font-black tracking-tighter text-slate-900">Menu</span>
-      <button id="close-mobile-menu" class="text-slate-500 hover:text-slate-900">
-        <span class="material-symbols-outlined text-[28px]">close</span>
-      </button>
-    </div>
-    <div class="flex flex-col gap-6">
-      <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="/properties.html?intent=Buy">Sell</a>
-      <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="/properties.html?intent=Rent">Rent</a>
-      <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="/search.html">Search Page</a>
-      <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="/sell.html">Sell</a>
-    </div>
-  </nav>
 
 </body>
 </html>
