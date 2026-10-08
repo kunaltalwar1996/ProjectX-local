@@ -1,4 +1,85 @@
 import { supabase } from './lib/supabase.js';
+import { getWishlistIds, setWishlistListing } from './lib/wishlist.js';
+import { listingAgeBadgeMarkup } from './lib/listing-card-presentation.js';
+
+const wishlistPending = new Set();
+
+function paintWishlistButtons(ids = []) {
+    const savedIds = new Set((ids || []).map(String));
+    document.querySelectorAll('[data-wishlist-button]').forEach((button) => {
+        const id = String(button.dataset.listingId || '');
+        const saved = savedIds.has(id);
+        const icon = button.querySelector('.material-symbols-outlined');
+        button.setAttribute('aria-pressed', String(saved));
+        button.setAttribute('aria-label', saved ? 'Remove from wishlist' : 'Add to wishlist');
+        button.title = saved ? 'Remove from wishlist' : 'Add to wishlist';
+        const label = button.querySelector('[data-wishlist-label]');
+        if (label) label.textContent = saved ? 'Saved' : 'Save Listing';
+        button.classList.toggle('text-rose-500', saved);
+        button.classList.toggle('text-red-500', saved);
+        button.classList.toggle('text-slate-400', !saved);
+        if (icon) icon.style.fontVariationSettings = saved ? "'FILL' 1" : "'FILL' 0";
+        button.disabled = wishlistPending.has(id);
+        button.classList.toggle('opacity-60', button.disabled);
+        button.classList.toggle('cursor-wait', button.disabled);
+    });
+}
+
+window.refreshWishlistUI = async function({ refresh = true } = {}) {
+    if (!document.querySelector('[data-wishlist-button]')) return;
+    try {
+        const ids = await getWishlistIds({ refresh });
+        window.projectWishlistIds = ids;
+        paintWishlistButtons(ids);
+    } catch (error) {
+        console.error('Unable to load wishlist:', error);
+        showToast('Unable to load your wishlist. Please try again.', true);
+    }
+};
+
+window.addEventListener('projectx:wishlist-changed', (event) => {
+    const ids = event.detail?.ids || [];
+    window.projectWishlistIds = ids;
+    paintWishlistButtons(ids);
+});
+
+document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-wishlist-button]');
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    const id = String(button.dataset.listingId || '');
+    if (!id || wishlistPending.has(id)) return;
+
+    const isWishlisted = button.getAttribute('aria-pressed') === 'true';
+    wishlistPending.add(id);
+    button.disabled = true;
+    button.classList.add('opacity-60', 'cursor-wait');
+    try {
+        const updatedIds = await setWishlistListing(id, !isWishlisted);
+        window.projectWishlistIds = updatedIds;
+        paintWishlistButtons(updatedIds);
+        showToast(isWishlisted ? 'Removed from your wishlist.' : 'Added to your wishlist.');
+    } catch (error) {
+        if (error.code === 'AUTH_REQUIRED') {
+            showToast(error.message, true);
+        } else {
+            console.error('Unable to update wishlist:', error);
+            showToast('Unable to update your wishlist. Please try again.', true);
+        }
+        try {
+            const ids = await getWishlistIds({ refresh: true });
+            window.projectWishlistIds = ids;
+            paintWishlistButtons(ids);
+        } catch (_) {}
+    } finally {
+        wishlistPending.delete(id);
+        paintWishlistButtons(window.projectWishlistIds || []);
+    }
+}, true);
 
 const currentPath = window.location.pathname;
 let currentPage = currentPath.split('/').pop() || 'index.html';
@@ -45,6 +126,7 @@ function formatBhk(value) {
     const numericValue = parseInt(value, 10) || 0;
     return BHK_OPTIONS.find(option => option.value === numericValue)?.label || `${numericValue}BHK`;
 }
+window.formatBhk = formatBhk;
 
 function normalizePropertyType(type) {
     if (!type) return type;
@@ -339,10 +421,18 @@ function initGuestBuyerMegaMenu() {
 }
 
 function navigateTo(page) {
+    const targetUrl = toAppUrl(page);
+    const targetPath = new URL(targetUrl, window.location.href).pathname;
+    // Auth pages have page-specific inline styles and initialize their role tabs
+    // from a fresh document. Do not inject them through the SPA body swap.
+    if (/\/(?:login|staff-login|signup)(?:\.html)?\/?$/i.test(targetPath)) {
+        window.location.replace(targetUrl);
+        return;
+    }
     if (window.ajaxLoadPage) {
-        window.ajaxLoadPage(toAppUrl(page), true);
+        window.ajaxLoadPage(targetUrl, true);
     } else {
-        window.location.replace(toAppUrl(page));
+        window.location.replace(targetUrl);
     }
 }
 window.navigateTo = navigateTo;
@@ -670,17 +760,11 @@ async function checkAuth() {
                 localStorage.setItem('role', role); // Sync for sync checks
             }
 
-            // Hydrate savedProperties from Supabase preferences on login
-            if (session) {
-                const { data: savedProfile } = await supabase
-                    .from('profiles')
-                    .select('preferences')
-                    .eq('id', session.user.id)
-                    .single();
-                const remoteSaved = savedProfile?.preferences?.saved_listings;
-                if (remoteSaved && Array.isArray(remoteSaved)) {
-                    localStorage.setItem('savedProperties', JSON.stringify(remoteSaved));
-                }
+            // Load the persisted wishlist for this authenticated user.
+            try {
+                window.projectWishlistIds = await getWishlistIds({ refresh: true });
+            } catch (wishlistError) {
+                console.error('Unable to load authenticated wishlist:', wishlistError);
             }
         }
     }
@@ -3836,13 +3920,15 @@ async function initBuyerHomePage() {
             featuredGrid.innerHTML = `
                 <!-- Main Featured (2 cols) -->
                 <div onclick="window.location.href='property-details.html?id=${top3[0].id}'"
-                     class="md:col-span-2 bg-white border border-slate-200 flex flex-col md:flex-row shadow-sm cursor-pointer hover:shadow-lg transition-all">
+                     data-listing-card data-listing-id="${top3[0].id}" class="md:col-span-2 bg-white border border-slate-200 flex flex-col md:flex-row shadow-sm cursor-pointer hover:shadow-lg transition-all">
                   <div class="w-full md:w-1/2 h-64 md:h-auto relative overflow-hidden">
                     <img src="${top3[0].img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover">
-                    <div class="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest">Just Listed</div>
+                    ${listingAgeBadgeMarkup(top3[0].created_at)}
+                    <button type="button" data-wishlist-button data-listing-id="${top3[0].id}" aria-pressed="false" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/95 text-slate-400 shadow-md flex items-center justify-center hover:text-rose-500 transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
                   </div>
                   <div class="w-full md:w-1/2 p-8 flex flex-col justify-center">
                     <h3 class="text-2xl font-black text-slate-900 mb-2">${formatListingPrice(top3[0].price, top3[0].intent, { html: true })}</h3>
+                    <p class="text-sm font-semibold text-slate-500 mb-2">${escHtml(normalizePropertyType(top3[0].type || 'Property'))}</p>
                     <p class="text-sm font-bold text-slate-500 mb-6">${escHtml(top3[0].title)}, ${escHtml(top3[0].location)}</p>
                     <div class="flex items-center gap-6 pt-6 border-t border-slate-100">
                       <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${formatBhk(top3[0].beds)}</span></div>
@@ -3853,25 +3939,20 @@ async function initBuyerHomePage() {
                       <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                         <span class="material-symbols-outlined text-[14px]">schedule</span> Listed ${listingAge(top3[0].created_at).date}
                       </span>
-                      <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
-                        listingAge(top3[0].created_at).days <= 7 
-                          ? 'bg-emerald-50 text-emerald-700' 
-                          : listingAge(top3[0].created_at).days <= 30 
-                            ? 'bg-amber-50 text-amber-700' 
-                            : 'bg-slate-50 text-slate-600'
-                      }">${listingAge(top3[0].created_at).label}</span>
                     </div>
                   </div>
                 </div>
                 ${top3.slice(1).map(l => `
                 <div onclick="window.location.href='property-details.html?id=${l.id}'"
-                     class="bg-white border border-slate-200 flex flex-col shadow-sm cursor-pointer hover:shadow-lg transition-all">
+                     data-listing-card data-listing-id="${l.id}" class="bg-white border border-slate-200 flex flex-col shadow-sm cursor-pointer hover:shadow-lg transition-all">
                   <div class="h-48 relative overflow-hidden">
                     <img src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover">
-                    <div class="absolute top-4 left-4 bg-white/90 backdrop-blur px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest text-slate-900">${l.type}</div>
+                    ${listingAgeBadgeMarkup(l.created_at)}
+                    <button type="button" data-wishlist-button data-listing-id="${l.id}" aria-pressed="false" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/95 text-slate-400 shadow-md flex items-center justify-center hover:text-rose-500 transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
                   </div>
                   <div class="p-6 flex-1 flex flex-col">
                     <h3 class="text-lg font-black text-slate-900 mb-1">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
+                    <p class="text-xs font-semibold text-slate-500 mb-1">${escHtml(normalizePropertyType(l.type || 'Property'))}</p>
                     <p class="text-xs font-bold text-slate-500 mb-4 truncate">${escHtml(l.title)}</p>
                     <div class="flex items-center gap-4 mt-auto pt-4 border-t border-slate-50">
                       <div class="flex items-center gap-1.5 text-slate-400"><span class="material-symbols-outlined text-[14px]">bed</span><span class="text-[10px] font-black text-slate-900">${formatBhk(l.beds)}</span></div>
@@ -3879,13 +3960,6 @@ async function initBuyerHomePage() {
                     </div>
                     <div class="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between text-[10px]">
                       <span class="font-bold text-slate-400 uppercase tracking-widest">${listingAge(l.created_at).date}</span>
-                      <span class="font-extrabold uppercase tracking-wider ${
-                        listingAge(l.created_at).days <= 7 
-                          ? 'text-emerald-600' 
-                          : listingAge(l.created_at).days <= 30 
-                            ? 'text-amber-600' 
-                            : 'text-slate-500'
-                      }">${listingAge(l.created_at).label}</span>
                     </div>
                   </div>
                 </div>
@@ -3900,6 +3974,7 @@ async function initBuyerHomePage() {
                   <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-cyan-500/10 rounded-full blur-[80px]"></div>
                 </div>
             `;
+            if (window.refreshWishlistUI) window.refreshWishlistUI();
         }
     }
 }
@@ -3928,8 +4003,8 @@ async function initBuyerListingsPage() {
              data-type="${l.type}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}">
           <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
             <img loading="lazy" src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
-            <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${formatIntentLabel(l.intent)}</div>
-            <button aria-label="Save Property" class="save-property-btn absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow text-slate-400 hover:text-error transition-colors">
+              ${listingAgeBadgeMarkup(l.created_at)}
+            <button aria-label="Save Property" class="save-property-btn absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow text-slate-400 hover:text-error transition-colors" data-wishlist-button data-listing-id="${l.id}">
               <span class="material-symbols-outlined text-[20px]">favorite</span>
             </button>
             <button aria-label="Share Property" class="share-property-btn absolute top-4 right-[52px] w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow text-slate-400 hover:text-blue-500 transition-colors z-10" onclick="event.stopPropagation();">
@@ -3940,8 +4015,9 @@ async function initBuyerListingsPage() {
             </button>
           </div>
           <div class="p-5">
-            <div class="flex justify-between items-start mb-1">
+            <div class="mb-1">
               <h3 class="text-xl font-black text-slate-900">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
+              <p class="mt-1 text-xs font-semibold text-slate-500">${escHtml(normalizePropertyType(l.type || 'Property'))} <span class="font-medium text-slate-400">· For ${l.intent === 'Rent' ? 'Rent' : 'Sale'}</span></p>
             </div>
             <p class="text-slate-500 text-sm font-medium mb-4 truncate">${escHtml(l.title)}, ${escHtml(l.location)}</p>
             <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
@@ -3953,23 +4029,13 @@ async function initBuyerListingsPage() {
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                 <span class="material-symbols-outlined text-[14px]">schedule</span> Listed ${listingAge(l.created_at).date}
               </span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
-                listingAge(l.created_at).days <= 7 
-                  ? 'bg-emerald-50 text-emerald-700' 
-                  : listingAge(l.created_at).days <= 30 
-                    ? 'bg-amber-50 text-amber-700' 
-                    : 'bg-slate-50 text-slate-600'
-              }">${listingAge(l.created_at).label}</span>
             </div>
           </div>
         </div>
     `).join('');
 
     // ── [Data Initialization] ──
-    let savedProperties = [];
-    try {
-        savedProperties = JSON.parse(localStorage.getItem('savedProperties') || '[]');
-    } catch (e) { savedProperties = []; }
+    let savedProperties = await getWishlistIds();
 
     const cards = Array.from(document.querySelectorAll('.property-card'));
     const countText = document.getElementById('listings-count-text');
@@ -3996,6 +4062,8 @@ async function initBuyerListingsPage() {
         });
     };
     syncSavedHearts();
+    window.projectWishlistIds = savedProperties;
+    if (window.refreshWishlistUI) window.refreshWishlistUI({ refresh: false });
 
     // ── [Search & Filter Logic] ──
     const applyFilters = () => {
@@ -4127,33 +4195,13 @@ async function initBuyerListingsPage() {
         saveBtn?.addEventListener('click', async (e) => {
             e.stopPropagation();
             const id = card.dataset.id;
-            const index = savedProperties.indexOf(id);
-            if (index > -1) {
-                savedProperties.splice(index, 1);
-                showToast('Removed from saved properties.');
-            } else {
-                savedProperties.push(id);
-                showToast('Property saved to your favorites.');
-            }
-            localStorage.setItem('savedProperties', JSON.stringify(savedProperties));
-            syncSavedHearts();
-
-            // Sync to Supabase if logged in
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('preferences')
-                    .eq('id', session.user.id)
-                    .single();
-                const merged = {
-                    ...(profile?.preferences || {}),
-                    saved_listings: savedProperties
-                };
-                await supabase
-                    .from('profiles')
-                    .update({ preferences: merged })
-                    .eq('id', session.user.id);
+            const shouldSave = !savedProperties.map(String).includes(String(id));
+            try {
+                savedProperties = await setWishlistListing(id, shouldSave);
+                syncSavedHearts();
+                showToast(shouldSave ? 'Added to your wishlist.' : 'Removed from your wishlist.');
+            } catch (error) {
+                showToast(error.code === 'AUTH_REQUIRED' ? error.message : 'Unable to update your wishlist.', true);
             }
         });
     });
@@ -4439,27 +4487,27 @@ async function initBuyerSearchPage() {
             return;
         }
 
-        const saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
         gridContainer.innerHTML = filtered.map(l => {
-            const isSaved = saved.includes(l.id);
+            const isSaved = false;
             const isRent = l.intent === 'Rent';
             return `
             <div id="search-card-${l.id}" class="search-card cursor-pointer bg-white rounded-3xl border border-slate-200 hover:border-slate-400 hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col group" onclick="window.location.href='property-details.html?id=${l.id}'" onmouseenter="window.hoverSearchCard(${l.id})" onmouseleave="window.unhoverSearchCard(${l.id})">
               <div class="aspect-[4/3] overflow-hidden relative bg-slate-100">
                 <img loading="lazy" src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                <div class="absolute top-3 left-3 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-slate-900">${isRent ? 'For Rent' : 'For Sale'}</div>
+                ${listingAgeBadgeMarkup(l.created_at)}
                 <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur text-white px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1"><span class="material-symbols-outlined text-[12px] text-amber-400" style="font-variation-settings: 'FILL' 1;">star</span> 5.0</div>
                 <div class="absolute bottom-3 right-3 flex items-center gap-2">
                   <button class="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-slate-400 hover:text-red-500 flex items-center justify-center shadow-md transition-colors" onclick="event.stopPropagation(); window.openReportModal('listing', ${l.id}, '${escHtml(l.title || '')}');" title="Report Listing"><span class="material-symbols-outlined text-[18px]">flag</span></button>
-                  <button class="w-8 h-8 rounded-full bg-white/90 backdrop-blur ${isSaved ? 'text-red-500' : 'text-slate-400 hover:text-red-500'} flex items-center justify-center shadow-md transition-colors" onclick="event.stopPropagation(); window.toggleSearchFavorite(event, ${l.id})"><span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' ${isSaved ? '1' : '0'};">favorite</span></button>
+                  <button type="button" data-wishlist-button data-listing-id="${l.id}" aria-pressed="false" class="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-slate-400 hover:text-rose-500 flex items-center justify-center shadow-md transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
                 </div>
               </div>
               <div class="p-5 flex-1 flex flex-col justify-between">
-                <div><div class="flex justify-between items-baseline mb-1"><h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3><span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${escHtml(l.type || 'Property')}</span></div><h4 class="text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4><p class="text-xs font-medium text-slate-500 truncate mb-4">${escHtml(l.location || '')}</p></div>
+                <div><h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3><p class="mt-1 text-xs font-semibold text-slate-500">${escHtml(normalizePropertyType(l.type || 'Property'))} <span class="font-medium text-slate-400">· For ${isRent ? 'Rent' : 'Sale'}</span></p><h4 class="mt-2 text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4><p class="text-xs font-medium text-slate-500 truncate mb-4">${escHtml(l.location || '')}</p></div>
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-medium"><div class="flex items-center gap-3"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bed</span> ${formatBhk(l.beds)}</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bathtub</span> ${l.baths || 0} baths</span></div><span class="flex items-center gap-1 font-bold text-slate-700">${(l.sqft || 0).toLocaleString()} sqft</span></div>
               </div>
             </div>`;
         }).join('');
+        if (window.refreshWishlistUI) window.refreshWishlistUI({ refresh: false });
     }
 
     function updateListingsForMapArea(filtered = getFilteredListings()) {
@@ -4529,7 +4577,7 @@ async function initBuyerSearchPage() {
             return;
         }
 
-        let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
+        const saved = window.projectWishlistIds || [];
 
         gridContainer.innerHTML = filtered.map(l => {
             const isSaved = saved.includes(l.id);
@@ -4544,9 +4592,7 @@ async function initBuyerSearchPage() {
               <div class="aspect-[4/3] overflow-hidden relative bg-slate-100">
                 <img loading="lazy" src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 
-                <div class="absolute top-3 left-3 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-slate-900">
-                  ${isRent ? 'For Rent' : 'For Sale'}
-                </div>
+                ${listingAgeBadgeMarkup(l.created_at)}
                 
                 <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur text-white px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1">
                   <span class="material-symbols-outlined text-[12px] text-amber-400" style="font-variation-settings: 'FILL' 1;">star</span> 5.0
@@ -4566,11 +4612,9 @@ async function initBuyerSearchPage() {
 
               <div class="p-5 flex-1 flex flex-col justify-between">
                 <div>
-                  <div class="flex justify-between items-baseline mb-1">
-                    <h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3>
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${escHtml(l.type || 'Property')}</span>
-                  </div>
-                  <h4 class="text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4>
+                  <h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3>
+                  <p class="mt-1 text-xs font-semibold text-slate-500">${escHtml(normalizePropertyType(l.type || 'Property'))} <span class="font-medium text-slate-400">· For ${isRent ? 'Rent' : 'Sale'}</span></p>
+                  <h4 class="mt-2 text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4>
                   <p class="text-xs font-medium text-slate-500 truncate mb-4">${escHtml(l.location || '')}</p>
                 </div>
 
@@ -4624,17 +4668,16 @@ async function initBuyerSearchPage() {
     };
 
     window.toggleSearchFavorite = async function(e, id) {
-        e.stopPropagation();
-        let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
-        if (saved.includes(id)) {
-            saved = saved.filter(savedId => savedId != id);
-            showToast('Removed from saved properties');
-        } else {
-            saved.push(id);
-            showToast('Saved to your favorites');
+        e?.stopPropagation();
+        try {
+            const ids = await getWishlistIds();
+            const updated = await setWishlistListing(id, !ids.map(String).includes(String(id)));
+            window.projectWishlistIds = updated;
+            renderMapAndListings();
+            showToast('Wishlist updated.');
+        } catch (error) {
+            showToast(error.code === 'AUTH_REQUIRED' ? error.message : 'Unable to update your wishlist.', true);
         }
-        localStorage.setItem('savedProperties', JSON.stringify(saved));
-        renderMapAndListings();
     };
 
     // View Mode Switcher (Split, List, Map)
@@ -5150,34 +5193,14 @@ async function initBuyerMapPage() {
     const matchesCountEl = document.querySelector('#map-listings-count');
 
     window.toggleMapFavorite = async function(e, id) {
-        e.stopPropagation();
-        let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
-        if (saved.includes(id)) {
-            saved = saved.filter(savedId => savedId != id);
-            showToast('Removed from favorites');
-        } else {
-            saved.push(id);
-            showToast('Added to favorites');
-        }
-        localStorage.setItem('savedProperties', JSON.stringify(saved));
-        updateSidebar();
-
-        // Sync to Supabase if logged in
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('preferences')
-                .eq('id', session.user.id)
-                .single();
-            const merged = {
-                ...(profile?.preferences || {}),
-                saved_listings: saved
-            };
-            await supabase
-                .from('profiles')
-                .update({ preferences: merged })
-                .eq('id', session.user.id);
+        e?.stopPropagation();
+        try {
+            const ids = await getWishlistIds();
+            const updated = await setWishlistListing(id, !ids.map(String).includes(String(id)));
+            window.projectWishlistIds = updated;
+            showToast('Wishlist updated.');
+        } catch (error) {
+            showToast(error.code === 'AUTH_REQUIRED' ? error.message : 'Unable to update your wishlist.', true);
         }
     };
 
@@ -5224,10 +5247,10 @@ async function initBuyerMapPage() {
             return;
         }
 
-        let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
+        const saved = window.projectWishlistIds || [];
 
         sidebarContainer.innerHTML = visibleListings.map(l => {
-            const isSaved = saved.includes(l.id);
+            const isSaved = saved.map(String).includes(String(l.id));
             const isActive = activeListingId == l.id;
             const activeClasses = isActive ? 'ring-4 ring-slate-900 shadow-2xl scale-[1.02]' : 'border-slate-100 hover:shadow-xl';
             
@@ -5235,18 +5258,17 @@ async function initBuyerMapPage() {
             <div id="card-${l.id}" class="listing-card cursor-pointer bg-white rounded-3xl border ${activeClasses} overflow-hidden transition-all duration-300" onclick="clickSidebarCard(${l.id})">
               <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
                 <img loading="lazy" src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'}" class="w-full h-full object-cover transition-transform duration-700 ${isActive ? '' : 'group-hover:scale-105'}">
-                <div class="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">${formatIntentLabel(l.intent)}</div>
+                ${listingAgeBadgeMarkup(l.created_at)}
               </div>
               <div class="p-5">
-                <div class="flex justify-between items-start mb-1">
+                <div class="mb-1">
                   <h3 class="text-xl font-black text-slate-900">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
+                  <p class="mt-1 text-xs font-semibold text-slate-500">${escHtml(normalizePropertyType(l.type || 'Property'))} <span class="font-medium text-slate-400">· For ${l.intent === 'Rent' ? 'Rent' : 'Sale'}</span></p>
                   <div class="flex items-center gap-2">
                     <button class="transition-colors text-slate-200 hover:text-red-500 flex items-center justify-center" onclick="event.stopPropagation(); window.openReportModal('listing', ${l.id}, '${escHtml(l.title)}');" title="Report Listing">
                       <span class="material-symbols-outlined text-[20px]">flag</span>
                     </button>
-                    <button class="transition-colors ${isSaved ? 'text-red-500' : 'text-slate-200 hover:text-red-500'}" onclick="toggleMapFavorite(event, ${l.id})">
-                      <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' ${isSaved ? '1' : '0'};">favorite</span>
-                    </button>
+                    <button type="button" data-wishlist-button data-listing-id="${l.id}" aria-pressed="${isSaved}" class="transition-colors text-slate-200 hover:text-rose-500"><span class="material-symbols-outlined text-[24px]">favorite</span></button>
                   </div>
                 </div>
                 <p class="text-slate-500 text-sm font-medium mb-4 truncate">${escHtml(l.title)}, ${escHtml(l.location)}</p>
@@ -5268,18 +5290,12 @@ async function initBuyerMapPage() {
                   <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                     <span class="material-symbols-outlined text-[14px]">schedule</span> Listed ${listingAge(l.created_at).date}
                   </span>
-                  <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
-                    listingAge(l.created_at).days <= 7 
-                      ? 'bg-emerald-50 text-emerald-700' 
-                      : listingAge(l.created_at).days <= 30 
-                        ? 'bg-amber-50 text-amber-700' 
-                        : 'bg-slate-50 text-slate-600'
-                  }">${listingAge(l.created_at).label}</span>
                 </div>
               </div>
             </div>
             `;
         }).join('');
+        if (window.refreshWishlistUI) window.refreshWishlistUI({ refresh: false });
 
         document.querySelectorAll('.map-pin-wrapper').forEach(wrapper => {
             wrapper.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)';
@@ -5477,6 +5493,10 @@ async function initBuyerDetailsPage() {
     }
 
     l.type = normalizePropertyType(l.type);
+
+    const detailWishlistButton = document.getElementById('detail-wishlist-btn');
+    if (detailWishlistButton) detailWishlistButton.dataset.listingId = String(l.id);
+    if (window.refreshWishlistUI) await window.refreshWishlistUI();
 
     // Check if the user is authorized to view non-Active properties
     const { data: { session } } = await supabase.auth.getSession();
@@ -5840,6 +5860,8 @@ async function initBuyerDetailsPage() {
     if (sqftEl) sqftEl.textContent = (l.sqft || 0).toLocaleString();
     const typeEl = document.getElementById('detail-type');
     if (typeEl) typeEl.textContent = l.type;
+    const yearBuiltEl = document.getElementById('detail-year-built');
+    if (yearBuiltEl) yearBuiltEl.textContent = l.year_built || l.yearBuilt || '—';
     
     const listedDateEl = document.getElementById('detail-listed-date');
     const daysOldEl = document.getElementById('detail-days-old');
@@ -6702,6 +6724,10 @@ document.addEventListener('click', (e) => {
     // Verify it is an internal page
     const targetUrl = new URL(href, window.location.href);
     if (targetUrl.origin !== window.location.origin) return;
+
+    // Login pages rely on page-specific inline styles and module initialization.
+    // Load them as full documents so they are ready on first navigation.
+    if (/\/(?:login|staff-login|signup)(?:\.html)?\/?$/i.test(targetUrl.pathname)) return;
 
     e.preventDefault();
     ajaxLoadPage(targetUrl.href);

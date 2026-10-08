@@ -66,30 +66,37 @@
     <main class="max-w-[1280px] mx-auto px-6 py-12">
         <!-- Hero Section -->
         <div class="mb-12">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8">
-                <div>
-                    <h1 id="detail-title" class="text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-2">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 md:gap-0 mb-8">
+                <div class="min-w-0 w-full md:w-auto">
+                    <h1 id="detail-title" class="text-3xl sm:text-4xl md:text-5xl leading-tight font-black tracking-tight text-slate-900 mb-2">
                         <div class="h-10 md:h-12 w-3/4 bg-slate-200 animate-pulse rounded-xl"></div>
                     </h1>
-                    <p id="detail-address" class="text-lg font-medium text-slate-500 flex items-center gap-2">
+                    <p id="detail-address" class="text-base sm:text-lg font-medium text-slate-500 flex items-center gap-2">
                         <span class="material-symbols-outlined text-[20px]">location_on</span>
                         <span class="h-6 w-64 bg-slate-100 animate-pulse rounded-md block"></span>
                     </p>
                 </div>
-                <div class="mt-6 md:mt-0 text-left md:text-right">
-                    <div id="detail-price" class="text-4xl font-black text-slate-900 flex justify-end">
+                <div class="w-full md:w-auto text-left md:text-right">
+                    <div id="detail-price" class="w-full text-3xl sm:text-4xl font-black text-slate-900 flex justify-start md:justify-end">
                         <div class="h-10 w-32 bg-slate-200 animate-pulse rounded-xl"></div>
                     </div>
-                    <div class="flex items-center gap-2 mt-2 md:justify-end">
+                    <div class="flex flex-wrap items-center gap-2 mt-2 md:justify-end">
                         <span id="detail-status-badge"
                             class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">Active</span>
                         <span class="text-sm font-bold text-slate-500">Est. ₹5.8L/mo</span>
                     </div>
-                    <button id="share-listing-btn"
-                        class="mt-4 flex items-center justify-center md:justify-end gap-2 text-slate-500 hover:text-slate-900 transition-colors font-bold text-sm w-full md:w-auto"
-                        onclick="navigator.clipboard.writeText(window.location.href).then(() => showToast('Listing link copied to clipboard!'))">
-                        <span class="material-symbols-outlined text-[18px]">share</span> Share Listing
-                    </button>
+                    <div class="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 justify-start md:justify-end">
+                        <button id="detail-wishlist-btn" type="button" data-wishlist-button data-listing-id="" aria-pressed="false"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-colors text-sm font-bold">
+                            <span class="material-symbols-outlined text-[18px]">favorite</span>
+                            <span data-wishlist-label class="hidden sm:inline">Save Listing</span>
+                        </button>
+                        <button id="share-listing-btn" type="button"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-colors font-bold text-sm"
+                            onclick="navigator.clipboard.writeText(window.location.href).then(() => showToast('Listing link copied to clipboard!'))">
+                            <span class="material-symbols-outlined text-[18px]">share</span> Share Listing
+                        </button>
+                    </div>
                 </div>
             </div>
             <!-- Image Gallery -->
@@ -106,44 +113,46 @@
             <!-- Main Content Column -->
             <div class="lg:col-span-2 space-y-12">
                 <!-- Specs Grid -->
-                <section
-                    class="bg-white border border-slate-100 rounded-[32px] p-8 shadow-2xl relative z-10 -mt-12 md:-mt-0 md:static">
-                    <h3 class="text-2xl font-black text-slate-900 mb-8">Property Overview</h3>
-                    <div class="grid grid-cols-2 md:flex md:flex-row md:justify-between md:items-start gap-6 md:gap-4">
-                        <div class="flex flex-col gap-1">
-                            <span class="material-symbols-outlined text-slate-400 mb-2">bed</span>
-                            <span id="detail-beds" class="text-xl md:text-2xl lg:text-3xl font-black text-slate-900"><div class="h-8 w-12 bg-slate-100 animate-pulse rounded-md"></div></span>
-                            <span class="text-xs font-bold uppercase tracking-widest text-slate-500">BHK</span>
+                <section class="bg-white border border-slate-200 rounded-3xl p-6 md:p-7 shadow-xl relative z-10 -mt-12 md:mt-0">
+                    <div class="mb-6">
+                        <h3 class="text-xl md:text-2xl font-black text-slate-900">Property Overview</h3>
+                        <p class="text-sm text-slate-500 mt-1">Key details at a glance</p>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
+                        <div class="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex flex-col gap-2">
+                            <span class="material-symbols-outlined text-slate-400 text-[20px]">bed</span>
+                            <span id="detail-beds" class="text-base font-black leading-tight text-slate-900 min-h-9"><span class="inline-block h-5 w-12 bg-slate-200 animate-pulse rounded"></span></span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bedrooms</span>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <span class="material-symbols-outlined text-slate-400 mb-2">shower</span>
-                            <span id="detail-baths" class="text-xl md:text-2xl lg:text-3xl font-black text-slate-900"><div class="h-8 w-12 bg-slate-100 animate-pulse rounded-md"></div></span>
-                            <span class="text-xs font-bold uppercase tracking-widest text-slate-500">Baths</span>
+                        <div class="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex flex-col gap-2">
+                            <span class="material-symbols-outlined text-slate-400 text-[20px]">shower</span>
+                            <span id="detail-baths" class="text-base font-black leading-tight text-slate-900 min-h-9"><span class="inline-block h-5 w-10 bg-slate-200 animate-pulse rounded"></span></span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Baths</span>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <span class="material-symbols-outlined text-slate-400 mb-2">straighten</span>
-                            <span id="detail-sqft" class="text-xl md:text-2xl lg:text-3xl font-black text-slate-900"><div class="h-8 w-16 bg-slate-100 animate-pulse rounded-md"></div></span>
-                            <span class="text-xs font-bold uppercase tracking-widest text-slate-500">Sq Ft</span>
+                        <div class="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex flex-col gap-2">
+                            <span class="material-symbols-outlined text-slate-400 text-[20px]">straighten</span>
+                            <span id="detail-sqft" class="text-base font-black leading-tight text-slate-900 min-h-9"><span class="inline-block h-5 w-14 bg-slate-200 animate-pulse rounded"></span></span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sq Ft</span>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <span class="material-symbols-outlined text-slate-400 mb-2">landscape</span>
-                            <span id="detail-type" class="text-xl md:text-2xl lg:text-3xl font-black text-slate-900" title="Property Type"><div class="h-8 w-16 bg-slate-100 animate-pulse rounded-md"></div></span>
-                            <span class="text-xs font-bold uppercase tracking-widest text-slate-500">Type</span>
+                        <div class="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex flex-col gap-2">
+                            <span class="material-symbols-outlined text-slate-400 text-[20px]">landscape</span>
+                            <span id="detail-type" title="Property Type" class="text-sm font-black leading-tight text-slate-900 min-h-9 break-words"><span class="inline-block h-5 w-14 bg-slate-200 animate-pulse rounded"></span></span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Type</span>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <span class="material-symbols-outlined text-slate-400 mb-2">calendar_month</span>
-                            <span class="text-xl md:text-2xl lg:text-3xl font-black text-slate-900"><div class="h-8 w-16 bg-slate-100 animate-pulse rounded-md"></div></span>
-                            <span class="text-xs font-bold uppercase tracking-widest text-slate-500">Year Built</span>
+                        <div class="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex flex-col gap-2">
+                            <span class="material-symbols-outlined text-slate-400 text-[20px]">calendar_month</span>
+                            <span id="detail-year-built" class="text-base font-black leading-tight text-slate-900 min-h-9">—</span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Year Built</span>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <span class="material-symbols-outlined text-slate-400 mb-2">schedule</span>
-                            <span id="detail-listed-date" class="text-xl md:text-2xl lg:text-3xl font-black text-slate-900"><div class="h-8 w-16 bg-slate-100 animate-pulse rounded-md"></div></span>
-                            <span id="detail-days-old" class="text-xs font-bold uppercase tracking-widest text-slate-500">Listed Date</span>
+                        <div class="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex flex-col gap-2">
+                            <span class="material-symbols-outlined text-slate-400 text-[20px]">schedule</span>
+                            <span id="detail-listed-date" class="text-sm font-black leading-tight text-slate-900 min-h-9"><span class="inline-block h-5 w-14 bg-slate-200 animate-pulse rounded"></span></span>
+                            <span id="detail-days-old" class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Listed</span>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <span class="material-symbols-outlined text-slate-400 mb-2">visibility</span>
-                            <span id="detail-views" class="text-xl md:text-2xl lg:text-3xl font-black text-slate-900"><div class="h-8 w-12 bg-slate-100 animate-pulse rounded-md"></div></span>
-                            <span class="text-xs font-bold uppercase tracking-widest text-slate-500">Views</span>
+                        <div class="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex flex-col gap-2">
+                            <span class="material-symbols-outlined text-slate-400 text-[20px]">visibility</span>
+                            <span id="detail-views" class="text-base font-black leading-tight text-slate-900 min-h-9"><span class="inline-block h-5 w-10 bg-slate-200 animate-pulse rounded"></span></span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Views</span>
                         </div>
                     </div>
                 </section>
