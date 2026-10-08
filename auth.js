@@ -439,6 +439,36 @@ function applyBrokerProfileDisplay({ name, avatarUrl, userId } = {}) {
     if (avatarUrl && userId) localStorage.setItem(`broker_avatar_${userId}`, avatarUrl);
 }
 
+function firstRpcRow(data) {
+    if (!data) return null;
+    return Array.isArray(data) ? (data[0] || null) : data;
+}
+
+async function fetchPublicBrokerIdentity(brokerId) {
+    if (!brokerId) return null;
+    const { data, error } = await supabase.rpc('get_public_broker_identity', { p_broker_id: brokerId });
+    if (error) {
+        console.warn('Public broker identity lookup failed:', error);
+        return null;
+    }
+    return firstRpcRow(data);
+}
+
+async function fetchRelatedProfileIdentities(ids) {
+    const unique = [...new Set((ids || []).filter(Boolean))];
+    if (unique.length === 0) return [];
+    const { data, error } = await supabase.rpc('get_related_profile_identities', { p_ids: unique });
+    if (error) {
+        console.warn('Related profile identity lookup failed:', error);
+        return [];
+    }
+    return data || [];
+}
+
+function selfAssignableProfileRole(role) {
+    return role === 'Buyer' || role === 'Broker' ? role : 'Buyer';
+}
+
 async function loadAndApplyBrokerProfileDisplay() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -909,17 +939,12 @@ function initAppPage() {
             referrerId = refParam;
             localStorage.setItem('referred_by', refParam);
             
-            supabase
-                .from('profiles')
-                .select('full_name, avatar_url')
-                .eq('id', refParam)
-                .single()
-                .then(({ data, error }) => {
-                    if (data && !error) {
-                        referrerInfo = data;
-                        updateReferralBanner();
-                    }
-                });
+            fetchPublicBrokerIdentity(refParam).then((data) => {
+                if (data) {
+                    referrerInfo = data;
+                    updateReferralBanner();
+                }
+            });
         }
 
         // Handle Enter key in form — direct keydown listeners are more reliable
@@ -964,6 +989,9 @@ function initAppPage() {
 
                 try {
                     if (isSignUp) {
+                        if (selectedRole !== 'Buyer' && selectedRole !== 'Broker') {
+                            throw new Error('Staff accounts cannot be created from this page.');
+                        }
                         const { data, error } = await supabase.auth.signUp({
                             email,
                             password,
@@ -975,7 +1003,7 @@ function initAppPage() {
                             const profileData = {
                                 id: data.user.id,
                                 full_name: name,
-                                role: selectedRole
+                                role: selfAssignableProfileRole(selectedRole)
                             };
                             const referredBy = referrerId || localStorage.getItem('referred_by');
                             if (referredBy) {
@@ -1023,7 +1051,7 @@ function initAppPage() {
                             const profileData = {
                                 id: data.user.id,
                                 full_name: email.split('@')[0], // fallback name
-                                role: selectedRole
+                                role: selfAssignableProfileRole(selectedRole)
                             };
                             const { error: insertError } = await supabase.from('profiles').insert(profileData);
                             if (insertError) throw insertError;
@@ -1258,19 +1286,14 @@ function initAppPage() {
 
                 // Load referral stats
                 const loadReferralStats = async () => {
-                    const { data: referredUsers, error } = await supabase
-                        .from('profiles')
-                        .select('id, role')
-                        .eq('referred_by', userId);
+                    const { data: stats, error } = await supabase.rpc('get_own_referral_stats');
+                    const row = firstRpcRow(stats);
 
-                    if (!error && referredUsers) {
-                        const invitedCount = referredUsers.length;
-                        const activeCount = referredUsers.filter(u => u.role === 'Buyer' || u.role === 'Broker').length;
-
+                    if (!error && row) {
                         const invitedEl = document.getElementById('invited-count');
                         const activeEl = document.getElementById('active-referred-count');
-                        if (invitedEl) invitedEl.textContent = invitedCount;
-                        if (activeEl) activeEl.textContent = activeCount;
+                        if (invitedEl) invitedEl.textContent = row.invited_count ?? 0;
+                        if (activeEl) activeEl.textContent = row.active_count ?? 0;
                     }
                 };
                 await loadReferralStats();
@@ -1533,7 +1556,8 @@ function initAppPage() {
 
                             if (!isActivelyChatting) {
                                 // Fetch buyer name and listing title dynamically to construct a beautiful premium notification
-                                const { data: buyerProf } = await supabase.from('profiles').select('full_name').eq('id', msg.buyer_id).single();
+                                const related = await fetchRelatedProfileIdentities([msg.buyer_id]);
+                                const buyerProf = related[0];
                                 const { data: listingData } = await supabase.from('listings').select('title').eq('id', msg.listing_id).single();
                                 
                                 const buyerName = buyerProf?.full_name || 'Buyer';
@@ -5758,13 +5782,14 @@ async function initBuyerDetailsPage() {
     let brokerImg = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'; // professional default image
     
     if (l.broker_id) {
-        const { data: brokerProfile } = await supabase.from('profiles').select('*').eq('id', l.broker_id).single();
+        const brokerProfile = await fetchPublicBrokerIdentity(l.broker_id);
         if (brokerProfile) {
             if (brokerProfile.full_name) {
                 brokerName = brokerProfile.full_name;
             }
-            if (brokerProfile.role) {
-                brokerRole = `${brokerProfile.role}, ProjectX`;
+            brokerRole = 'Broker, ProjectX';
+            if (brokerProfile.avatar_url) {
+                brokerImg = brokerProfile.avatar_url;
             }
         }
     }
@@ -6240,7 +6265,7 @@ window.initBrokerChat = async function initBrokerChat() {
     const buyerIds = [...new Set(uniqueConversations.map(c => c.buyer_id))];
     const listingIds = [...new Set(uniqueConversations.map(c => c.listing_id))];
 
-    const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', buyerIds);
+    const profiles = await fetchRelatedProfileIdentities(buyerIds);
     const { data: listings } = await supabase.from('listings').select('id, title').in('id', listingIds);
 
     profiles?.forEach(p => {

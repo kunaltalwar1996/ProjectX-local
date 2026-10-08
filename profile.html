@@ -367,22 +367,6 @@
         const isOwnProfile = !targetUserId || targetUserId === session.user.id;
         const queryUserId = isOwnProfile ? session.user.id : targetUserId;
 
-        // Fetch database profile
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', queryUserId)
-          .single();
-
-        if (error) {
-          console.warn('Error fetching profile from database:', error);
-          if (isOwnProfile) {
-            return loadLocalProfile();
-          }
-          return null;
-        }
-
-        // Fetch the logged-in user's role (viewerRole)
         let viewerRole = localStorage.getItem('role') || 'Guest';
         const { data: viewerProfile } = await supabase
           .from('profiles')
@@ -391,6 +375,72 @@
           .single();
         if (viewerProfile && viewerProfile.role) {
           viewerRole = viewerProfile.role;
+        }
+
+        const isStaffViewer = viewerRole === 'Admin' || viewerRole === 'Employee';
+        const ownProfileFields = 'id, full_name, role, phone, city, bio, preferences, avatar_url, updated_at';
+        const staffProfileFields = 'id, full_name, role, phone, city, bio, avatar_url, updated_at';
+
+        let profile = null;
+        if (isOwnProfile) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select(ownProfileFields)
+            .eq('id', session.user.id)
+            .single();
+          if (error) {
+            console.warn('Error fetching profile from database:', error);
+            return loadLocalProfile();
+          }
+          profile = data;
+        } else if (isStaffViewer) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select(staffProfileFields)
+            .eq('id', queryUserId)
+            .single();
+          if (error) {
+            console.warn('Error fetching profile from database:', error);
+            return null;
+          }
+          profile = data;
+        } else {
+          const { data: brokerRows } = await supabase.rpc('get_public_broker_identity', {
+            p_broker_id: queryUserId
+          });
+          const broker = Array.isArray(brokerRows) ? brokerRows[0] : brokerRows;
+          if (broker) {
+            profile = {
+              id: broker.id,
+              full_name: broker.full_name,
+              avatar_url: broker.avatar_url,
+              role: 'Broker',
+              phone: '',
+              city: '',
+              bio: '',
+              preferences: {},
+              updated_at: null
+            };
+          } else {
+            const { data: relatedRows } = await supabase.rpc('get_related_profile_identities', {
+              p_ids: [queryUserId]
+            });
+            const related = Array.isArray(relatedRows) ? relatedRows[0] : relatedRows;
+            if (!related) {
+              return null;
+            }
+            profile = {
+              id: related.id,
+              full_name: related.full_name,
+              avatar_url: related.avatar_url,
+              role: 'Buyer',
+              phone: '',
+              city: '',
+              bio: '',
+              preferences: {},
+              updated_at: null
+            };
+          }
         }
 
         // Fetch dynamic stats from database
@@ -737,7 +787,11 @@
         }
         
         const subtitle = document.querySelector('.mb-10 p') || (h1 ? h1.nextElementSibling : null);
-        if (subtitle) subtitle.textContent = 'View contact details and preferences.';
+        if (subtitle) {
+          subtitle.textContent = (profile.viewerRole === 'Admin' || profile.viewerRole === 'Employee')
+            ? 'View contact details and preferences.'
+            : 'View public profile.';
+        }
 
         // 2. Hide edit button
         const editBtn = document.getElementById('edit-toggle-btn');

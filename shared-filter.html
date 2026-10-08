@@ -186,14 +186,11 @@
         // Fetch broker profile info
         let brokerName = 'Partner Broker';
         let brokerCompany = 'ProjectX Premier Partner';
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', filter.broker_id)
-          .single();
+        const { data: brokerRows } = await supabase
+          .rpc('get_public_broker_identity', { p_broker_id: filter.broker_id });
+        const profile = Array.isArray(brokerRows) ? brokerRows[0] : brokerRows;
         if (profile) {
-          brokerName = profile.full_name || profile.company_name || brokerName;
-          brokerCompany = profile.company_name || brokerCompany;
+          brokerName = profile.full_name || brokerName;
           if (profile.avatar_url) {
             document.getElementById('broker-avatar').src = profile.avatar_url;
           }

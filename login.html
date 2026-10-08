@@ -211,17 +211,15 @@
       // Show invite screen
       document.getElementById('invite-screen').classList.remove('hidden');
 
-      // Fetch referrer
+      // Fetch referrer (broker identity only: id, full_name, avatar_url)
       supabase
-        .from('profiles')
-        .select('full_name, avatar_url, city, preferences')
-        .eq('id', refId)
-        .single()
+        .rpc('get_public_broker_identity', { p_broker_id: refId })
         .then(({ data, error }) => {
           const card = document.getElementById('referrer-card');
-          const name = data?.full_name || 'A ProjectX Member';
-          const sub = data?.preferences?.agency || data?.city || 'ProjectX Broker';
-          const avatarUrl = data?.avatar_url || '';
+          const broker = Array.isArray(data) ? data[0] : data;
+          const name = (!error && broker?.full_name) ? broker.full_name : 'A ProjectX Member';
+          const sub = 'ProjectX Broker';
+          const avatarUrl = broker?.avatar_url || '';
           const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
           card.innerHTML = avatarUrl
