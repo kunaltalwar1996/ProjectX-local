@@ -163,7 +163,7 @@ User opens `map.html` → Leaflet map initialization → `loadListings()` direct
 
 ### Property details, save, contact
 
-Listing link with `?id=` → `initBuyerDetailsPage()` in `auth.js` queries `listings`, broker profile, media and status history → renders detail page. Save toggles localStorage `savedProperties` and syncs IDs into `profiles.preferences`. Contact creates an `inquiries` row. Buyer/broker chat reads and inserts `messages`; the profile/dashboard UI refreshes message state.
+Listing link with `?id=` → `initBuyerDetailsPage()` in `auth.js` queries `listings`, broker profile, media and status history → renders detail page. Wishlist hearts use the shared `lib/wishlist.js` service; it reads and updates the authenticated user's `profiles.wishlist` UUID array, which is the source of truth. The profile wishlist loads those listing IDs from `listings`. Contact creates an `inquiries` row. Buyer/broker chat reads and inserts `messages`; the profile/dashboard UI refreshes message state.
 
 ### Broker listing CRUD and media
 

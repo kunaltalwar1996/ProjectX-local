@@ -13,6 +13,10 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
     rel="stylesheet" />
+
+  <!-- style.css first, so our overrides below always win -->
+  <link rel="stylesheet" href="/style.css">
+
   <style>
     ::-webkit-scrollbar {
       display: none;
@@ -23,16 +27,18 @@
       scrollbar-width: none;
     }
 
+    #role-tabs button.role-tab-active,
     .role-tab-active {
       background: #0f172a !important;
       color: #fff !important;
       border: 1px solid #0f172a !important;
-      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.24);
-      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.24) !important;
+      border-radius: 8px !important;
       transform: translateY(-1px);
     }
     .role-tab-active::after { content: "✓"; margin-left: 0.45rem; font-size: 12px; }
 
+    #role-tabs button.role-tab-inactive,
     .role-tab-inactive {
       color: #64748b;
       background: transparent;
@@ -44,7 +50,7 @@
       display: none;
     }
   </style>
-  <link rel="stylesheet" href="/style.css">
+
   <script type="module" src="/auth.js"></script>
 </head>
 
@@ -251,6 +257,34 @@
       });
     }
   </script>
+
+  <!-- Safety net: make sure one role tab is always highlighted on first render -->
+  <script>
+  (function () {
+    var wrap = document.getElementById('role-tabs');
+    if (!wrap) return;
+    var tabs = wrap.querySelectorAll('button');
+
+    function ensureActive() {
+      var hasActive = Array.prototype.some.call(tabs, function (b) {
+        return b.classList.contains('role-tab-active');
+      });
+      if (hasActive) return;
+      var target = wrap.querySelector('button[aria-pressed="true"]') || tabs[0];
+      target.classList.add('role-tab-active');
+      target.classList.remove('role-tab-inactive');
+      target.setAttribute('aria-pressed', 'true');
+    }
+
+    ensureActive();
+    // re-apply any time auth.js strips the class later
+    new MutationObserver(ensureActive).observe(wrap, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'aria-pressed']
+    });
+  })();
+</script>
 </body>
 
 </html>
