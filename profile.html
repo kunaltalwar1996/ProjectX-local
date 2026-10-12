@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html class="light" lang="en">
 
 <head>
   <meta charset="utf-8" />
   <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>My Profile — ProjectX</title>
+  <title>My Profile â€” ProjectX</title>
   <meta name="description" content="Manage your ProjectX buyer profile, personal details, and preferences." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -137,8 +137,8 @@
             </div>
           </div>
           <input type="file" id="avatar-file-input" class="hidden" accept="image/*" />
-          <h2 id="profile-display-name" class="text-xl font-black text-slate-900 mb-1">—</h2>
-          <p id="profile-display-email" class="text-sm text-slate-400 font-medium mb-4">—</p>
+          <h2 id="profile-display-name" class="text-xl font-black text-slate-900 mb-1">â€”</h2>
+          <p id="profile-display-email" class="text-sm text-slate-400 font-medium mb-4">â€”</p>
           <span id="profile-display-role" class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-widest rounded-full px-3 py-1.5">
             <span class="material-symbols-outlined text-[14px]">verified_user</span>
             Buyer
@@ -168,7 +168,7 @@
                 <span class="material-symbols-outlined text-[18px] text-slate-400">calendar_month</span>
                 Member Since
               </span>
-              <span id="stat-joined" class="text-sm font-black text-slate-900">—</span>
+              <span id="stat-joined" class="text-sm font-black text-slate-900">â€”</span>
             </div>
           </div>
         </div>
@@ -257,11 +257,11 @@
               <label class="profile-label" for="pref-budget">Max Budget</label>
               <select class="profile-input" id="pref-budget">
                 <option value="">No preference</option>
-                <option value="50">Up to ₹50 Lakhs</option>
-                <option value="100">Up to ₹1 Crore</option>
-                <option value="200">Up to ₹2 Crores</option>
-                <option value="500">Up to ₹5 Crores</option>
-                <option value="999">₹5 Crores+</option>
+                <option value="50">Up to â‚¹50 Lakhs</option>
+                <option value="100">Up to â‚¹1 Crore</option>
+                <option value="200">Up to â‚¹2 Crores</option>
+                <option value="500">Up to â‚¹5 Crores</option>
+                <option value="999">â‚¹5 Crores+</option>
               </select>
             </div>
             <div>
@@ -581,7 +581,7 @@
         ? 'w-full py-3.5 px-5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 min-h-[96px] block whitespace-pre-wrap leading-relaxed'
         : 'w-full py-3.5 px-5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 min-h-[50px] flex items-center';
       
-      displayDiv.textContent = value || '—';
+      displayDiv.textContent = value || 'â€”';
       displayDiv.id = id;
       
       el.parentNode.replaceChild(displayDiv, el);
@@ -783,7 +783,7 @@
         const h1 = document.querySelector('h1');
         if (h1) {
           h1.textContent = `${profile.name || 'User'}'s Profile`;
-          document.title = `${profile.name || 'User'}'s Profile — ProjectX`;
+          document.title = `${profile.name || 'User'}'s Profile â€” ProjectX`;
         }
         
         const subtitle = document.querySelector('.mb-10 p') || (h1 ? h1.nextElementSibling : null);
@@ -1330,7 +1330,7 @@
         if (savedCount) savedCount.textContent = String(listings.length);
 
         if (!listings.length) {
-          grid.innerHTML = '<div class="sm:col-span-2 flex flex-col items-center justify-center py-10 text-center gap-3"><span class="material-symbols-outlined text-slate-300 text-[40px]">favorite</span><p class="text-sm font-bold text-slate-400">Your wishlist is empty</p><a href="/properties.html" class="text-xs font-black text-slate-900 hover:underline uppercase tracking-widest">Browse Listings →</a></div>';
+          grid.innerHTML = '<div class="sm:col-span-2 flex flex-col items-center justify-center py-10 text-center gap-3"><span class="material-symbols-outlined text-slate-300 text-[40px]">favorite</span><p class="text-sm font-bold text-slate-400">Your wishlist is empty</p><a href="/properties.html" class="text-xs font-black text-slate-900 hover:underline uppercase tracking-widest">Browse Listings â†’</a></div>';
           return;
         }
 
@@ -1340,7 +1340,7 @@
           const image = escapeWishlistText(listing.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80');
           return '<article class="group overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-md transition-all">' +
             '<div class="relative aspect-[16/9] overflow-hidden bg-slate-100"><img loading="lazy" src="' + image + '" alt="' + escapeWishlistText(listing.title || 'Saved property') + '" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105">' + listingAgeBadgeMarkup(listing.created_at) + '<button type="button" data-wishlist-button data-listing-id="' + escapeWishlistText(listing.id) + '" aria-pressed="true" class="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-rose-500 shadow-md hover:bg-white"><span class="material-symbols-outlined text-[20px]">favorite</span></button></div>' +
-            '<a href="/property-details.html?id=' + encodeURIComponent(listing.id) + '" class="block"><div class="p-4"><p class="text-lg font-black text-slate-900">' + price + '</p><p class="mt-1 text-xs font-semibold text-slate-500">' + escapeWishlistText(window.normalizePropertyType(listing.type || 'Property')) + ' <span class="font-medium text-slate-400">· For ' + escapeWishlistText(listing.intent || 'Sale') + '</span></p><h4 class="mt-2 truncate text-sm font-bold text-slate-800">' + escapeWishlistText(listing.title || 'Property listing') + '</h4><p class="mt-1 truncate text-xs font-medium text-slate-500">' + escapeWishlistText(listing.location || '') + '</p><div class="mt-3 flex items-center gap-3 text-xs font-bold text-slate-600"><span>' + window.formatBhk(listing.beds) + '</span><span>•</span><span>' + escapeWishlistText(String(listing.baths || '—')) + ' baths</span><span>•</span><span>' + Number(listing.sqft || 0).toLocaleString('en-IN') + ' sqft</span></div></div></a>' +
+            '<a href="/property-details.html?id=' + encodeURIComponent(listing.id) + '" class="block"><div class="p-4"><p class="text-lg font-black text-slate-900">' + price + '</p><p class="mt-1 text-xs font-semibold text-slate-500">' + escapeWishlistText(window.normalizePropertyType(listing.type || 'Property')) + ' <span class="font-medium text-slate-400">Â· For ' + escapeWishlistText(listing.intent || 'Sale') + '</span></p><h4 class="mt-2 truncate text-sm font-bold text-slate-800">' + escapeWishlistText(listing.title || 'Property listing') + '</h4><p class="mt-1 truncate text-xs font-medium text-slate-500">' + escapeWishlistText(listing.location || '') + '</p><div class="mt-3 flex items-center gap-3 text-xs font-bold text-slate-600"><span>' + window.formatBhk(listing.beds) + '</span><span>â€¢</span><span>' + escapeWishlistText(String(listing.baths || 'â€”')) + ' baths</span><span>â€¢</span><span>' + Number(listing.sqft || 0).toLocaleString('en-IN') + ' sqft</span></div></div></a>' +
             '</article>';
         }).join('');
         if (window.refreshWishlistUI) await window.refreshWishlistUI();
@@ -1365,77 +1365,6 @@
       if (document.getElementById('saved-listings-card')) renderSavedListings();
     });
 
-<<<<<<< HEAD
-=======
-    const { data: listings, error } = await supabase
-        .from('listings')
-        .select('id, title, location, price, intent, img, beds, baths, type')
-        .in('id', savedIds);
-
-    if (error || !listings) {
-        document.getElementById('saved-listings-grid').innerHTML = 
-            '<p class="text-sm text-slate-400 text-center py-4">Failed to load saved listings.</p>';
-        return;
-    }
-
-    const grid = document.getElementById('saved-listings-grid');
-    if (!grid) return;
-
-    grid.innerHTML = listings.map(l => {
-        const price = l.intent === 'Rent'
-            ? `₹${(l.price * 100).toFixed(0)} Lac/mo`
-            : `₹${l.price} Cr`;
-        return `
-        <div class="flex gap-3 p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
-             onclick="window.location.href='/property-details.html?id=${l.id}'">
-            <img src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=200&q=80'}"
-                 class="w-16 h-16 rounded-lg object-cover shrink-0 group-hover:scale-105 transition-transform duration-300"
-                 onerror="this.src='https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=200&q=80'" />
-            <div class="flex-1 min-w-0">
-                <p class="text-sm font-black text-slate-900 truncate">${l.title}</p>
-                <p class="text-xs text-slate-400 font-medium truncate">${l.location}</p>
-                <div class="flex items-center justify-between mt-1">
-                    <p class="text-sm font-black text-slate-900">${price}</p>
-                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-0.5 rounded">${l.type}</span>
-                </div>
-            </div>
-            <button class="shrink-0 text-red-400 hover:text-red-600 transition-colors self-start mt-1"
-                    title="Remove from saved"
-                    onclick="event.stopPropagation(); removeSavedListing('${l.id}')">
-                <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1">favorite</span>
-            </button>
-        </div>
-        `;
-    }).join('');
-  }
-
-  window.removeSavedListing = async function(id) {
-    let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
-    saved = saved.filter(s => String(s) !== String(id));
-    localStorage.setItem('savedProperties', JSON.stringify(saved));
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('preferences')
-            .eq('id', session.user.id)
-            .single();
-        const merged = {
-            ...(profile?.preferences || {}),
-            saved_listings: saved
-        };
-        await supabase
-            .from('profiles')
-            .update({ preferences: merged })
-            .eq('id', session.user.id);
-    }
-
-    showToast('Removed from saved listings.');
-    await renderSavedListings();
-  };
-
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     function initProfilePage() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUserId = urlParams.get('id');

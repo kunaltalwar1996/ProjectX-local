@@ -105,9 +105,8 @@ let activeInquiryId = null;
 let updateHeaderVisibility = null;
 let referrerId = null;
 let uploadedMedia = [];
-<<<<<<< HEAD
-let listingEditSnapshot = null;
 
+// Shared listing values used by buyer filters, listing forms, and result cards.
 const PROPERTY_TYPE_OPTIONS = [
     'Apartment/ High Rise',
     'Builder Floor/ Low Rise',
@@ -123,11 +122,11 @@ const BHK_OPTIONS = [
     { value: 4, label: '4BHK' },
     { value: 5, label: '5BHK+' }
 ];
+
 function formatBhk(value) {
     const numericValue = parseInt(value, 10) || 0;
     return BHK_OPTIONS.find(option => option.value === numericValue)?.label || `${numericValue}BHK`;
 }
-window.formatBhk = formatBhk;
 
 function normalizePropertyType(type) {
     if (!type) return type;
@@ -150,78 +149,21 @@ function normalizePropertyType(type) {
     };
     return aliases[normalized] || type;
 }
-window.normalizePropertyType = normalizePropertyType;
-
-// ── Listing price & intent helpers ──
-function formatIntentLabel(intent) {
-    if (intent === 'Buy') return 'Sell';
-    return intent || '';
-}
 
 function formatListingPrice(price, intent, { html = false } = {}) {
-    const p = parseFloat(price);
-    if (isNaN(p)) return '—';
+    const amount = parseFloat(price);
+    if (Number.isNaN(amount)) return '—';
     if (intent === 'Rent') {
-        const formatted = `₹${p.toLocaleString('en-IN')}`;
-        return html
-            ? `${formatted}<span class="text-[10px] font-normal text-slate-400">/mo</span>`
-            : `${formatted}/mo`;
+        const formatted = `₹${amount.toLocaleString('en-IN')}`;
+        return html ? `${formatted}<span class="text-[10px] font-normal text-slate-400">/mo</span>` : `${formatted}/mo`;
     }
-    if (p >= 1) return `₹${p % 1 === 0 ? p : p.toFixed(2)} Cr`;
-    return `₹${(p * 100).toFixed(0)} L`;
+    if (amount >= 1) return `₹${amount % 1 === 0 ? amount : amount.toFixed(2)} Cr`;
+    return `₹${(amount * 100).toFixed(0)} L`;
 }
 
-function formatListingPriceRange(min, max, intent) {
-    const minLabel = min ? formatListingPrice(min, intent) : '0';
-    const maxLabel = max ? formatListingPrice(max, intent) : '∞';
-    return `${minLabel} - ${maxLabel}`;
-}
-
-function normalizeBrokerageType(value) {
-    if (!value) return 'one_time';
-    const v = String(value).toLowerCase();
-    if (v === 'once' || v === 'one_time') return 'one_time';
-    if (v === 'annual' || v === 'annually') return 'annually';
-    return value;
-}
-
-function brokerageTypeLabel(value) {
-    return normalizeBrokerageType(value) === 'annually' ? 'Annually' : 'One Time';
-}
-
-function syncListingPriceUnitForIntent(intent, priceUnitEl) {
-    if (!priceUnitEl) return;
-    priceUnitEl.value = intent === 'Rent' ? 'k' : 'cr';
-}
-
-function populateListingPriceFields(listing, dispField, unitField, priceHidden) {
-    if (!listing || listing.price === '' || listing.price == null) {
-        if (dispField) dispField.value = '';
-        if (priceHidden) priceHidden.value = '';
-        return;
-    }
-    const p = parseFloat(listing.price);
-    const intent = listing.intent || 'Buy';
-    syncListingPriceUnitForIntent(intent, unitField);
-    if (intent === 'Rent') {
-        if (dispField) dispField.value = p;
-    } else {
-        const unit = unitField?.value || 'cr';
-        if (unit === 'lac') {
-            if (unitField) unitField.value = 'lac';
-            if (dispField) dispField.value = (p * 100).toFixed(2);
-        } else {
-            if (unitField) unitField.value = 'cr';
-            if (dispField) dispField.value = p;
-        }
-    }
-    if (dispField) dispField.dispatchEvent(new Event('input'));
-}
-
+window.formatBhk = formatBhk;
+window.normalizePropertyType = normalizePropertyType;
 window.formatListingPrice = formatListingPrice;
-window.formatIntentLabel = formatIntentLabel;
-=======
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
 
 // Parse ref parameter on boot
 try {
@@ -1701,11 +1643,6 @@ function initAppPage() {
         }
     }
 
-<<<<<<< HEAD
-    initGuestBuyerMegaMenu();
-
-=======
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     window.initAppPageHasRun = true;
 }
 document.addEventListener('DOMContentLoaded', initAppPage);
@@ -1942,10 +1879,7 @@ async function openListingModal(id) {
                 thumbnail_url: row.thumbnail_url || null
             }));
         } else if (listing && listing.img) {
-<<<<<<< HEAD
-=======
             // Fallback: listing has img but no listing_media rows — treat img as single cover image
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
             uploadedMedia = [{
                 url: listing.img,
                 media_type: 'image',
@@ -2009,17 +1943,8 @@ async function openListingModal(id) {
     document.getElementById('modal-lat').value           = listing ? (listing.lat || '') : '';
     document.getElementById('modal-lng').value           = listing ? (listing.lng || '') : '';
 
-<<<<<<< HEAD
-    const listingMapDiv = document.getElementById('listing-modal-map');
-    if (listingMapDiv) listingMapDiv.classList.add('hidden');
-    const listingToggleMapBtn = document.getElementById('listing-toggle-map-btn');
-    if (listingToggleMapBtn) {
-        listingToggleMapBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">map</span> Choose on Map';
-    }
-=======
     // Render the media grid (populated from listing_media or empty)
     renderMediaGrid();
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
 
     renderMediaGrid();
 
@@ -2116,13 +2041,6 @@ async function saveListingForm() {
     const sqftEl     = document.getElementById('modal-sqft');
     const latEl      = document.getElementById('modal-lat');
     const lngEl      = document.getElementById('modal-lng');
-<<<<<<< HEAD
-    const brokerageEl = document.getElementById('modal-brokerage');
-    const brokerageTypeEl = document.getElementById('modal-brokerage-type');
-    const depositEl  = document.getElementById('modal-deposit');
-
-=======
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     const title    = titleEl.value.trim();
     const location = locationEl.value.trim();
     const price    = parseFloat(priceEl.value) || 0;
@@ -2135,13 +2053,7 @@ async function saveListingForm() {
     const views    = parseInt(document.getElementById('modal-views').value) || 0;
     const lat      = parseFloat(latEl.value) || null;
     const lng      = parseFloat(lngEl.value) || null;
-<<<<<<< HEAD
-    const brokerage = parseFloat(brokerageEl?.value) || 0;
-    const brokerage_type = brokerageTypeEl?.value || 'one_time';
-    const deposit = parseFloat(depositEl?.value) || 0;
-=======
     // Compute cover image from uploadedMedia (first image marked as cover, or placeholder if no images)
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     const coverItem = uploadedMedia.find(m => m.is_cover && m.media_type === 'image');
     const firstImage = uploadedMedia.find(m => m.media_type === 'image');
     const img = coverItem ? coverItem.url : (firstImage ? firstImage.url : MEDIA_PLACEHOLDER);
@@ -2280,10 +2192,7 @@ async function saveListingForm() {
     if (result.error) {
         showToast('Error saving listing: ' + result.error.message);
     } else {
-<<<<<<< HEAD
-=======
         // Resolve listing ID (for inserts we need to fetch the newly created row)
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
         let resolvedId = id || null;
         if (!id) {
             const { data: newListing } = await supabase
@@ -2301,10 +2210,7 @@ async function saveListingForm() {
             await logListingStatusChange(id, oldStatus, status, 'Status updated by owner.');
         }
 
-<<<<<<< HEAD
-=======
         // Save listing media rows to listing_media table
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
         if (resolvedId) {
             await saveListingMedia(resolvedId, user ? user.id : null);
         }
@@ -2315,10 +2221,6 @@ async function saveListingForm() {
         // Only show share popup for NEW listings (no id means it was an insert)
         if (!id) {
             const newId = resolvedId;
-<<<<<<< HEAD
-=======
-
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
             const shareUrl = newId
                 ? `${window.location.origin}/property-details.html?id=${newId}`
                 : null;
@@ -2407,11 +2309,7 @@ window.saveListingForm = saveListingForm;
 //  LISTING MEDIA HELPERS
 // ══════════════════════════════════════════════════════
 
-<<<<<<< HEAD
-const MEDIA_PLACEHOLDER = 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png';
-=======
 const MEDIA_PLACEHOLDER = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
 
 function renderMediaGrid() {
     const grid = document.getElementById('modal-media-grid');
@@ -2494,10 +2392,7 @@ async function handleMultipleUploads(files, listingIdHint) {
             continue;
         }
         try {
-<<<<<<< HEAD
-=======
             const ext = file.name.split('.').pop().toLowerCase();
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
             const safeBase = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             const filePath = `${folderName}/${Date.now()}-${safeBase}`;
             const { error: upErr } = await supabase.storage
@@ -2523,10 +2418,7 @@ async function handleMultipleUploads(files, listingIdHint) {
 }
 
 async function saveListingMedia(listingId, brokerId) {
-<<<<<<< HEAD
-=======
     // Delete existing rows for this listing
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     await supabase.from('listing_media').delete().eq('listing_id', listingId);
 
     if (uploadedMedia.length === 0) return;
@@ -2550,10 +2442,7 @@ function renderInteractiveGallery(container, mediaItems, fallbackImg) {
     if (!container) return;
     const PLACEHOLDER = MEDIA_PLACEHOLDER;
 
-<<<<<<< HEAD
-=======
     // Build display items with fallback
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     let items = mediaItems && mediaItems.length > 0 ? mediaItems : [];
     if (items.length === 0 && fallbackImg) {
         items = [{ url: fallbackImg, media_type: 'image', is_cover: true }];
@@ -2597,10 +2486,7 @@ function renderInteractiveGallery(container, mediaItems, fallbackImg) {
             ${thumbsHtml}
         </div>`;
 
-<<<<<<< HEAD
-=======
         // Wire up events
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
         const prevEl = container.querySelector('#gallery-prev');
         const nextEl = container.querySelector('#gallery-next');
         if (prevEl) prevEl.onclick = () => { activeIdx--; buildHtml(); };
@@ -2671,12 +2557,8 @@ function injectListingModal() {
               </div>
               <input type="hidden" id="modal-img" />
             </div>
-<<<<<<< HEAD
-            <div class="min-w-0">
-=======
             <div>
 
->>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price *</label>
               <div class="flex gap-2 min-w-0">
                 <input id="modal-price-display" type="number" step="0.01" placeholder="e.g. 45" 
@@ -4407,11 +4289,14 @@ async function initBuyerSearchPage() {
     const lngParam = urlParams.get('lng');
 
     let currentQuery = qParam;
-    let activeIntent = 'all';
+    let activeIntent = ['Buy', 'Rent'].includes(urlParams.get('intent')) ? urlParams.get('intent') : 'all';
     const validTypes = new Set(PROPERTY_TYPE_OPTIONS);
     let activeTypes = typeParam.split(',').map(type => normalizePropertyType(type.trim())).filter(type => validTypes.has(type));
-    let priceMin = 0;
-    let priceMax = 50;
+    let priceMin = Number.isFinite(Number(urlParams.get('priceMin'))) && urlParams.has('priceMin') ? Number(urlParams.get('priceMin')) : 0;
+    let priceMax = Number.isFinite(Number(urlParams.get('priceMax'))) && urlParams.has('priceMax') ? Number(urlParams.get('priceMax')) : 50;
+    let bedsMin = Number(urlParams.get('beds')) || 0;
+    let bathsMin = Number(urlParams.get('baths')) || 0;
+    let sortMode = urlParams.get('sort') || 'newest';
 
     if (searchInput && qParam) {
         searchInput.value = qParam;
@@ -4427,6 +4312,23 @@ async function initBuyerSearchPage() {
             button.classList.toggle('text-slate-600', !active);
         });
     }
+    document.querySelectorAll('.search-filter-type').forEach(input => {
+        input.checked = activeTypes.includes(normalizePropertyType(input.value));
+    });
+    const initialIntentOption = document.querySelector(`[data-search-filter-group="intent"][data-value="${activeIntent}"]`);
+    if (initialIntentOption) {
+        document.querySelectorAll('[data-search-filter-group="intent"]').forEach(option => option.setAttribute('aria-pressed', String(option === initialIntentOption)));
+    }
+    document.querySelectorAll('[data-search-filter-group="beds"], [data-search-filter-group="baths"]').forEach(button => {
+        const active = Number(button.dataset.value) === (button.dataset.searchFilterGroup === 'beds' ? bedsMin : bathsMin);
+        button.setAttribute('aria-pressed', String(active && Number(button.dataset.value) > 0));
+    });
+    const filterPriceMinInput = document.getElementById('search-filter-price-min');
+    const filterPriceMaxInput = document.getElementById('search-filter-price-max');
+    const filterSortInput = document.getElementById('search-filter-sort');
+    if (urlParams.has('priceMin') && filterPriceMinInput) filterPriceMinInput.value = String(priceMin);
+    if (urlParams.has('priceMax') && filterPriceMaxInput) filterPriceMaxInput.value = String(priceMax);
+    if (filterSortInput && ['newest', 'price-low', 'price-high'].includes(sortMode)) filterSortInput.value = sortMode;
 
     const mapContainer = document.getElementById('search-map');
     if (!mapContainer || typeof L === 'undefined') return;
@@ -4560,6 +4462,8 @@ async function initBuyerSearchPage() {
         return markersData.filter(l => {
             if (activeIntent !== 'all' && l.intent !== activeIntent) return false;
             if (activeTypes.length && !activeTypes.includes(l.type)) return false;
+            if (Number(l.beds || 0) < bedsMin) return false;
+            if (Number(l.baths || 0) < bathsMin) return false;
             if (l.intent !== 'Rent') {
                 if (priceMin !== null && !isNaN(priceMin) && l.priceNum < priceMin) return false;
                 if (priceMax !== null && !isNaN(priceMax) && l.priceNum > priceMax) return false;
@@ -4572,6 +4476,10 @@ async function initBuyerSearchPage() {
                 if (!match) return false;
             }
             return true;
+        }).sort((a, b) => {
+            if (sortMode === 'price-low') return a.priceNum - b.priceNum;
+            if (sortMode === 'price-high') return b.priceNum - a.priceNum;
+            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
         });
     }
 
@@ -4890,6 +4798,77 @@ async function initBuyerSearchPage() {
         };
         searchInput.onkeypress = (e) => { if (e.key === 'Enter') searchBtn.click(); };
     }
+
+    const filterPanel = document.getElementById('search-filter-panel');
+    const filterBackdrop = document.getElementById('search-filter-backdrop');
+    const closeSearchFilters = () => {
+        filterPanel?.classList.remove('is-open');
+        filterBackdrop?.classList.remove('is-open');
+        filterPanel?.setAttribute('aria-hidden', 'true');
+        filterBackdrop?.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('overflow-hidden');
+    };
+    const openSearchFilters = () => {
+        filterPanel?.classList.add('is-open');
+        filterBackdrop?.classList.add('is-open');
+        filterPanel?.setAttribute('aria-hidden', 'false');
+        filterBackdrop?.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('overflow-hidden');
+    };
+    document.getElementById('search-filter-open-desktop')?.addEventListener('click', openSearchFilters);
+    document.getElementById('search-filter-open-mobile')?.addEventListener('click', openSearchFilters);
+    document.getElementById('search-filter-close')?.addEventListener('click', closeSearchFilters);
+    filterBackdrop?.addEventListener('click', closeSearchFilters);
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeSearchFilters(); });
+    filterPanel?.querySelectorAll('[data-search-filter-group]').forEach(button => {
+        button.addEventListener('click', () => {
+            const group = button.dataset.searchFilterGroup;
+            filterPanel.querySelectorAll(`[data-search-filter-group="${group}"]`).forEach(option => option.setAttribute('aria-pressed', 'false'));
+            button.setAttribute('aria-pressed', 'true');
+        });
+    });
+    const applySearchFilterDraft = () => {
+        activeIntent = filterPanel.querySelector('[data-search-filter-group="intent"][aria-pressed="true"]')?.dataset.value || 'all';
+        activeTypes = Array.from(filterPanel.querySelectorAll('.search-filter-type:checked')).map(input => normalizePropertyType(input.value));
+        bedsMin = Number(filterPanel.querySelector('[data-search-filter-group="beds"][aria-pressed="true"]')?.dataset.value || 0);
+        bathsMin = Number(filterPanel.querySelector('[data-search-filter-group="baths"][aria-pressed="true"]')?.dataset.value || 0);
+        const minValue = filterPriceMinInput?.value || '';
+        const maxValue = filterPriceMaxInput?.value || '';
+        priceMin = minValue === '' ? 0 : Math.max(0, Number(minValue));
+        priceMax = maxValue === '' ? 50 : Math.max(0, Number(maxValue));
+        if (priceMin > priceMax) {
+            priceMax = priceMin;
+            if (filterPriceMaxInput) filterPriceMaxInput.value = String(priceMax);
+        }
+        sortMode = filterSortInput?.value || 'newest';
+        const activeCount = activeTypes.length + Number(bedsMin > 0) + Number(bathsMin > 0)
+            + Number(activeIntent !== 'all') + Number(minValue !== '') + Number(maxValue !== '');
+        [document.getElementById('search-filter-count-mobile'), document.getElementById('search-filter-count-desktop')].forEach(badge => {
+            if (badge) { badge.textContent = String(activeCount); badge.classList.toggle('hidden', activeCount === 0); }
+        });
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set('intent', activeIntent);
+        nextUrl.searchParams.set('type', activeTypes.join(','));
+        if (bedsMin) nextUrl.searchParams.set('beds', String(bedsMin)); else nextUrl.searchParams.delete('beds');
+        if (bathsMin) nextUrl.searchParams.set('baths', String(bathsMin)); else nextUrl.searchParams.delete('baths');
+        if (minValue) nextUrl.searchParams.set('priceMin', String(priceMin)); else nextUrl.searchParams.delete('priceMin');
+        if (maxValue) nextUrl.searchParams.set('priceMax', String(priceMax)); else nextUrl.searchParams.delete('priceMax');
+        nextUrl.searchParams.set('sort', sortMode);
+        window.history.replaceState({}, '', nextUrl);
+        renderMapAndListings();
+        closeSearchFilters();
+    };
+    document.getElementById('search-filter-apply')?.addEventListener('click', applySearchFilterDraft);
+    document.getElementById('search-filter-clear')?.addEventListener('click', () => {
+        filterPanel.querySelectorAll('.search-filter-type').forEach(input => { input.checked = false; });
+        filterPanel.querySelectorAll('[data-search-filter-group]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.searchFilterGroup === 'intent' && button.dataset.value === 'all'));
+        });
+        if (filterPriceMinInput) filterPriceMinInput.value = '';
+        if (filterPriceMaxInput) filterPriceMaxInput.value = '';
+        if (filterSortInput) filterSortInput.value = 'newest';
+        applySearchFilterDraft();
+    });
 
     document.querySelectorAll('.intent-pill').forEach(btn => {
         btn.onclick = () => {
@@ -5327,7 +5306,10 @@ async function initBuyerMapPage() {
             if (!bounds.contains([p.lat, p.lng])) return false;
             if (window._mapIntentFilter && p.intent !== window._mapIntentFilter) return false;
             const normalizedType = typeof normalizePropertyType === 'function' ? normalizePropertyType(p.type) : p.type;
-            if (window._mapTypeFilter && normalizedType !== window._mapTypeFilter) return false;
+            const selectedTypes = window._mapTypeFilters?.length ? window._mapTypeFilters : (window._mapTypeFilter ? [window._mapTypeFilter] : []);
+            if (selectedTypes.length && !selectedTypes.includes(normalizedType)) return false;
+            if (Number(p.beds || 0) < Number(window._mapBedsMin || 0)) return false;
+            if (Number(p.baths || 0) < Number(window._mapBathsMin || 0)) return false;
             if (p.intent !== 'Rent' && (p.price < Number(window._mapPriceMin ?? 0) || p.price > Number(window._mapPriceMax ?? 50))) return false;
             return true;
         }).sort((a, b) => {

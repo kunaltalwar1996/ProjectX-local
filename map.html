@@ -144,6 +144,30 @@
       min-height: 0;
       -webkit-overflow-scrolling: touch;
     }
+    .map-page #hamburger-btn { display:none !important; }
+    #list-pane .intent-btn, #list-pane .type-btn, #list-pane .price-filter { display:none !important; }
+    #map-intent-legacy, #map-type-legacy { display:none !important; }
+    .map-filter-backdrop { position:fixed; inset:0; z-index:1190; background:rgba(15,23,42,.48); opacity:0; visibility:hidden; transition:opacity .25s ease, visibility .25s ease; }
+    .map-filter-backdrop.is-open { opacity:1; visibility:visible; }
+    .map-filter-drawer { position:fixed; z-index:1200; inset:50% auto auto 50%; width:min(92vw,760px); max-height:min(90dvh,900px); background:#fff; display:flex; flex-direction:column; border-radius:26px; overflow:hidden; opacity:0; visibility:hidden; transform:translate(-50%,-47%) scale(.98); transition:transform .28s ease, opacity .22s ease, visibility .22s ease; box-shadow:0 18px 64px rgba(15,23,42,.24); }
+    .map-filter-drawer.is-open { opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1); }
+    .map-filter-header { position:relative; flex-shrink:0; display:flex; justify-content:center; align-items:center; min-height:68px; padding:16px 60px; border-bottom:1px solid #e2e8f0; }
+    .map-filter-close { position:absolute; right:20px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; color:#334155; }
+    .map-filter-content { flex:1; overflow-y:auto; padding:24px; }
+    .map-filter-actions { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 24px max(20px,env(safe-area-inset-bottom)); border-top:1px solid #e2e8f0; background:white; }
+    .map-filter-chip { min-width:42px; padding:7px 12px; border:1px solid #e2e8f0; border-radius:10px; background:white; color:#0f172a; font-size:12px; font-weight:800; }
+    .map-filter-chip[aria-pressed="true"] { border-color:#0f172a; background:#0f172a; color:white; }
+    #map-filters-open-mobile { display:none; }
+    @media(max-width:1023px) {
+      #map-filters-open-desktop { display:none; }
+      #map-filters-open-mobile { display:inline-flex; }
+      .map-filter-drawer { inset:0 auto 0 0; width:min(88vw,360px); max-height:none; border-radius:0; transform:translateX(-102%); opacity:1; visibility:visible; }
+      .map-filter-drawer.is-open { transform:translateX(0); }
+      .map-filter-header { justify-content:flex-start; min-height:62px; padding:14px 24px; }
+      .map-filter-close { right:12px; }
+      .map-filter-content { padding:24px; }
+      .map-filter-actions { padding-bottom:max(20px,env(safe-area-inset-bottom)); }
+    }
   </style>
 </head>
 <body class="map-page bg-white text-slate-900 font-['Outfit'] antialiased h-screen overflow-hidden flex flex-col">
@@ -178,7 +202,7 @@
         </button>
         <button class="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-xs hover:bg-slate-800 transition-colors uppercase tracking-wider ml-2">Dashboard</button>
       </div>
-      <button type="button" id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false"><span class="material-symbols-outlined text-[28px]">menu</span></button>
+      <!-- Mobile hamburger is intentionally omitted on the map search page. -->
     </div>
   </nav>
 
@@ -198,7 +222,10 @@
         <span class="hidden sm:inline">List</span>
       </button>
     </div>
-    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" id="map-listings-count-toolbar">Loading...</p>
+    <div class="flex items-center gap-4">
+      <button type="button" id="map-filters-open-desktop" class="hidden lg:inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-extrabold text-slate-800 shadow-sm hover:border-slate-400"><span class="material-symbols-outlined text-[18px]">tune</span>Filters<span id="map-active-filter-count-desktop" class="hidden rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] text-white">0</span></button>
+      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" id="map-listings-count-toolbar">Loading...</p>
+    </div>
   </div>
 
   <main id="main-split" class="flex-grow flex flex-col md:flex-row overflow-hidden min-h-0">
@@ -229,27 +256,21 @@
         <div class="px-4 pt-4 pb-3 space-y-3">
           <div class="flex items-center justify-between">
             <h2 class="text-base font-black text-slate-900 tracking-tight">Results</h2>
-            <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest" id="map-listings-count">Loading...</p>
+            <div class="flex items-center gap-2"><p class="text-slate-400 text-[10px] font-black uppercase tracking-widest" id="map-listings-count">Loading...</p><button type="button" id="map-filters-open-mobile" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-800 shadow-sm"><span class="material-symbols-outlined text-[18px]">tune</span>Filters<span id="map-active-filter-count" class="hidden rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] text-white">0</span></button></div>
           </div>
           <!-- Intent toggle -->
-          <div class="flex gap-2">
+          <div id="map-intent-legacy" class="flex gap-2">
             <button data-intent="all" class="intent-btn flex-1 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-slate-900 text-white transition-all">All</button>
             <button data-intent="Buy" class="intent-btn flex-1 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Sell</button>
             <button data-intent="Rent" class="intent-btn flex-1 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Rent</button>
           </div>
           <!-- Type chips -->
-          <div class="flex gap-1.5 flex-wrap">
+          <div id="map-type-legacy" class="flex gap-1.5 flex-wrap">
             <button data-type="all" class="type-btn px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-900 text-white transition-all">All</button>
             <button data-type="Apartment/ High Rise" class="type-btn px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Apartment/ High Rise</button>
             <button data-type="Builder Floor/ Low Rise" class="type-btn px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Builder Floor/ Low Rise</button>
             <button data-type="Bungalow/ Villa" class="type-btn px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Bungalow/ Villa</button>
             <button data-type="Office/Commercial" class="type-btn px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Office/Commercial</button>
-          </div>
-          <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            <label for="map-sort" class="shrink-0">Sort by</label>
-            <select id="map-sort" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 outline-none">
-              <option value="newest">Newest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option>
-            </select>
           </div>
           <!-- Price range -->
           <div class="price-filter space-y-1.5">
@@ -271,6 +292,27 @@
     </section>
   </main>
 
+<div id="map-filter-backdrop" class="map-filter-backdrop" aria-hidden="true"></div>
+<aside id="map-filter-drawer" class="map-filter-drawer" role="dialog" aria-modal="true" aria-labelledby="map-filter-title" aria-hidden="true">
+  <div class="map-filter-header"><h2 id="map-filter-title" class="text-lg font-bold text-slate-900">Filters</h2><button id="map-filter-close" type="button" class="map-filter-close" aria-label="Close filters"><span class="material-symbols-outlined">close</span></button></div>
+  <div class="map-filter-content space-y-7">
+    <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Sort by</h3><select id="map-sort" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"><option value="newest">Newest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></section>
+    <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Property Type</h3><div class="space-y-2">
+      <label class="flex items-center gap-2 text-sm text-slate-500"><input class="map-type-filter h-4 w-4 accent-slate-900" type="checkbox" value="Apartment/ High Rise">Apartment/ High Rise</label>
+      <label class="flex items-center gap-2 text-sm text-slate-500"><input class="map-type-filter h-4 w-4 accent-slate-900" type="checkbox" value="Builder Floor/ Low Rise">Builder Floor/ Low Rise</label>
+      <label class="flex items-center gap-2 text-sm text-slate-500"><input class="map-type-filter h-4 w-4 accent-slate-900" type="checkbox" value="Bungalow/ Villa">Bungalow/ Villa</label>
+      <label class="flex items-center gap-2 text-sm text-slate-500"><input class="map-type-filter h-4 w-4 accent-slate-900" type="checkbox" value="Office/Commercial">Office/Commercial</label>
+    </div></section>
+    <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">BHK</h3><div class="flex flex-wrap gap-2">
+      <button type="button" class="map-filter-chip" data-filter-group="beds" data-filter-value="1" aria-pressed="false">1BHK+</button><button type="button" class="map-filter-chip" data-filter-group="beds" data-filter-value="2" aria-pressed="false">2BHK+</button><button type="button" class="map-filter-chip" data-filter-group="beds" data-filter-value="3" aria-pressed="false">3BHK+</button><button type="button" class="map-filter-chip" data-filter-group="beds" data-filter-value="4" aria-pressed="false">4BHK+</button><button type="button" class="map-filter-chip" data-filter-group="beds" data-filter-value="5" aria-pressed="false">5BHK+</button>
+    </div></section>
+    <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Bathrooms</h3><div class="flex flex-wrap gap-2"><button type="button" class="map-filter-chip" data-filter-group="baths" data-filter-value="1" aria-pressed="false">1+</button><button type="button" class="map-filter-chip" data-filter-group="baths" data-filter-value="2" aria-pressed="false">2+</button><button type="button" class="map-filter-chip" data-filter-group="baths" data-filter-value="3" aria-pressed="false">3+</button></div></section>
+    <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Price Range (Cr)</h3><div class="grid grid-cols-2 gap-3"><input type="number" id="map-price-min" min="0" step="0.1" placeholder="Min" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-slate-900"><input type="number" id="map-price-max" min="0" step="0.1" placeholder="Max" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-slate-900"></div></section>
+    <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Listing Intent</h3><div class="flex gap-2"><button type="button" class="map-filter-chip" data-filter-group="intent" data-filter-value="all" aria-pressed="true">All</button><button type="button" class="map-filter-chip" data-filter-group="intent" data-filter-value="Buy" aria-pressed="false">Buy</button><button type="button" class="map-filter-chip" data-filter-group="intent" data-filter-value="Rent" aria-pressed="false">Rent</button></div></section>
+  </div>
+  <div class="map-filter-actions"><button id="map-filter-clear" type="button" class="px-3 py-3 text-sm font-bold text-slate-500 hover:text-slate-900">Clear filters</button><button id="map-filter-apply" type="button" class="min-h-12 rounded-xl bg-slate-900 px-7 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800">Apply filters</button></div>
+</aside>
+
 <script type="module">
   import { supabase } from './lib/supabase.js';
 
@@ -282,6 +324,9 @@
 
   window._mapIntentFilter = null;
   window._mapTypeFilter = null;
+  window._mapTypeFilters = [];
+  window._mapBedsMin = 0;
+  window._mapBathsMin = 0;
   window._mapPriceMin = 0;
   window._mapPriceMax = 50;
 
@@ -341,7 +386,10 @@
   function isFilteredOut(listing) {
     if (!listingsLoaded) return false;
     if (window._mapIntentFilter && listing.intent !== window._mapIntentFilter) return true;
-    if (window._mapTypeFilter && listing.type !== window._mapTypeFilter) return true;
+    const selectedTypes = window._mapTypeFilters?.length ? window._mapTypeFilters : (window._mapTypeFilter ? [window._mapTypeFilter] : []);
+    if (selectedTypes.length && !selectedTypes.includes(listing.type)) return true;
+    if (Number(listing.beds || 0) < Number(window._mapBedsMin || 0)) return true;
+    if (Number(listing.baths || 0) < Number(window._mapBathsMin || 0)) return true;
     if (listing.intent !== 'Rent' && window._mapPriceMin !== null && window._mapPriceMin !== undefined && !isNaN(window._mapPriceMin)) {
       if (listing.price < window._mapPriceMin) return true;
     }
@@ -437,36 +485,69 @@
       observer.observe(sidebarCount, { childList: true, characterData: true, subtree: true });
     }
 
-    // Intent filter
-    document.querySelectorAll('.intent-btn').forEach(btn => {
-      const handler = () => {
-        document.querySelectorAll('.intent-btn').forEach(b => {
-          b.classList.remove('bg-slate-900','text-white');
-          b.classList.add('bg-slate-100','text-slate-500');
-        });
-        btn.classList.add('bg-slate-900','text-white');
-        btn.classList.remove('bg-slate-100','text-slate-500');
-        window._mapIntentFilter = btn.dataset.intent === 'all' ? null : btn.dataset.intent;
-        if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
-      };
-      btn.addEventListener('click', (e) => { e.preventDefault(); handler(); });
-      btn.addEventListener('touchend', (e) => { e.preventDefault(); handler(); });
+    // Filter drawer: draft selections apply to both map pins and results together.
+    const filterDrawer = document.getElementById('map-filter-drawer');
+    const filterBackdrop = document.getElementById('map-filter-backdrop');
+    const closeFilterDrawer = () => {
+      filterDrawer.classList.remove('is-open');
+      filterBackdrop.classList.remove('is-open');
+      filterDrawer.setAttribute('aria-hidden', 'true');
+      filterBackdrop.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('overflow-hidden');
+    };
+    const openFilterDrawer = () => {
+      filterDrawer.classList.add('is-open');
+      filterBackdrop.classList.add('is-open');
+      filterDrawer.setAttribute('aria-hidden', 'false');
+      filterBackdrop.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('overflow-hidden');
+    };
+    document.getElementById('map-filters-open-desktop')?.addEventListener('click', openFilterDrawer);
+    document.getElementById('map-filters-open-mobile')?.addEventListener('click', openFilterDrawer);
+    document.getElementById('map-filter-close')?.addEventListener('click', closeFilterDrawer);
+    filterBackdrop?.addEventListener('click', closeFilterDrawer);
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeFilterDrawer(); });
+    filterDrawer?.querySelectorAll('[data-filter-group]').forEach(button => {
+      button.addEventListener('click', () => {
+        const group = button.dataset.filterGroup;
+        filterDrawer.querySelectorAll(`[data-filter-group="${group}"]`).forEach(option => option.setAttribute('aria-pressed', 'false'));
+        button.setAttribute('aria-pressed', 'true');
+      });
     });
-
-    // Type filter
-    document.querySelectorAll('.type-btn').forEach(btn => {
-      const handler = () => {
-        document.querySelectorAll('.type-btn').forEach(b => {
-          b.classList.remove('bg-slate-900','text-white');
-          b.classList.add('bg-slate-100','text-slate-500');
-        });
-        btn.classList.add('bg-slate-900','text-white');
-        btn.classList.remove('bg-slate-100','text-slate-500');
-        window._mapTypeFilter = btn.dataset.type === 'all' ? null : btn.dataset.type;
-        if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
-      };
-      btn.addEventListener('click', (e) => { e.preventDefault(); handler(); });
-      btn.addEventListener('touchend', (e) => { e.preventDefault(); handler(); });
+    const sort = document.getElementById('map-sort');
+    const applyMapFilterDraft = () => {
+      window._mapSort = sort?.value || 'newest';
+      window._mapTypeFilters = Array.from(filterDrawer.querySelectorAll('.map-type-filter:checked')).map(input => input.value);
+      window._mapTypeFilter = window._mapTypeFilters.length === 1 ? window._mapTypeFilters[0] : null;
+      const intent = filterDrawer.querySelector('[data-filter-group="intent"][aria-pressed="true"]')?.dataset.filterValue || 'all';
+      window._mapIntentFilter = intent === 'all' ? null : intent;
+      window._mapBedsMin = Number(filterDrawer.querySelector('[data-filter-group="beds"][aria-pressed="true"]')?.dataset.filterValue || 0);
+      window._mapBathsMin = Number(filterDrawer.querySelector('[data-filter-group="baths"][aria-pressed="true"]')?.dataset.filterValue || 0);
+      const minValue = filterDrawer.querySelector('#map-price-min').value;
+      const maxValue = filterDrawer.querySelector('#map-price-max').value;
+      window._mapPriceMin = minValue === '' ? 0 : Math.max(0, Number(minValue));
+      window._mapPriceMax = maxValue === '' ? 50 : Math.max(0, Number(maxValue));
+      if (window._mapPriceMin > window._mapPriceMax) {
+        window._mapPriceMax = window._mapPriceMin;
+        filterDrawer.querySelector('#map-price-max').value = String(window._mapPriceMax);
+      }
+      const activeCount = window._mapTypeFilters.length + Number(window._mapBedsMin > 0)
+        + Number(window._mapBathsMin > 0) + Number(!!window._mapIntentFilter)
+        + Number(minValue !== '') + Number(maxValue !== '');
+      const badge = document.getElementById('map-active-filter-count');
+      if (badge) { badge.textContent = String(activeCount); badge.classList.toggle('hidden', activeCount === 0); }
+      const desktopBadge = document.getElementById('map-active-filter-count-desktop');
+      if (desktopBadge) { desktopBadge.textContent = String(activeCount); desktopBadge.classList.toggle('hidden', activeCount === 0); }
+      if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
+      closeFilterDrawer();
+    };
+    document.getElementById('map-filter-apply')?.addEventListener('click', applyMapFilterDraft);
+    document.getElementById('map-filter-clear')?.addEventListener('click', () => {
+      filterDrawer.querySelectorAll('.map-type-filter').forEach(input => { input.checked = false; });
+      filterDrawer.querySelectorAll('[data-filter-group]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filterGroup === 'intent' && button.dataset.filterValue === 'all')));
+      filterDrawer.querySelector('#map-price-min').value = '';
+      filterDrawer.querySelector('#map-price-max').value = '';
+      applyMapFilterDraft();
     });
 
     // Price filter
@@ -475,7 +556,6 @@
     if (minRange && maxRange) {
       const label = document.getElementById('price-range-label');
       const fill = document.getElementById('price-range-fill');
-      const sort = document.getElementById('map-sort');
       const updateRangeVisual = () => {
         const min = Number(minRange.value), max = Number(maxRange.value);
         if (fill) { fill.style.left = `${min / 50 * 100}%`; fill.style.width = `${(max - min) / 50 * 100}%`; }
@@ -495,10 +575,6 @@
       minRange.addEventListener('input', priceHandler);
       maxRange.addEventListener('input', priceHandler);
       updateRangeVisual();
-      sort?.addEventListener('change', () => {
-        window._mapSort = sort.value;
-        if (typeof window._refreshMapListings === 'function') window._refreshMapListings();
-      });
     }
 
     // ── Bottom Sheet Logic (mobile only, < 768px) ──

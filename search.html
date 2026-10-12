@@ -104,6 +104,29 @@
     .price-ticks { display:flex; justify-content:space-between; padding:0 2px; color:#64748b; font-size:10px; font-weight:700; }
     .price-ticks span { position:relative; }
     .price-ticks span::before { content:''; position:absolute; top:-7px; left:50%; width:1px; height:5px; background:#94a3b8; }
+    #hamburger-btn { display:none !important; }
+    #legacy-search-intent, #legacy-search-types, #legacy-search-price { display:none !important; }
+    .search-filter-backdrop { position:fixed; inset:0; z-index:1190; background:rgba(15,23,42,.48); opacity:0; visibility:hidden; transition:opacity .25s ease, visibility .25s ease; }
+    .search-filter-backdrop.is-open { opacity:1; visibility:visible; }
+    .search-filter-panel { position:fixed; z-index:1200; inset:50% auto auto 50%; width:min(92vw,760px); max-height:min(90dvh,900px); display:flex; flex-direction:column; overflow:hidden; border-radius:26px; background:white; opacity:0; visibility:hidden; transform:translate(-50%,-47%) scale(.98); transition:transform .28s ease,opacity .22s ease,visibility .22s ease; box-shadow:0 18px 64px rgba(15,23,42,.24); }
+    .search-filter-panel.is-open { opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1); }
+    .search-filter-panel-header { position:relative; flex-shrink:0; display:flex; align-items:center; justify-content:center; min-height:68px; padding:16px 60px; border-bottom:1px solid #e2e8f0; }
+    .search-filter-close { position:absolute; right:20px; top:50%; transform:translateY(-50%); width:36px; height:36px; display:grid; place-items:center; border-radius:50%; color:#334155; }
+    .search-filter-content { flex:1; overflow-y:auto; padding:24px; }
+    .search-filter-footer { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 24px max(20px,env(safe-area-inset-bottom)); border-top:1px solid #e2e8f0; background:white; }
+    .search-filter-chip { min-width:42px; padding:7px 12px; border:1px solid #e2e8f0; border-radius:10px; background:white; color:#0f172a; font-size:12px; font-weight:800; }
+    .search-filter-chip[aria-pressed="true"] { border-color:#0f172a; background:#0f172a; color:white; }
+    #search-filter-open-mobile { display:none; }
+    @media(max-width:1023px) {
+      #search-filter-open-desktop { display:none; }
+      #search-filter-open-mobile { display:inline-flex; }
+      .search-filter-panel { inset:0 auto 0 0; width:min(88vw,360px); max-height:none; border-radius:0; transform:translateX(-102%); opacity:1; visibility:visible; }
+      .search-filter-panel.is-open { transform:translateX(0); }
+      .search-filter-panel-header { justify-content:flex-start; min-height:62px; padding:14px 24px; }
+      .search-filter-close { right:12px; }
+      .search-filter-content { padding:24px; }
+      .search-filter-footer { padding-bottom:max(20px,env(safe-area-inset-bottom)); }
+    }
 
     /* Mobile Bottom Sheet Styles (Mobile < 1024px) */
     @media (max-width: 1023px) {
@@ -146,8 +169,7 @@
       #search-listings-grid { grid-template-columns:minmax(0,1fr); gap:14px; }
       #search-listings-grid .search-card { border-radius:20px; }
       #search-listings-grid .search-card > div:first-child { aspect-ratio: 1.45 / 1; }
-      #search-filter-row { gap:8px; }
-      #search-filter-row > div { flex-shrink:0; }
+      #search-filter-row { justify-content:flex-end; gap:8px; overflow:visible; }
       #search-main-container { min-height:0; }
       #floating-toggle-btn { bottom:calc(10px + env(safe-area-inset-bottom)); }
       #price-filter-popover { position:fixed; top:auto; right:12px; left:12px; bottom:calc(72px + env(safe-area-inset-bottom)); width:auto; max-width:480px; margin-left:auto; }
@@ -205,10 +227,7 @@
         </button>
       </div>
 
-      <!-- Mobile Menu Toggle -->
-      <button type="button" id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false">
-        <span class="material-symbols-outlined text-[28px]">menu</span>
-      </button>
+      <!-- Mobile navigation menu is omitted on the search page. -->
     </div>
   </nav>
 
@@ -256,15 +275,18 @@
 
         <div class="h-6 w-[1px] bg-slate-200 mx-0.5 hidden lg:block shrink-0"></div>
 
+        <button type="button" id="search-filter-open-desktop" class="hidden lg:inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-extrabold text-slate-800 shadow-sm hover:border-slate-900"><span class="material-symbols-outlined text-[18px]">tune</span>Filters<span id="search-filter-count-desktop" class="hidden rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] text-white">0</span></button>
+        <button type="button" id="search-filter-open-mobile" class="items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-extrabold text-slate-800 shadow-sm"><span class="material-symbols-outlined text-[18px]">tune</span>Filters<span id="search-filter-count-mobile" class="hidden rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] text-white">0</span></button>
+
         <!-- Intent Filter Buttons -->
-        <div class="flex items-center bg-slate-100 p-1 rounded-full shrink-0">
+        <div id="legacy-search-intent" class="flex items-center bg-slate-100 p-1 rounded-full shrink-0">
           <button data-intent="all" class="intent-pill active px-3 py-1 rounded-full text-xs font-bold transition-all bg-slate-900 text-white">All</button>
           <button data-intent="Buy" class="intent-pill px-3 py-1 rounded-full text-xs font-bold transition-all text-slate-600 hover:text-slate-900">Buy</button>
           <button data-intent="Rent" class="intent-pill px-3 py-1 rounded-full text-xs font-bold transition-all text-slate-600 hover:text-slate-900">Rent</button>
         </div>
 
         <!-- Property Type Pills -->
-        <div class="flex items-center gap-1 shrink-0">
+        <div id="legacy-search-types" class="flex items-center gap-1 shrink-0">
           <button data-type="all" class="type-pill active px-3 py-1.5 rounded-full border border-slate-300 text-xs font-bold bg-slate-900 text-white transition-all">All Types</button>
           <button data-type="Apartment/ High Rise" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Apartment/ High Rise</button>
           <button data-type="Builder Floor/ Low Rise" class="type-pill px-3 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-400 hover:text-slate-900 transition-all">Builder Floor/ Low Rise</button>
@@ -273,7 +295,7 @@
         </div>
 
         <!-- Enhanced Price Range Filter Popover -->
-        <div class="relative shrink-0">
+        <div id="legacy-search-price" class="relative shrink-0">
           <button id="price-filter-btn" class="flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-slate-300 text-xs font-bold text-slate-800 hover:border-slate-900 transition-all shadow-sm">
             <span class="material-symbols-outlined text-[16px] text-slate-500">payments</span>
                   <span id="price-filter-label">₹0 – ₹50 Cr</span>
@@ -306,6 +328,27 @@
       </div>
     </div>
   </header>
+
+  <div id="search-filter-backdrop" class="search-filter-backdrop" aria-hidden="true"></div>
+  <aside id="search-filter-panel" class="search-filter-panel" role="dialog" aria-modal="true" aria-labelledby="search-filter-title" aria-hidden="true">
+    <div class="search-filter-panel-header"><h2 id="search-filter-title" class="text-lg font-bold text-slate-900">Filters</h2><button type="button" id="search-filter-close" class="search-filter-close" aria-label="Close filters"><span class="material-symbols-outlined">close</span></button></div>
+    <div class="search-filter-content space-y-7">
+      <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Sort by</h3><select id="search-filter-sort" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"><option value="newest">Newest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></section>
+      <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Property Type</h3><div class="space-y-2">
+        <label class="flex items-center gap-2 text-sm text-slate-600"><input class="search-filter-type h-4 w-4 accent-slate-900" type="checkbox" value="Apartment/ High Rise">Apartment/ High Rise</label>
+        <label class="flex items-center gap-2 text-sm text-slate-600"><input class="search-filter-type h-4 w-4 accent-slate-900" type="checkbox" value="Builder Floor/ Low Rise">Builder Floor/ Low Rise</label>
+        <label class="flex items-center gap-2 text-sm text-slate-600"><input class="search-filter-type h-4 w-4 accent-slate-900" type="checkbox" value="Bungalow/ Villa">Bungalow/ Villa</label>
+        <label class="flex items-center gap-2 text-sm text-slate-600"><input class="search-filter-type h-4 w-4 accent-slate-900" type="checkbox" value="Office/Commercial">Office/Commercial</label>
+      </div></section>
+      <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">BHK</h3><div class="flex flex-wrap gap-2">
+        <button type="button" class="search-filter-chip" data-search-filter-group="beds" data-value="1" aria-pressed="false">1BHK+</button><button type="button" class="search-filter-chip" data-search-filter-group="beds" data-value="2" aria-pressed="false">2BHK+</button><button type="button" class="search-filter-chip" data-search-filter-group="beds" data-value="3" aria-pressed="false">3BHK+</button><button type="button" class="search-filter-chip" data-search-filter-group="beds" data-value="4" aria-pressed="false">4BHK+</button><button type="button" class="search-filter-chip" data-search-filter-group="beds" data-value="5" aria-pressed="false">5BHK+</button>
+      </div></section>
+      <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Bathrooms</h3><div class="flex flex-wrap gap-2"><button type="button" class="search-filter-chip" data-search-filter-group="baths" data-value="1" aria-pressed="false">1+</button><button type="button" class="search-filter-chip" data-search-filter-group="baths" data-value="2" aria-pressed="false">2+</button><button type="button" class="search-filter-chip" data-search-filter-group="baths" data-value="3" aria-pressed="false">3+</button></div></section>
+      <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Price Range (Cr)</h3><div class="grid grid-cols-2 gap-3"><input id="search-filter-price-min" type="number" min="0" step="0.1" placeholder="Min" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-slate-900"><input id="search-filter-price-max" type="number" min="0" step="0.1" placeholder="Max" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-slate-900"></div></section>
+      <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Listing Intent</h3><div class="flex gap-2"><button type="button" class="search-filter-chip" data-search-filter-group="intent" data-value="all" aria-pressed="true">All</button><button type="button" class="search-filter-chip" data-search-filter-group="intent" data-value="Buy" aria-pressed="false">Buy</button><button type="button" class="search-filter-chip" data-search-filter-group="intent" data-value="Rent" aria-pressed="false">Rent</button></div></section>
+    </div>
+    <div class="search-filter-footer"><button id="search-filter-clear" type="button" class="px-3 py-3 text-sm font-bold text-slate-500 hover:text-slate-900">Clear filters</button><button id="search-filter-apply" type="button" class="min-h-12 rounded-xl bg-slate-900 px-7 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800">Apply filters</button></div>
+  </aside>
 
   <!-- Main View Area -->
   <main id="search-main-container" class="relative flex-1 max-w-[1440px] mx-auto w-full flex flex-col lg:flex-row min-h-[calc(100vh-140px)]">
