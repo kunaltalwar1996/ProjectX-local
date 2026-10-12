@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>ProjectX - Buy</title>
+  <title>ProjectX - Rent</title>
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
     rel="stylesheet" />
@@ -85,7 +85,7 @@
     <div class="max-w-[1280px] mx-auto px-6 py-12">
       <div class="flex flex-col lg:flex-row gap-10">
         <!-- Filter Sidebar -->
-        <aside class="w-full lg:w-64 shrink-0 space-y-8">
+        <aside id="property-filters" class="property-filters w-full lg:w-64 shrink-0 space-y-8">
           <div>
             <div class="flex items-center justify-between mb-4">
               <h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">Filters</h3>
@@ -162,6 +162,9 @@
               </div>
             </div>
           </div>
+          <div class="mobile-filter-actions">
+            <button id="apply-mobile-filters" type="button" class="w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800">Apply filters</button>
+          </div>
         </aside>
 
         <!-- Listings Content -->
@@ -172,7 +175,10 @@
               <p class="text-slate-500 mt-2 font-medium" id="listings-count-text">Discover 242 exceptional listings in
                 Mumbai & Delhi</p>
             </div>
-            <div class="flex items-center gap-6">
+            <div class="flex flex-wrap items-center gap-3 md:gap-6">
+              <button id="mobile-filter-toggle" type="button" aria-controls="property-filters" aria-expanded="false" class="lg:hidden inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700">
+                <span class="material-symbols-outlined text-[20px]">menu</span><span>Filters</span>
+              </button>
               <div class="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200">
                 <button id="view-grid" class="p-1.5 rounded-md bg-white shadow-sm text-slate-900 transition-all">
                   <span class="material-symbols-outlined text-[20px]">grid_view</span>
@@ -181,7 +187,11 @@
                   <span class="material-symbols-outlined text-[20px]">view_list</span>
                 </button>
               </div>
-              <div class="flex items-center gap-4 text-sm font-bold text-slate-500">
+              <div class="flex flex-wrap items-center gap-3 text-sm font-bold text-slate-500">
+                <div class="intent-toggle" role="group" aria-label="Listing intent">
+                  <button type="button" data-intent="Rent" aria-pressed="true" class="intent-option is-active">Rent</button>
+                  <button type="button" data-intent="Buy" aria-pressed="false" class="intent-option">Buy</button>
+                </div>
                 <span>Sort by:</span>
                 <select id="sort-dropdown" class="bg-transparent text-slate-900 outline-none cursor-pointer">
                   <option value="recommended">Recommended</option>
@@ -264,6 +274,114 @@
     </div>
     </div>
   </footer>
+  <div id="filter-backdrop" class="filter-backdrop" aria-hidden="true"></div>
+  <style>
+    .intent-toggle { display:flex; align-items:center; padding:4px; border:1px solid #e2e8f0; border-radius:10px; background:white; }
+    .intent-option { border:0; border-radius:7px; padding:7px 14px; color:#64748b; background:transparent; font:700 13px Outfit,sans-serif; cursor:pointer; }
+    .intent-option.is-active { color:white; background:#0f172a; }
+    @media(max-width:1023px) {
+      .property-filters { display:none; }
+      .property-filters.mobile-open { display:block; position:fixed; z-index:71; inset:0 auto 0 0; width:min(88vw,360px); overflow-y:auto; background:white; padding:24px; box-shadow:0 0 32px #0f172a33; }
+      .mobile-filter-actions { position:sticky; bottom:-24px; margin:24px -24px -24px; padding:16px 24px 24px; background:white; border-top:1px solid #e2e8f0; }
+      .mobile-filter-actions button { min-height:48px; }
+      .filter-backdrop { display:none; position:fixed; z-index:70; inset:0; background:#0f172a80; }
+      .filter-backdrop.is-visible { display:block; }
+    }
+    @media(min-width:1024px) { .mobile-filter-actions { display:none; } }
+    @media(max-width:640px) {
+      main > div.max-w-\[1280px\] { padding:24px 16px; }
+      #listings-count-text { font-size:14px; }
+      #property-grid { gap:18px; }
+      .intent-option { padding:7px 11px; }
+    }
+  </style>
+  <script>
+    (() => {
+      const filters = document.getElementById('property-filters');
+      const toggle = document.getElementById('mobile-filter-toggle');
+      const backdrop = document.getElementById('filter-backdrop');
+      const applyButton = document.getElementById('apply-mobile-filters');
+      const setOpen = (open) => {
+        filters.classList.toggle('mobile-open', open);
+        backdrop.classList.toggle('is-visible', open);
+        toggle.setAttribute('aria-expanded', String(open));
+        document.body.classList.toggle('overflow-hidden', open);
+      };
+      toggle.addEventListener('click', () => setOpen(!filters.classList.contains('mobile-open')));
+      backdrop.addEventListener('click', () => setOpen(false));
+      applyButton.addEventListener('click', () => {
+        window.applyPropertyPageFilters?.();
+        setOpen(false);
+      });
+      filters.addEventListener('click', (event) => {
+        if (event.target.closest('#clear-all-filters')) setOpen(false);
+      });
+      document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setOpen(false); });
+      const applyFilters = () => {
+        const query = document.getElementById('listing-search-input')?.value.trim().toLowerCase() || '';
+        const types = [...document.querySelectorAll('input[name="type"]:checked')].map(input => input.value);
+        const beds = Number(document.querySelector('button[data-filter="beds"].is-selected')?.dataset.value || 0);
+        const baths = Number(document.querySelector('button[data-filter="baths"].is-selected')?.dataset.value || 0);
+        const minPrice = Number.parseFloat(document.getElementById('price-min')?.value) || 0;
+        const rawMax = Number.parseFloat(document.getElementById('price-max')?.value);
+        const intent = document.querySelector('.intent-option[aria-pressed="true"]')?.dataset.intent || 'Rent';
+        let visible = 0;
+        document.querySelectorAll('#property-grid .property-card').forEach(card => {
+          const matches = (!query || `${card.dataset.title || ''} ${card.dataset.location || ''}`.toLowerCase().includes(query))
+            && (!types.length || types.includes(card.dataset.type))
+            && Number(card.dataset.beds || 0) >= beds
+            && Number(card.dataset.baths || 0) >= baths
+            && Number(card.dataset.price || 0) >= minPrice
+            && (!Number.isFinite(rawMax) || Number(card.dataset.price || 0) <= rawMax)
+            && String(card.dataset.intent || '').toLowerCase() === intent.toLowerCase();
+          card.style.display = matches ? '' : 'none';
+          if (matches) visible++;
+        });
+        const count = document.getElementById('listings-count-text');
+        if (count) count.textContent = `Showing ${visible} exceptional listings in Mumbai & Delhi`;
+      };
+      window.applyPropertyPageFilters = applyFilters;
+      document.querySelectorAll('button[data-filter]').forEach(button => button.addEventListener('click', () => {
+        const group = button.dataset.filter;
+        document.querySelectorAll(`button[data-filter="${group}"]`).forEach(other => {
+          other.classList.remove('is-selected', 'bg-primary', 'text-on-primary');
+        });
+        button.classList.add('is-selected', 'bg-primary', 'text-on-primary');
+        if (!filters.classList.contains('mobile-open')) applyFilters();
+      }));
+      document.querySelectorAll('input[name="type"], #price-min, #price-max').forEach(input => input.addEventListener('change', () => {
+        if (!filters.classList.contains('mobile-open')) applyFilters();
+      }));
+      document.querySelectorAll('.intent-option').forEach(button => button.addEventListener('click', () => {
+        const intent = button.dataset.intent;
+        document.querySelectorAll('.intent-option').forEach(option => {
+          const selected = option === button;
+          option.classList.toggle('is-active', selected);
+          option.setAttribute('aria-pressed', String(selected));
+        });
+        const url = new URL(window.location.href);
+        url.searchParams.set('intent', intent);
+        window.history.replaceState({}, '', url);
+        applyFilters();
+      }));
+      const initialIntent = new URLSearchParams(window.location.search).get('intent');
+      if (initialIntent) {
+        const initialButton = document.querySelector(`.intent-option[data-intent="${initialIntent.toLowerCase() === 'buy' ? 'Buy' : 'Rent'}"]`);
+        initialButton?.click();
+      }
+      document.getElementById('clear-all-filters')?.addEventListener('click', () => {
+        document.getElementById('listing-search-input').value = '';
+        document.querySelectorAll('input[name="type"]').forEach(input => { input.checked = false; });
+        document.getElementById('price-min').value = '';
+        document.getElementById('price-max').value = '';
+        document.querySelectorAll('button[data-filter]').forEach(button => button.classList.remove('is-selected', 'bg-primary', 'text-on-primary'));
+        applyFilters();
+      });
+      document.getElementById('find-homes-btn')?.addEventListener('click', applyFilters);
+      document.getElementById('sort-dropdown')?.addEventListener('change', applyFilters);
+      applyFilters();
+    })();
+  </script>
 </body>
 
 </html>

@@ -105,6 +105,7 @@ let activeInquiryId = null;
 let updateHeaderVisibility = null;
 let referrerId = null;
 let uploadedMedia = [];
+<<<<<<< HEAD
 let listingEditSnapshot = null;
 
 const PROPERTY_TYPE_OPTIONS = [
@@ -219,6 +220,8 @@ function populateListingPriceFields(listing, dispField, unitField, priceHidden) 
 
 window.formatListingPrice = formatListingPrice;
 window.formatIntentLabel = formatIntentLabel;
+=======
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
 
 // Parse ref parameter on boot
 try {
@@ -1674,8 +1677,11 @@ function initAppPage() {
         }
     }
 
+<<<<<<< HEAD
     initGuestBuyerMegaMenu();
 
+=======
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     window.initAppPageHasRun = true;
 }
 document.addEventListener('DOMContentLoaded', initAppPage);
@@ -1912,6 +1918,10 @@ async function openListingModal(id) {
                 thumbnail_url: row.thumbnail_url || null
             }));
         } else if (listing && listing.img) {
+<<<<<<< HEAD
+=======
+            // Fallback: listing has img but no listing_media rows — treat img as single cover image
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
             uploadedMedia = [{
                 url: listing.img,
                 media_type: 'image',
@@ -1975,12 +1985,17 @@ async function openListingModal(id) {
     document.getElementById('modal-lat').value           = listing ? (listing.lat || '') : '';
     document.getElementById('modal-lng').value           = listing ? (listing.lng || '') : '';
 
+<<<<<<< HEAD
     const listingMapDiv = document.getElementById('listing-modal-map');
     if (listingMapDiv) listingMapDiv.classList.add('hidden');
     const listingToggleMapBtn = document.getElementById('listing-toggle-map-btn');
     if (listingToggleMapBtn) {
         listingToggleMapBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">map</span> Choose on Map';
     }
+=======
+    // Render the media grid (populated from listing_media or empty)
+    renderMediaGrid();
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
 
     renderMediaGrid();
 
@@ -2077,10 +2092,13 @@ async function saveListingForm() {
     const sqftEl     = document.getElementById('modal-sqft');
     const latEl      = document.getElementById('modal-lat');
     const lngEl      = document.getElementById('modal-lng');
+<<<<<<< HEAD
     const brokerageEl = document.getElementById('modal-brokerage');
     const brokerageTypeEl = document.getElementById('modal-brokerage-type');
     const depositEl  = document.getElementById('modal-deposit');
 
+=======
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     const title    = titleEl.value.trim();
     const location = locationEl.value.trim();
     const price    = parseFloat(priceEl.value) || 0;
@@ -2093,9 +2111,13 @@ async function saveListingForm() {
     const views    = parseInt(document.getElementById('modal-views').value) || 0;
     const lat      = parseFloat(latEl.value) || null;
     const lng      = parseFloat(lngEl.value) || null;
+<<<<<<< HEAD
     const brokerage = parseFloat(brokerageEl?.value) || 0;
     const brokerage_type = brokerageTypeEl?.value || 'one_time';
     const deposit = parseFloat(depositEl?.value) || 0;
+=======
+    // Compute cover image from uploadedMedia (first image marked as cover, or placeholder if no images)
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     const coverItem = uploadedMedia.find(m => m.is_cover && m.media_type === 'image');
     const firstImage = uploadedMedia.find(m => m.media_type === 'image');
     const img = coverItem ? coverItem.url : (firstImage ? firstImage.url : MEDIA_PLACEHOLDER);
@@ -2234,6 +2256,10 @@ async function saveListingForm() {
     if (result.error) {
         showToast('Error saving listing: ' + result.error.message);
     } else {
+<<<<<<< HEAD
+=======
+        // Resolve listing ID (for inserts we need to fetch the newly created row)
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
         let resolvedId = id || null;
         if (!id) {
             const { data: newListing } = await supabase
@@ -2251,6 +2277,10 @@ async function saveListingForm() {
             await logListingStatusChange(id, oldStatus, status, 'Status updated by owner.');
         }
 
+<<<<<<< HEAD
+=======
+        // Save listing media rows to listing_media table
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
         if (resolvedId) {
             await saveListingMedia(resolvedId, user ? user.id : null);
         }
@@ -2261,6 +2291,10 @@ async function saveListingForm() {
         // Only show share popup for NEW listings (no id means it was an insert)
         if (!id) {
             const newId = resolvedId;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
             const shareUrl = newId
                 ? `${window.location.origin}/property-details.html?id=${newId}`
                 : null;
@@ -2349,7 +2383,11 @@ window.saveListingForm = saveListingForm;
 //  LISTING MEDIA HELPERS
 // ══════════════════════════════════════════════════════
 
+<<<<<<< HEAD
 const MEDIA_PLACEHOLDER = 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png';
+=======
+const MEDIA_PLACEHOLDER = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
 
 function renderMediaGrid() {
     const grid = document.getElementById('modal-media-grid');
@@ -2432,6 +2470,10 @@ async function handleMultipleUploads(files, listingIdHint) {
             continue;
         }
         try {
+<<<<<<< HEAD
+=======
+            const ext = file.name.split('.').pop().toLowerCase();
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
             const safeBase = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             const filePath = `${folderName}/${Date.now()}-${safeBase}`;
             const { error: upErr } = await supabase.storage
@@ -2457,6 +2499,10 @@ async function handleMultipleUploads(files, listingIdHint) {
 }
 
 async function saveListingMedia(listingId, brokerId) {
+<<<<<<< HEAD
+=======
+    // Delete existing rows for this listing
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     await supabase.from('listing_media').delete().eq('listing_id', listingId);
 
     if (uploadedMedia.length === 0) return;
@@ -2480,6 +2526,10 @@ function renderInteractiveGallery(container, mediaItems, fallbackImg) {
     if (!container) return;
     const PLACEHOLDER = MEDIA_PLACEHOLDER;
 
+<<<<<<< HEAD
+=======
+    // Build display items with fallback
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     let items = mediaItems && mediaItems.length > 0 ? mediaItems : [];
     if (items.length === 0 && fallbackImg) {
         items = [{ url: fallbackImg, media_type: 'image', is_cover: true }];
@@ -2523,6 +2573,10 @@ function renderInteractiveGallery(container, mediaItems, fallbackImg) {
             ${thumbsHtml}
         </div>`;
 
+<<<<<<< HEAD
+=======
+        // Wire up events
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
         const prevEl = container.querySelector('#gallery-prev');
         const nextEl = container.querySelector('#gallery-next');
         if (prevEl) prevEl.onclick = () => { activeIdx--; buildHtml(); };
@@ -2593,7 +2647,12 @@ function injectListingModal() {
               </div>
               <input type="hidden" id="modal-img" />
             </div>
+<<<<<<< HEAD
             <div class="min-w-0">
+=======
+            <div>
+
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Price *</label>
               <div class="flex gap-2 min-w-0">
                 <input id="modal-price-display" type="number" step="0.01" placeholder="e.g. 45" 
@@ -2759,6 +2818,7 @@ function injectListingModal() {
     }
 
     // Location Autocomplete with OpenStreetMap (Nominatim)
+
     const modalLocationInput = document.getElementById('modal-location');
     const modalLocationResults = document.getElementById('modal-location-results');
 
@@ -3986,6 +4046,7 @@ async function initBuyerListingsPage() {
     // ── [Fetch & Render from Supabase] ──
     const urlParams = new URLSearchParams(window.location.search);
     const brokerId = urlParams.get('brokerId');
+    let activeIntent = (urlParams.get('intent') || 'Rent').toLowerCase() === 'buy' ? 'Buy' : 'Rent';
     const intent = urlParams.get('intent');
 
     let listings = (await getListings()).filter(l => l.status === 'Active');
@@ -3993,14 +4054,11 @@ async function initBuyerListingsPage() {
     if (brokerId) {
         listings = listings.filter(l => l.broker_id === brokerId);
     }
-    if (intent) {
-        listings = listings.filter(l => l.intent.toLowerCase() === intent.toLowerCase());
-    }
     
     propertyGrid.innerHTML = listings.map(l => `
         <div class="group cursor-pointer property-card bg-white rounded-3xl border border-slate-200 hover:shadow-xl overflow-hidden transition-all duration-300" 
              data-id="${l.id}" data-title="${escHtml(l.title)}" data-location="${escHtml(l.location)}" 
-             data-type="${l.type}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}">
+             data-type="${l.type}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}" data-intent="${escHtml(l.intent || '')}">
           <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
             <img loading="lazy" src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
               ${listingAgeBadgeMarkup(l.created_at)}
@@ -4083,13 +4141,14 @@ async function initBuyerListingsPage() {
             const baths = parseFloat(card.dataset.baths);
             const price = parseFloat(card.dataset.price);
 
+            const matchesIntent = String(card.dataset.intent || '').toLowerCase() === activeIntent.toLowerCase();
             const matchesSearch = !query || title.includes(query) || location.includes(query);
             const matchesType = selectedTypes.length === 0 || selectedTypes.includes(type);
             const matchesBeds = beds >= parseFloat(activeBeds);
             const matchesBaths = baths >= parseFloat(activeBaths);
             const matchesPrice = price >= minPrice && price <= maxPrice;
 
-            if (matchesSearch && matchesType && matchesBeds && matchesBaths && matchesPrice) {
+            if (matchesIntent && matchesSearch && matchesType && matchesBeds && matchesBaths && matchesPrice) {
                 card.style.display = 'block';
             } else {
                 card.style.display = 'none';
@@ -4121,7 +4180,9 @@ async function initBuyerListingsPage() {
     });
 
     document.querySelectorAll('input[name="type"], #price-min, #price-max').forEach(el => {
-        el.addEventListener('change', applyFilters);
+        el.addEventListener('change', () => {
+            if (!document.getElementById('property-filters')?.classList.contains('mobile-open')) applyFilters();
+        });
     });
 
     // Allow Enter key on price inputs to trigger filter
@@ -4138,7 +4199,7 @@ async function initBuyerListingsPage() {
                 b.classList.remove('bg-primary', 'text-on-primary');
             });
             btn.classList.add('bg-primary', 'text-on-primary');
-            applyFilters();
+            if (!document.getElementById('property-filters')?.classList.contains('mobile-open')) applyFilters();
         });
     });
 
@@ -4153,6 +4214,22 @@ async function initBuyerListingsPage() {
     });
 
     document.getElementById('sort-dropdown')?.addEventListener('change', sortCards);
+
+    const intentButtons = Array.from(document.querySelectorAll('.intent-option'));
+    const setListingIntent = (nextIntent) => {
+        activeIntent = nextIntent;
+        intentButtons.forEach(button => {
+            const selected = button.dataset.intent === activeIntent;
+            button.classList.toggle('is-active', selected);
+            button.setAttribute('aria-pressed', String(selected));
+        });
+        applyFilters();
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set('intent', activeIntent);
+        window.history.replaceState({}, '', nextUrl);
+    };
+    intentButtons.forEach(button => button.addEventListener('click', () => setListingIntent(button.dataset.intent)));
+    setListingIntent(activeIntent);
 
     // ── [Grid/List Toggle] ──
     const gridBtn = document.getElementById('view-grid');
@@ -4272,7 +4349,7 @@ async function initBuyerListingsPage() {
         }
     }
 
-    if (shouldApply || brokerId || intent) {
+    if (shouldApply || brokerId || intent || activeIntent) {
         applyFilters();
     }
 }

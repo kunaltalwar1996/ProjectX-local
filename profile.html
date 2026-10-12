@@ -1311,6 +1311,77 @@
       if (document.getElementById('saved-listings-card')) renderSavedListings();
     });
 
+<<<<<<< HEAD
+=======
+    const { data: listings, error } = await supabase
+        .from('listings')
+        .select('id, title, location, price, intent, img, beds, baths, type')
+        .in('id', savedIds);
+
+    if (error || !listings) {
+        document.getElementById('saved-listings-grid').innerHTML = 
+            '<p class="text-sm text-slate-400 text-center py-4">Failed to load saved listings.</p>';
+        return;
+    }
+
+    const grid = document.getElementById('saved-listings-grid');
+    if (!grid) return;
+
+    grid.innerHTML = listings.map(l => {
+        const price = l.intent === 'Rent'
+            ? `₹${(l.price * 100).toFixed(0)} Lac/mo`
+            : `₹${l.price} Cr`;
+        return `
+        <div class="flex gap-3 p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+             onclick="window.location.href='/property-details.html?id=${l.id}'">
+            <img src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=200&q=80'}"
+                 class="w-16 h-16 rounded-lg object-cover shrink-0 group-hover:scale-105 transition-transform duration-300"
+                 onerror="this.src='https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=200&q=80'" />
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-black text-slate-900 truncate">${l.title}</p>
+                <p class="text-xs text-slate-400 font-medium truncate">${l.location}</p>
+                <div class="flex items-center justify-between mt-1">
+                    <p class="text-sm font-black text-slate-900">${price}</p>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-0.5 rounded">${l.type}</span>
+                </div>
+            </div>
+            <button class="shrink-0 text-red-400 hover:text-red-600 transition-colors self-start mt-1"
+                    title="Remove from saved"
+                    onclick="event.stopPropagation(); removeSavedListing('${l.id}')">
+                <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1">favorite</span>
+            </button>
+        </div>
+        `;
+    }).join('');
+  }
+
+  window.removeSavedListing = async function(id) {
+    let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
+    saved = saved.filter(s => String(s) !== String(id));
+    localStorage.setItem('savedProperties', JSON.stringify(saved));
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('preferences')
+            .eq('id', session.user.id)
+            .single();
+        const merged = {
+            ...(profile?.preferences || {}),
+            saved_listings: saved
+        };
+        await supabase
+            .from('profiles')
+            .update({ preferences: merged })
+            .eq('id', session.user.id);
+    }
+
+    showToast('Removed from saved listings.');
+    await renderSavedListings();
+  };
+
+>>>>>>> 89b6160fd494445cd7d1c3078ab3a5b0dfe6afe2
     function initProfilePage() {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUserId = urlParams.get('id');
