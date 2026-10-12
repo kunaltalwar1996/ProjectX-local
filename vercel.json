@@ -11,7 +11,7 @@
     },
     {
       "source": "/shared-filter/:slug",
-      "destination": "/shared-filter.html?slug=:slug"
+      "destination": "/shared-filter?slug=:slug"
     }
   ]
 }

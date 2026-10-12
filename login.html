@@ -13,6 +13,10 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
     rel="stylesheet" />
+
+  <!-- style.css first, so our overrides below always win -->
+  <link rel="stylesheet" href="/style.css">
+
   <style>
     ::-webkit-scrollbar {
       display: none;
@@ -23,22 +27,30 @@
       scrollbar-width: none;
     }
 
+    #role-tabs button.role-tab-active,
     .role-tab-active {
-      background: white;
-      color: #091426;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      border-radius: 6px;
+      background: #0f172a !important;
+      color: #fff !important;
+      border: 1px solid #0f172a !important;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.24) !important;
+      border-radius: 8px !important;
+      transform: translateY(-1px);
     }
+    .role-tab-active::after { content: "✓"; margin-left: 0.45rem; font-size: 12px; }
 
+    #role-tabs button.role-tab-inactive,
     .role-tab-inactive {
-      color: #45474c;
+      color: #64748b;
+      background: transparent;
+      border: 1px solid transparent;
     }
+    #role-tabs button { min-height: 46px; }
 
     #name-field {
       display: none;
     }
   </style>
-  <link rel="stylesheet" href="/style.css">
+
   <script type="module" src="/auth.js"></script>
 </head>
 
@@ -87,11 +99,12 @@
 
         <!-- Role Selection Tabs -->
         <div id="role-tabs" class="flex p-1 bg-slate-100 rounded-xl gap-1">
-          <button
-            class="flex-1 py-2.5 px-3 text-center text-[10px] font-black uppercase tracking-widest rounded-lg role-tab-inactive hover:text-slate-900 transition-colors">Buyer</button>
-          <button
+          <button type="button" aria-pressed="true"
+            class="flex-1 py-2.5 px-3 text-center text-[10px] font-black uppercase tracking-widest rounded-lg role-tab-active transition-colors">Buyer</button>
+          <button type="button" aria-pressed="false"
             class="flex-1 py-2.5 px-3 text-center text-[10px] font-black uppercase tracking-widest rounded-lg role-tab-inactive hover:text-slate-900 transition-colors">Broker</button>
         </div>
+        <p id="role-selection-label" class="-mt-5 text-center text-xs font-semibold text-slate-600">Selected account type: Buyer</p>
 
         <!-- Sign In Form -->
         <form class="space-y-6">
@@ -204,17 +217,15 @@
       // Show invite screen
       document.getElementById('invite-screen').classList.remove('hidden');
 
-      // Fetch referrer
+      // Fetch referrer (broker identity only: id, full_name, avatar_url)
       supabase
-        .from('profiles')
-        .select('full_name, avatar_url, city, preferences')
-        .eq('id', refId)
-        .single()
+        .rpc('get_public_broker_identity', { p_broker_id: refId })
         .then(({ data, error }) => {
           const card = document.getElementById('referrer-card');
-          const name = data?.full_name || 'A ProjectX Member';
-          const sub = data?.preferences?.agency || data?.city || 'ProjectX Broker';
-          const avatarUrl = data?.avatar_url || '';
+          const broker = Array.isArray(data) ? data[0] : data;
+          const name = (!error && broker?.full_name) ? broker.full_name : 'A ProjectX Member';
+          const sub = 'ProjectX Broker';
+          const avatarUrl = broker?.avatar_url || '';
           const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
           card.innerHTML = avatarUrl
@@ -246,6 +257,34 @@
       });
     }
   </script>
+
+  <!-- Safety net: make sure one role tab is always highlighted on first render -->
+  <script>
+  (function () {
+    var wrap = document.getElementById('role-tabs');
+    if (!wrap) return;
+    var tabs = wrap.querySelectorAll('button');
+
+    function ensureActive() {
+      var hasActive = Array.prototype.some.call(tabs, function (b) {
+        return b.classList.contains('role-tab-active');
+      });
+      if (hasActive) return;
+      var target = wrap.querySelector('button[aria-pressed="true"]') || tabs[0];
+      target.classList.add('role-tab-active');
+      target.classList.remove('role-tab-inactive');
+      target.setAttribute('aria-pressed', 'true');
+    }
+
+    ensureActive();
+    // re-apply any time auth.js strips the class later
+    new MutationObserver(ensureActive).observe(wrap, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'aria-pressed']
+    });
+  })();
+</script>
 </body>
 
 </html>
