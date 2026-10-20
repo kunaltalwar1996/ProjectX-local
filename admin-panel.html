@@ -195,9 +195,9 @@ Loading platform user profiles...
 </div>
 </div>
 <!-- Section 3: Split View (Listings Moderation & Platform Breakdown) -->
-<div class="col-span-12 lg:col-span-7 flex flex-col gap-gutter">
+<div class="col-span-12 lg:col-span-7 flex min-w-0 flex-col gap-gutter">
 <!-- Listings Moderation Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col flex-1">
+<div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
 <div class="p-stack-md border-b border-outline-variant flex items-center justify-between">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface-variant">real_estate_agent</span>
@@ -211,10 +211,12 @@ Loading platform user profiles...
   <button class="status-filter-tab px-3 py-1.5 text-xs font-bold rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" data-status="Active">Active</button>
   <button class="status-filter-tab px-3 py-1.5 text-xs font-bold rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" data-status="Flagged">Flagged</button>
 </div>
-<div class="p-stack-md flex flex-col gap-stack-sm flex-1" id="listings-moderation-list">
+<div class="p-stack-md grid min-w-0 grid-cols-1 gap-stack-sm" id="listings-moderation-list">
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading recent listings...</div>
+</div>
+</div>
 <!-- Reported Issues Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col flex-1 mt-6">
+<div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
   <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-on-surface-variant">report</span>
@@ -242,12 +244,10 @@ Loading platform user profiles...
   </div>
 </div>
 </div>
-</div>
-</div>
 
-<div class="col-span-12 lg:col-span-5 flex flex-col gap-gutter">
+<div class="col-span-12 lg:col-span-5 flex min-w-0 flex-col items-start gap-gutter">
 <!-- Platform Breakdown Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col h-full">
+<div class="h-fit w-full self-start overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
 <div class="p-stack-md border-b border-outline-variant flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface-variant">analytics</span>
 <h3 class="font-h3 text-h3 text-on-background">Platform Breakdown</h3>
@@ -255,6 +255,7 @@ Loading platform user profiles...
 <div class="p-stack-md flex flex-col gap-stack-lg" id="platform-breakdown-container">
 <!-- Will be populated dynamically -->
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading composition...</div>
+</div>
 </div>
 </div>
 </div>
@@ -689,36 +690,34 @@ async function loadListingsModeration() {
     else if (lst.status === 'Sold') badgeClass = 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
 
     return `
-      <div class="flex flex-col md:flex-row md:items-center justify-between p-4 border border-outline-variant rounded-xl hover:shadow-md transition-shadow bg-surface-bright gap-4">
+      <article class="grid min-w-0 gap-4 rounded-xl border border-outline-variant bg-surface-bright p-4 transition-shadow hover:shadow-md sm:p-5">
         <!-- Left section: Thumbnail + Title + Info -->
-        <div class="flex items-center gap-4 flex-1">
-          <img src="${imageSrc}" class="w-16 h-16 object-cover rounded-lg border border-outline-variant bg-surface-container" alt="Listing Image"/>
-          <div>
-            <div class="font-body-md font-bold text-on-background text-base line-clamp-1">${lst.title}</div>
-            <div class="font-body-sm text-on-surface-variant text-xs flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 font-medium">
+        <div class="flex min-w-0 items-center gap-3 sm:gap-4">
+          <img src="${imageSrc}" class="h-16 w-16 shrink-0 rounded-lg border border-outline-variant bg-surface-container object-cover sm:h-20 sm:w-20" alt="Listing image"/>
+          <div class="min-w-0 flex-1">
+            <h4 class="line-clamp-1 break-words font-body-md text-base font-bold text-on-background">${escHtml(lst.title || 'Untitled listing')}</h4>
+            <div class="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-body-sm text-xs font-medium text-on-surface-variant">
               <span>${lst.location}</span> • 
               <span class="font-semibold text-primary">${priceStr}</span> • 
               <span class="${badgeClass} px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">${statusLabel}</span>
             </div>
-            <div class="text-[10px] text-slate-400 mt-1 font-semibold">
-              Broker: <span class="font-mono">${lst.broker_id || 'System'}</span>
-            </div>
+            <div class="mt-1 max-w-full truncate text-[10px] font-semibold text-slate-400" title="Broker: ${escHtml(lst.broker_id || 'System')}">Broker: <span class="font-mono">${escHtml(lst.broker_id || 'System')}</span></div>
           </div>
         </div>
 
         <!-- Right section: Role-specific assignment & status controls -->
-        <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full md:w-auto">
-          <div class="grid grid-cols-2 gap-2 w-full sm:w-72">
-            <div class="flex flex-col gap-1">
-              <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Virtual Verifier</label>
-              <select class="admin-assignment-select bg-surface-container border border-outline-variant rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary font-medium text-slate-700 w-full" data-id="${lst.id}" data-title="${escHtml(lst.title)}" data-field="assigned_virtual_verifier_id">
+        <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="contents">
+            <div class="flex min-w-0 flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Virtual Verifier</label>
+              <select class="admin-assignment-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-title="${escHtml(lst.title)}" data-field="assigned_virtual_verifier_id">
                 <option value="">-- Unassigned --</option>
                 ${renderAssignees(virtualVerifiers, lst.assigned_virtual_verifier_id)}
               </select>
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Field Agent</label>
-              <select class="admin-assignment-select bg-surface-container border border-outline-variant rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary font-medium text-slate-700 w-full" data-id="${lst.id}" data-title="${escHtml(lst.title)}" data-field="assigned_field_agent_id">
+              <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Field Agent</label>
+              <select class="admin-assignment-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-title="${escHtml(lst.title)}" data-field="assigned_field_agent_id">
                 <option value="">-- Unassigned --</option>
                 ${renderAssignees(fieldAgents, lst.assigned_field_agent_id)}
               </select>
@@ -726,9 +725,9 @@ async function loadListingsModeration() {
           </div>
 
           <!-- Status Dropdown -->
-          <div class="flex flex-col gap-1 w-full sm:w-40">
-            <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Status</label>
-            <select class="admin-status-select bg-surface-container border border-outline-variant rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary font-medium text-slate-700 w-full" data-id="${lst.id}" data-current="${lst.status}" data-title="${lst.title}" data-broker="${lst.broker_id}">
+          <div class="flex min-w-0 flex-col gap-1">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</label>
+            <select class="admin-status-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-current="${lst.status}" data-title="${escHtml(lst.title)}" data-broker="${escHtml(lst.broker_id)}">
               ${['Draft', 'Pending', 'Under Review', 'Active', 'Rejected', 'Suspended', 'Sold'].map(st => `
                 <option value="${st}" ${lst.status === st ? 'selected' : ''} ${st === 'Active' && lst.status !== 'Active' ? 'disabled' : ''}>${st === 'Active' ? 'Approved by Employee 2 (Active)' : st}</option>
               `).join('')}
@@ -736,16 +735,16 @@ async function loadListingsModeration() {
           </div>
 
           <!-- Preview / Delete Buttons -->
-          <div class="flex gap-2 self-end sm:self-center pt-4 sm:pt-0">
-            <button class="preview-listing-btn w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200 transition-colors" data-id="${lst.id}" title="Preview Listing">
+          <div class="flex items-end gap-2 sm:justify-end">
+            <button class="preview-listing-btn flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200" data-id="${lst.id}" title="Preview listing" aria-label="Preview listing">
               <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             </button>
-            <button class="delete-listing-btn w-9 h-9 rounded-lg bg-error-container text-on-error-container flex items-center justify-center hover:bg-error hover:text-on-error transition-colors" data-id="${lst.id}" data-title="${lst.title}" title="Delete Listing">
+            <button class="delete-listing-btn flex h-10 w-10 items-center justify-center rounded-lg bg-error-container text-on-error-container transition-colors hover:bg-error hover:text-on-error" data-id="${lst.id}" data-title="${escHtml(lst.title)}" title="Delete listing" aria-label="Delete listing">
               <span class="material-symbols-outlined text-[18px]">delete</span>
             </button>
           </div>
         </div>
-      </div>
+      </article>
     `;
   }).join('');
 
