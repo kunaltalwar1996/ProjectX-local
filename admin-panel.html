@@ -49,10 +49,10 @@
 <span class="material-symbols-outlined text-[20px]" data-icon="insights">insights</span>
                 Analytics
             </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out flex justify-between" href="/employee-panel.html">
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out flex justify-between" href="/admin-panel.html#listings-moderation-list">
 <div class="flex items-center gap-3">
 <span class="material-symbols-outlined text-[20px]" data-icon="support_agent">support_agent</span>
-                    Employee Panel
+                    Listing Workflow
                 </div>
 </a>
 <a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html">
@@ -164,7 +164,7 @@
 </button>
 <div class="relative w-56">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
-<input id="user-search" class="w-full pl-9 pr-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-md font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Search accounts by name..." type="text"/>
+<input id="user-search" class="w-full pl-9 pr-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-md font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Search accounts by name or email..." type="text"/>
 </div>
 </div>
 </div>
@@ -173,6 +173,7 @@
 <thead class="bg-surface-container-low border-b border-outline-variant">
 <tr>
 <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">User / ID</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">Email</th>
 <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">Role</th>
 <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">Status</th>
 <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">Last Active</th>
@@ -181,7 +182,7 @@
 </thead>
 <tbody id="user-table-body" class="font-body-sm text-body-sm text-on-surface">
 <tr class="border-b border-surface-variant bg-surface-bright">
-<td colspan="5" class="py-8 text-center text-on-surface-variant text-sm">
+<td colspan="6" class="py-8 text-center text-on-surface-variant text-sm">
 Loading platform user profiles...
 </td>
 </tr>
@@ -194,9 +195,9 @@ Loading platform user profiles...
 </div>
 </div>
 <!-- Section 3: Split View (Listings Moderation & Platform Breakdown) -->
-<div class="col-span-12 lg:col-span-7 flex flex-col gap-gutter">
+<div class="col-span-12 lg:col-span-7 flex min-w-0 flex-col gap-gutter">
 <!-- Listings Moderation Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col flex-1">
+<div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
 <div class="p-stack-md border-b border-outline-variant flex items-center justify-between">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface-variant">real_estate_agent</span>
@@ -210,10 +211,12 @@ Loading platform user profiles...
   <button class="status-filter-tab px-3 py-1.5 text-xs font-bold rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" data-status="Active">Active</button>
   <button class="status-filter-tab px-3 py-1.5 text-xs font-bold rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" data-status="Flagged">Flagged</button>
 </div>
-<div class="p-stack-md flex flex-col gap-stack-sm flex-1" id="listings-moderation-list">
+<div class="p-stack-md grid min-w-0 grid-cols-1 gap-stack-sm" id="listings-moderation-list">
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading recent listings...</div>
+</div>
+</div>
 <!-- Reported Issues Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col flex-1 mt-6">
+<div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
   <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-on-surface-variant">report</span>
@@ -241,12 +244,10 @@ Loading platform user profiles...
   </div>
 </div>
 </div>
-</div>
-</div>
 
-<div class="col-span-12 lg:col-span-5 flex flex-col gap-gutter">
+<div class="col-span-12 lg:col-span-5 flex min-w-0 flex-col items-start gap-gutter">
 <!-- Platform Breakdown Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col h-full">
+<div class="h-fit w-full self-start overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
 <div class="p-stack-md border-b border-outline-variant flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface-variant">analytics</span>
 <h3 class="font-h3 text-h3 text-on-background">Platform Breakdown</h3>
@@ -254,6 +255,7 @@ Loading platform user profiles...
 <div class="p-stack-md flex flex-col gap-stack-lg" id="platform-breakdown-container">
 <!-- Will be populated dynamically -->
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading composition...</div>
+</div>
 </div>
 </div>
 </div>
@@ -283,7 +285,8 @@ Loading platform user profiles...
       <div>
         <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Role</label>
         <select id="staff-role" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 transition-all">
-          <option value="Employee">Employee</option>
+          <option value="Employee 1">Employee 1 · Virtual Verifier</option>
+          <option value="Employee 2">Employee 2 · Field Agent</option>
           <option value="Admin">Admin</option>
         </select>
       </div>
@@ -350,8 +353,8 @@ async function checkAuth() {
     .eq('id', session.user.id)
     .single();
 
-  if (error || !profile || (profile.role !== 'Admin' && profile.role !== 'Employee')) {
-    alert('Access Denied. You must be an authorized Administrator or Employee.');
+  if (error || !profile || profile.role !== 'Admin') {
+    alert('Access Denied. You must be an authorized Administrator.');
     await supabase.auth.signOut();
     window.navigateTo('login.html');
     return;
@@ -401,9 +404,9 @@ async function loadStats() {
       { count: totalBrokers },
       { count: totalInquiries }
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('listings').select('*', { count: 'exact', head: true }),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'Broker'),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'Broker'),
       supabase.from('inquiries').select('*', { count: 'exact', head: true })
     ]);
 
@@ -423,7 +426,7 @@ let allUsers = [];
 async function loadUsers() {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, full_name, email, role, employee_type, updated_at')
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -441,7 +444,7 @@ function renderUserTable(users) {
   if (users.length === 0) {
     tbody.innerHTML = `
       <tr class="border-b border-surface-variant bg-surface-bright">
-        <td colspan="5" class="py-8 text-center text-on-surface-variant text-sm">
+        <td colspan="6" class="py-8 text-center text-on-surface-variant text-sm">
           No matching user accounts found.
         </td>
       </tr>`;
@@ -450,6 +453,7 @@ function renderUserTable(users) {
 
   tbody.innerHTML = users.map(u => {
     const initials = (u.full_name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    const roleLabel = u.role === 'Employee' ? (u.employee_type === 'Employee 1' ? 'Employee 1 · Virtual Verifier' : u.employee_type === 'Employee 2' ? 'Employee 2 · Field Agent' : 'Employee') : (u.role || 'Buyer');
     
     let bgClass = 'bg-primary-fixed text-on-primary-fixed-variant';
     if (u.role === 'Admin') bgClass = 'bg-error-container text-on-error-container';
@@ -473,7 +477,8 @@ function renderUserTable(users) {
             </div>
           </div>
         </td>
-        <td class="py-3 px-4 font-medium">${u.role || 'Buyer'}</td>
+        <td class="py-3 px-4 text-on-surface-variant">${escHtml(u.email || '—')}</td>
+        <td class="py-3 px-4 font-medium">${roleLabel}</td>
         <td class="py-3 px-4">${statusHTML}</td>
         <td class="py-3 px-4 text-on-surface-variant">${lastActiveStr}</td>
         <td class="py-3 px-4 text-right">
@@ -514,6 +519,7 @@ window.handleSearch = () => {
   } else {
     const filtered = allUsers.filter(u => 
       (u.full_name && u.full_name.toLowerCase().includes(query)) ||
+      (u.email && u.email.toLowerCase().includes(query)) ||
       (u.role && u.role.toLowerCase().includes(query)) ||
       u.id.toLowerCase().includes(query)
     );
@@ -525,9 +531,10 @@ document.getElementById('user-search').addEventListener('input', window.handleSe
 
 // 3. Platform Composition Breakdown
 function renderPlatformBreakdown(users) {
-  const counts = { Admin: 0, Employee: 0, Broker: 0, Buyer: 0 };
+    const counts = { Admin: 0, Employees: 0, Broker: 0, Buyer: 0 };
   users.forEach(u => {
-    if (counts[u.role] !== undefined) counts[u.role]++;
+    if (u.role === 'Employee') counts.Employees++;
+    else if (counts[u.role] !== undefined) counts[u.role]++;
     else counts.Buyer++;
   });
 
@@ -536,7 +543,7 @@ function renderPlatformBreakdown(users) {
 
   const roles = [
     { name: 'Admins', key: 'Admin', color: 'bg-error', text: 'text-error' },
-    { name: 'Employees', key: 'Employee', color: 'bg-tertiary', text: 'text-tertiary' },
+    { name: 'Employees', key: 'Employees', color: 'bg-tertiary', text: 'text-tertiary' },
     { name: 'Brokers', key: 'Broker', color: 'bg-secondary', text: 'text-secondary' },
     { name: 'Buyers', key: 'Buyer', color: 'bg-primary', text: 'text-primary' }
   ];
@@ -637,8 +644,8 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadListingsModeration() {
   const { data: staff, error: staffError } = await supabase
       .from('profiles')
-      .select('id, full_name, role')
-      .in('role', ['Employee', 'Admin'])
+      .select('id, full_name, role, employee_type')
+    .in('role', ['Employee', 'Admin'])
       .order('full_name');
   if (staffError) console.error("Failed to load staff list:", staffError.message);
   const staffList = staff || [];
@@ -667,6 +674,11 @@ async function loadListingsModeration() {
     }).format(lst.price);
 
     const imageSrc = lst.img || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=120&q=80';
+    const virtualVerifiers = staffList.filter(s => s.role === 'Employee' && s.employee_type === 'Employee 1');
+    const fieldAgents = staffList.filter(s => s.role === 'Employee' && s.employee_type === 'Employee 2');
+    const renderAssignees = (staffOptions, selectedId) => staffOptions.map(s =>
+      `<option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>${escHtml(s.full_name || 'Staff member')}</option>`
+    ).join('');
 
     let badgeClass = 'bg-surface-container-high text-on-surface-variant';
     let statusLabel = lst.status === 'Active' ? 'Approved' : lst.status;
@@ -678,69 +690,79 @@ async function loadListingsModeration() {
     else if (lst.status === 'Sold') badgeClass = 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
 
     return `
-      <div class="flex flex-col md:flex-row md:items-center justify-between p-4 border border-outline-variant rounded-xl hover:shadow-md transition-shadow bg-surface-bright gap-4">
+      <article class="grid min-w-0 gap-4 rounded-xl border border-outline-variant bg-surface-bright p-4 transition-shadow hover:shadow-md sm:p-5">
         <!-- Left section: Thumbnail + Title + Info -->
-        <div class="flex items-center gap-4 flex-1">
-          <img src="${imageSrc}" class="w-16 h-16 object-cover rounded-lg border border-outline-variant bg-surface-container" alt="Listing Image"/>
-          <div>
-            <div class="font-body-md font-bold text-on-background text-base line-clamp-1">${lst.title}</div>
-            <div class="font-body-sm text-on-surface-variant text-xs flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 font-medium">
+        <div class="flex min-w-0 items-center gap-3 sm:gap-4">
+          <img src="${imageSrc}" class="h-16 w-16 shrink-0 rounded-lg border border-outline-variant bg-surface-container object-cover sm:h-20 sm:w-20" alt="Listing image"/>
+          <div class="min-w-0 flex-1">
+            <h4 class="line-clamp-1 break-words font-body-md text-base font-bold text-on-background">${escHtml(lst.title || 'Untitled listing')}</h4>
+            <div class="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-body-sm text-xs font-medium text-on-surface-variant">
               <span>${lst.location}</span> • 
               <span class="font-semibold text-primary">${priceStr}</span> • 
               <span class="${badgeClass} px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">${statusLabel}</span>
             </div>
-            <div class="text-[10px] text-slate-400 mt-1 font-semibold">
-              Broker: <span class="font-mono">${lst.broker_id || 'System'}</span>
-            </div>
+            <div class="mt-1 max-w-full truncate text-[10px] font-semibold text-slate-400" title="Broker: ${escHtml(lst.broker_id || 'System')}">Broker: <span class="font-mono">${escHtml(lst.broker_id || 'System')}</span></div>
           </div>
         </div>
 
-        <!-- Right section: Assign Control & Status Control -->
-        <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full md:w-auto">
-          <!-- Assignee Dropdown -->
-          <div class="flex flex-col gap-1 w-full sm:w-44">
-            <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Assignee</label>
-            <select class="admin-assign-select bg-surface-container border border-outline-variant rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary font-medium text-slate-700 w-full" data-id="${lst.id}" data-title="${lst.title}">
-              <option value="">-- Unassigned --</option>
-              ${staffList.map(s => `<option value="${s.id}" ${lst.assigned_employee_id === s.id ? 'selected' : ''}>${s.full_name} (${s.role})</option>`).join('')}
-            </select>
+        <!-- Right section: Role-specific assignment & status controls -->
+        <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="contents">
+            <div class="flex min-w-0 flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Virtual Verifier</label>
+              <select class="admin-assignment-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-title="${escHtml(lst.title)}" data-field="assigned_virtual_verifier_id">
+                <option value="">-- Unassigned --</option>
+                ${renderAssignees(virtualVerifiers, lst.assigned_virtual_verifier_id)}
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Field Agent</label>
+              <select class="admin-assignment-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-title="${escHtml(lst.title)}" data-field="assigned_field_agent_id">
+                <option value="">-- Unassigned --</option>
+                ${renderAssignees(fieldAgents, lst.assigned_field_agent_id)}
+              </select>
+            </div>
           </div>
 
           <!-- Status Dropdown -->
-          <div class="flex flex-col gap-1 w-full sm:w-40">
-            <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Status</label>
-            <select class="admin-status-select bg-surface-container border border-outline-variant rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary font-medium text-slate-700 w-full" data-id="${lst.id}" data-current="${lst.status}" data-title="${lst.title}" data-broker="${lst.broker_id}">
+          <div class="flex min-w-0 flex-col gap-1">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</label>
+            <select class="admin-status-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-current="${lst.status}" data-title="${escHtml(lst.title)}" data-broker="${escHtml(lst.broker_id)}">
               ${['Draft', 'Pending', 'Under Review', 'Active', 'Rejected', 'Suspended', 'Sold'].map(st => `
-                <option value="${st}" ${lst.status === st ? 'selected' : ''}>${st === 'Active' ? 'Approved (Active)' : st}</option>
+                <option value="${st}" ${lst.status === st ? 'selected' : ''} ${st === 'Active' && lst.status !== 'Active' ? 'disabled' : ''}>${st === 'Active' ? 'Approved by Employee 2 (Active)' : st}</option>
               `).join('')}
             </select>
           </div>
 
           <!-- Preview / Delete Buttons -->
-          <div class="flex gap-2 self-end sm:self-center pt-4 sm:pt-0">
-            <button class="preview-listing-btn w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200 transition-colors" data-id="${lst.id}" title="Preview Listing">
+          <div class="flex items-end gap-2 sm:justify-end">
+            <button class="preview-listing-btn flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200" data-id="${lst.id}" title="Preview listing" aria-label="Preview listing">
               <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             </button>
-            <button class="delete-listing-btn w-9 h-9 rounded-lg bg-error-container text-on-error-container flex items-center justify-center hover:bg-error hover:text-on-error transition-colors" data-id="${lst.id}" data-title="${lst.title}" title="Delete Listing">
+            <button class="delete-listing-btn flex h-10 w-10 items-center justify-center rounded-lg bg-error-container text-on-error-container transition-colors hover:bg-error hover:text-on-error" data-id="${lst.id}" data-title="${escHtml(lst.title)}" title="Delete listing" aria-label="Delete listing">
               <span class="material-symbols-outlined text-[18px]">delete</span>
             </button>
           </div>
         </div>
-      </div>
+      </article>
     `;
   }).join('');
 
   // Bind Assignment Change
-  document.querySelectorAll('.admin-assign-select').forEach(select => {
+  document.querySelectorAll('.admin-assignment-select').forEach(select => {
     select.onchange = async () => {
       const id = select.getAttribute('data-id');
       const title = select.getAttribute('data-title');
+      const field = select.getAttribute('data-field');
       const val = select.value || null;
+      const update = field === 'assigned_virtual_verifier_id'
+        ? { [field]: val, virtually_verified: false, virtually_verified_by: null }
+        : { [field]: val, field_verified: false, field_verified_by: null, field_verification_photo_url: null, field_verification_lat: null, field_verification_lng: null, field_verified_at: null };
 
       try {
         const { error } = await supabase
           .from('listings')
-          .update({ assigned_employee_id: val })
+          .update(update)
           .eq('id', id);
 
         if (error) throw error;
@@ -826,7 +848,7 @@ function closeModal() {
   document.getElementById('staff-name').value = '';
   document.getElementById('staff-email').value = '';
   document.getElementById('staff-password').value = '';
-  document.getElementById('staff-role').value = 'Employee';
+  document.getElementById('staff-role').value = 'Employee 1';
 }
 
 document.getElementById('create-staff-btn')?.addEventListener('click', openModal);
@@ -845,6 +867,8 @@ document.getElementById('submit-staff-btn')?.addEventListener('click', async () 
   const email     = document.getElementById('staff-email').value.trim();
   const password  = document.getElementById('staff-password').value;
   const role      = document.getElementById('staff-role').value;
+  const isEmployeeRole = ['Employee 1', 'Employee 2'].includes(role);
+  const edgeRole = isEmployeeRole ? 'Employee' : role;
   const btn       = document.getElementById('submit-staff-btn');
 
   if (!full_name || !email || !password) {
@@ -866,11 +890,29 @@ document.getElementById('submit-staff-btn')?.addEventListener('click', async () 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`
       },
-      body: JSON.stringify({ full_name, email, password, role })
+      body: JSON.stringify({ full_name, email, password, role: edgeRole })
     });
 
     const result = await res.json();
-    if (!res.ok) throw new Error(result.error || 'Failed to create account.');
+    if (!res.ok) {
+      const duplicateAccount = /already (?:registered|exists)|user already|email.*in use/i.test(result.error || '');
+      if (isEmployeeRole && duplicateAccount) {
+        const { error: recoveryError } = await supabase.rpc('admin_assign_employee_type', { p_email: email, p_employee_type: role });
+        if (!recoveryError) {
+          showAdminToast(`Existing Employee account updated to ${role}.`);
+          closeModal();
+          loadUsers();
+          loadStats();
+          return;
+        }
+      }
+      throw new Error(result.error || 'Failed to create account.');
+    }
+
+    if (isEmployeeRole) {
+      const { error: roleError } = await supabase.rpc('admin_assign_employee_type', { p_email: email, p_employee_type: role });
+      if (roleError) throw new Error(`Account created, but employee type assignment failed: ${roleError.message}`);
+    }
 
     showAdminToast(`✓ ${role} account created for ${email}`);
     closeModal();

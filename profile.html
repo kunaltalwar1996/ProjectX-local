@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html class="light" lang="en">
 
 <head>
   <meta charset="utf-8" />
   <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>My Profile — ProjectX</title>
+  <title>My Profile â€” ProjectX</title>
   <meta name="description" content="Manage your ProjectX buyer profile, personal details, and preferences." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -137,8 +137,8 @@
             </div>
           </div>
           <input type="file" id="avatar-file-input" class="hidden" accept="image/*" />
-          <h2 id="profile-display-name" class="text-xl font-black text-slate-900 mb-1">—</h2>
-          <p id="profile-display-email" class="text-sm text-slate-400 font-medium mb-4">—</p>
+          <h2 id="profile-display-name" class="text-xl font-black text-slate-900 mb-1">â€”</h2>
+          <p id="profile-display-email" class="text-sm text-slate-400 font-medium mb-4">â€”</p>
           <span id="profile-display-role" class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-widest rounded-full px-3 py-1.5">
             <span class="material-symbols-outlined text-[14px]">verified_user</span>
             Buyer
@@ -168,7 +168,7 @@
                 <span class="material-symbols-outlined text-[18px] text-slate-400">calendar_month</span>
                 Member Since
               </span>
-              <span id="stat-joined" class="text-sm font-black text-slate-900">—</span>
+              <span id="stat-joined" class="text-sm font-black text-slate-900">â€”</span>
             </div>
           </div>
         </div>
@@ -202,23 +202,26 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label class="profile-label" for="field-name">Full Name</label>
+              <label class="profile-label" for="field-name">Full Name: </label>
               <input class="profile-input" id="field-name" type="text" placeholder="Your full name" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-email">Email Address</label>
+              <label class="profile-label" for="field-email">Email Address: </label>
               <input class="profile-input" id="field-email" type="email" placeholder="you@example.com" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-phone">Phone Number</label>
+              <label class="profile-label" for="field-phone">Phone Number: </label>
               <input class="profile-input" id="field-phone" type="tel" placeholder="+91 98765 43210" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-city">City</label>
-              <input class="profile-input" id="field-city" type="text" placeholder="e.g. Mumbai" disabled />
+              <label class="profile-label" for="field-city">City: </label>
+              <div class="relative">
+                <input class="profile-input" id="field-city" type="text" placeholder="e.g. Mumbai" disabled autocomplete="off" />
+                <div id="field-city-results" class="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 hidden flex-col max-h-48 overflow-y-auto z-50"></div>
+              </div>
             </div>
             <div class="md:col-span-2">
-              <label class="profile-label" for="field-bio">About</label>
+              <label class="profile-label" for="field-bio">About: </label>
               <textarea class="profile-input resize-none h-24" id="field-bio" placeholder="A short bio about yourself..." disabled></textarea>
             </div>
           </div>
@@ -244,21 +247,21 @@
               <label class="profile-label" for="pref-type">Property Type</label>
               <select class="profile-input" id="pref-type">
                 <option value="">No preference</option>
-                <option value="apartment">Apartment</option>
-                <option value="house">House / Villa</option>
-                <option value="plot">Plot / Land</option>
-                <option value="commercial">Commercial</option>
+                <option value="Apartment/ High Rise">Apartment/ High Rise</option>
+                <option value="Builder Floor/ Low Rise">Builder Floor/ Low Rise</option>
+                <option value="Bungalow/ Villa">Bungalow/ Villa</option>
+                <option value="Office/Commercial">Office/Commercial</option>
               </select>
             </div>
             <div>
               <label class="profile-label" for="pref-budget">Max Budget</label>
               <select class="profile-input" id="pref-budget">
                 <option value="">No preference</option>
-                <option value="50">Up to ₹50 Lakhs</option>
-                <option value="100">Up to ₹1 Crore</option>
-                <option value="200">Up to ₹2 Crores</option>
-                <option value="500">Up to ₹5 Crores</option>
-                <option value="999">₹5 Crores+</option>
+                <option value="50">Up to â‚¹50 Lakhs</option>
+                <option value="100">Up to â‚¹1 Crore</option>
+                <option value="200">Up to â‚¹2 Crores</option>
+                <option value="500">Up to â‚¹5 Crores</option>
+                <option value="999">â‚¹5 Crores+</option>
               </select>
             </div>
             <div>
@@ -327,6 +330,8 @@
 
   <script type="module">
     import { supabase } from './lib/supabase.js';
+    import { getWishlistListings, setWishlistListing } from './lib/wishlist.js';
+    import { listingAgeBadgeMarkup } from './lib/listing-card-presentation.js';
 
     const STORAGE_KEY = 'buyerProfile';
     let currentProfile = null;
@@ -364,22 +369,6 @@
         const isOwnProfile = !targetUserId || targetUserId === session.user.id;
         const queryUserId = isOwnProfile ? session.user.id : targetUserId;
 
-        // Fetch database profile
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', queryUserId)
-          .single();
-
-        if (error) {
-          console.warn('Error fetching profile from database:', error);
-          if (isOwnProfile) {
-            return loadLocalProfile();
-          }
-          return null;
-        }
-
-        // Fetch the logged-in user's role (viewerRole)
         let viewerRole = localStorage.getItem('role') || 'Guest';
         const { data: viewerProfile } = await supabase
           .from('profiles')
@@ -388,6 +377,72 @@
           .single();
         if (viewerProfile && viewerProfile.role) {
           viewerRole = viewerProfile.role;
+        }
+
+        const isStaffViewer = viewerRole === 'Admin' || viewerRole === 'Employee';
+        const ownProfileFields = 'id, full_name, role, phone, city, bio, preferences, avatar_url, updated_at';
+        const staffProfileFields = 'id, full_name, role, phone, city, bio, avatar_url, updated_at';
+
+        let profile = null;
+        if (isOwnProfile) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select(ownProfileFields)
+            .eq('id', session.user.id)
+            .single();
+          if (error) {
+            console.warn('Error fetching profile from database:', error);
+            return loadLocalProfile();
+          }
+          profile = data;
+        } else if (isStaffViewer) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select(staffProfileFields)
+            .eq('id', queryUserId)
+            .single();
+          if (error) {
+            console.warn('Error fetching profile from database:', error);
+            return null;
+          }
+          profile = data;
+        } else {
+          const { data: brokerRows } = await supabase.rpc('get_public_broker_identity', {
+            p_broker_id: queryUserId
+          });
+          const broker = Array.isArray(brokerRows) ? brokerRows[0] : brokerRows;
+          if (broker) {
+            profile = {
+              id: broker.id,
+              full_name: broker.full_name,
+              avatar_url: broker.avatar_url,
+              role: 'Broker',
+              phone: '',
+              city: '',
+              bio: '',
+              preferences: {},
+              updated_at: null
+            };
+          } else {
+            const { data: relatedRows } = await supabase.rpc('get_related_profile_identities', {
+              p_ids: [queryUserId]
+            });
+            const related = Array.isArray(relatedRows) ? relatedRows[0] : relatedRows;
+            if (!related) {
+              return null;
+            }
+            profile = {
+              id: related.id,
+              full_name: related.full_name,
+              avatar_url: related.avatar_url,
+              role: 'Buyer',
+              phone: '',
+              city: '',
+              bio: '',
+              preferences: {},
+              updated_at: null
+            };
+          }
         }
 
         // Fetch dynamic stats from database
@@ -418,11 +473,9 @@
           }
         }
 
-        // Saved count from localStorage or database
-        let savedCount = 0;
-        if (isOwnProfile && profile.role !== 'Broker') {
-          savedCount = JSON.parse(localStorage.getItem('savedProperties') || '[]').length || 0;
-        } else if (profile.role === 'Broker') {
+        // Wishlist count comes from the authenticated profile row.
+        let savedCount = isOwnProfile && Array.isArray(profile.wishlist) ? profile.wishlist.length : 0;
+        if (profile.role === 'Broker') {
           // If viewing or owning broker, savedCount is inquiries received!
           try {
             const { count, error: countErr } = await supabase
@@ -468,6 +521,15 @@
           }
           if (buyerProfile.avatarUrl) {
             localStorage.setItem(`broker_avatar_${session.user.id}`, buyerProfile.avatarUrl);
+          }
+          if (buyerProfile.role === 'Broker') {
+            window.dispatchEvent(new CustomEvent('brokerProfileUpdated', {
+              detail: {
+                name: buyerProfile.name,
+                avatarUrl: buyerProfile.avatarUrl,
+                userId: session.user.id
+              }
+            }));
           }
         }
 
@@ -519,7 +581,7 @@
         ? 'w-full py-3.5 px-5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 min-h-[96px] block whitespace-pre-wrap leading-relaxed'
         : 'w-full py-3.5 px-5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 min-h-[50px] flex items-center';
       
-      displayDiv.textContent = value || '—';
+      displayDiv.textContent = value || 'â€”';
       displayDiv.id = id;
       
       el.parentNode.replaceChild(displayDiv, el);
@@ -700,7 +762,9 @@
         // Load preferences
         if (profile.prefs) {
           const prefType = document.getElementById('pref-type');
-          if (prefType) prefType.value = profile.prefs.type || '';
+          if (prefType) prefType.value = profile.prefs.type
+            ? (window.normalizePropertyType?.(profile.prefs.type) || profile.prefs.type)
+            : '';
           
           const prefBudget = document.getElementById('pref-budget');
           if (prefBudget) prefBudget.value = profile.prefs.budget || '';
@@ -719,11 +783,15 @@
         const h1 = document.querySelector('h1');
         if (h1) {
           h1.textContent = `${profile.name || 'User'}'s Profile`;
-          document.title = `${profile.name || 'User'}'s Profile — ProjectX`;
+          document.title = `${profile.name || 'User'}'s Profile â€” ProjectX`;
         }
         
         const subtitle = document.querySelector('.mb-10 p') || (h1 ? h1.nextElementSibling : null);
-        if (subtitle) subtitle.textContent = 'View contact details and preferences.';
+        if (subtitle) {
+          subtitle.textContent = (profile.viewerRole === 'Admin' || profile.viewerRole === 'Employee')
+            ? 'View contact details and preferences.'
+            : 'View public profile.';
+        }
 
         // 2. Hide edit button
         const editBtn = document.getElementById('edit-toggle-btn');
@@ -1063,6 +1131,10 @@
         }
 
         showToast('Profile picture updated successfully!');
+
+        window.dispatchEvent(new CustomEvent('brokerAvatarUpdated', {
+          detail: { url: publicUrl, userId }
+        }));
       } catch (err) {
         console.error('Error uploading avatar:', err);
         showToast('Failed to upload image: ' + err.message, true);
@@ -1193,6 +1265,11 @@
         bio: bio
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+
+      window.dispatchEvent(new CustomEvent('brokerProfileUpdated', {
+        detail: { name, userId: user.id }
+      }));
+
       return profile;
     }
 
@@ -1229,134 +1306,64 @@
       existing.prefs = prefs;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
     }
-  async function renderSavedListings() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    async function renderSavedListings() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('preferences')
-        .eq('id', session.user.id)
-        .single();
-
-    const savedIds = profile?.preferences?.saved_listings || 
-                     JSON.parse(localStorage.getItem('savedProperties') || '[]');
-
-    let card = document.getElementById('saved-listings-card');
-    if (!card) {
-        card = document.createElement('div');
+      let card = document.getElementById('saved-listings-card');
+      if (!card) {
+        card = document.createElement('section');
         card.id = 'saved-listings-card';
-        card.className = 'bg-white rounded-2xl border border-slate-200 p-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200';
+        card.className = 'bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm';
         const prefsCard = document.getElementById('buyer-preferences-card');
-        if (prefsCard) {
-            prefsCard.parentNode.insertBefore(card, prefsCard.nextSibling);
+        if (prefsCard?.parentNode) prefsCard.parentNode.insertBefore(card, prefsCard.nextSibling);
+      }
+
+      const gridId = 'saved-listings-grid';
+      card.innerHTML = '<div class="flex items-center justify-between gap-4 mb-6"><div><h3 class="text-lg font-black text-slate-900">Wishlist</h3><p class="text-sm text-slate-400 font-medium mt-0.5">Listings saved to your account</p></div></div><div id="' + gridId + '" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>';
+      const grid = document.getElementById(gridId);
+      if (!grid) return;
+
+      try {
+        const listings = await getWishlistListings();
+        const savedCount = document.getElementById('stat-saved');
+        if (savedCount) savedCount.textContent = String(listings.length);
+
+        if (!listings.length) {
+          grid.innerHTML = '<div class="sm:col-span-2 flex flex-col items-center justify-center py-10 text-center gap-3"><span class="material-symbols-outlined text-slate-300 text-[40px]">favorite</span><p class="text-sm font-bold text-slate-400">Your wishlist is empty</p><a href="/properties.html" class="text-xs font-black text-slate-900 hover:underline uppercase tracking-widest">Browse Listings â†’</a></div>';
+          return;
         }
+
+        grid.innerHTML = listings.map((listing) => {
+          const price = window.formatListingPrice(listing.price, listing.intent);
+          const escapeWishlistText = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+          const image = escapeWishlistText(listing.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80');
+          return '<article class="group overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-md transition-all">' +
+            '<div class="relative aspect-[16/9] overflow-hidden bg-slate-100"><img loading="lazy" src="' + image + '" alt="' + escapeWishlistText(listing.title || 'Saved property') + '" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105">' + listingAgeBadgeMarkup(listing.created_at) + '<button type="button" data-wishlist-button data-listing-id="' + escapeWishlistText(listing.id) + '" aria-pressed="true" class="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-rose-500 shadow-md hover:bg-white"><span class="material-symbols-outlined text-[20px]">favorite</span></button></div>' +
+            '<a href="/property-details.html?id=' + encodeURIComponent(listing.id) + '" class="block"><div class="p-4"><p class="text-lg font-black text-slate-900">' + price + '</p><p class="mt-1 text-xs font-semibold text-slate-500">' + escapeWishlistText(window.normalizePropertyType(listing.type || 'Property')) + ' <span class="font-medium text-slate-400">Â· For ' + escapeWishlistText(listing.intent || 'Sale') + '</span></p><h4 class="mt-2 truncate text-sm font-bold text-slate-800">' + escapeWishlistText(listing.title || 'Property listing') + '</h4><p class="mt-1 truncate text-xs font-medium text-slate-500">' + escapeWishlistText(listing.location || '') + '</p><div class="mt-3 flex items-center gap-3 text-xs font-bold text-slate-600"><span>' + window.formatBhk(listing.beds) + '</span><span>â€¢</span><span>' + escapeWishlistText(String(listing.baths || 'â€”')) + ' baths</span><span>â€¢</span><span>' + Number(listing.sqft || 0).toLocaleString('en-IN') + ' sqft</span></div></div></a>' +
+            '</article>';
+        }).join('');
+        if (window.refreshWishlistUI) await window.refreshWishlistUI();
+      } catch (error) {
+        console.error('Failed to load profile wishlist:', error);
+        grid.innerHTML = '<p class="sm:col-span-2 py-6 text-center text-sm text-red-500">Could not load your wishlist. Please try again.</p>';
+      }
     }
 
-    if (!savedIds || savedIds.length === 0) {
-        card.innerHTML = `
-            <div class="mb-6">
-                <h3 class="text-lg font-black text-slate-900">Saved Listings</h3>
-                <p class="text-sm text-slate-400 font-medium mt-0.5">Properties you've saved for later</p>
-            </div>
-            <div class="flex flex-col items-center justify-center py-10 text-center gap-3">
-                <span class="material-symbols-outlined text-slate-300 text-[48px]">favorite</span>
-                <p class="text-sm font-bold text-slate-400">No saved properties yet</p>
-                <a href="/properties.html" class="text-xs font-black text-slate-900 hover:underline uppercase tracking-widest">Browse Listings →</a>
-            </div>
-        `;
-        return;
-    }
+    window.removeSavedListing = async function(id) {
+      try {
+        await setWishlistListing(id, false);
+        showToast('Removed from wishlist.');
+        await renderSavedListings();
+      } catch (error) {
+        console.error('Unable to remove wishlist listing:', error);
+        showToast('Unable to update your wishlist. Please try again.', true);
+      }
+    };
 
-    card.innerHTML = `
-        <div class="mb-6 flex items-center justify-between">
-            <div>
-                <h3 class="text-lg font-black text-slate-900">Saved Listings</h3>
-                <p class="text-sm text-slate-400 font-medium mt-0.5">${savedIds.length} saved propert${savedIds.length === 1 ? 'y' : 'ies'}</p>
-            </div>
-            <a href="/properties.html" class="text-xs font-black text-slate-900 hover:underline uppercase tracking-widest">Browse More →</a>
-        </div>
-        <div id="saved-listings-grid" class="space-y-3">
-            ${[...Array(Math.min(savedIds.length, 3))].map(() => `
-                <div class="flex gap-3 p-3 rounded-xl border border-slate-100 animate-pulse">
-                    <div class="w-16 h-16 rounded-lg bg-slate-200 shrink-0"></div>
-                    <div class="flex-1 space-y-2 py-1">
-                        <div class="h-3 bg-slate-200 rounded w-3/4"></div>
-                        <div class="h-3 bg-slate-100 rounded w-1/2"></div>
-                        <div class="h-3 bg-slate-100 rounded w-1/4"></div>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-
-    const { data: listings, error } = await supabase
-        .from('listings')
-        .select('id, title, location, price, intent, img, beds, baths, type')
-        .in('id', savedIds);
-
-    if (error || !listings) {
-        document.getElementById('saved-listings-grid').innerHTML = 
-            '<p class="text-sm text-slate-400 text-center py-4">Failed to load saved listings.</p>';
-        return;
-    }
-
-    const grid = document.getElementById('saved-listings-grid');
-    if (!grid) return;
-
-    grid.innerHTML = listings.map(l => {
-        const price = l.intent === 'Rent'
-            ? `₹${(l.price * 100).toFixed(0)} Lac/mo`
-            : `₹${l.price} Cr`;
-        return `
-        <div class="flex gap-3 p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
-             onclick="window.location.href='/property-details.html?id=${l.id}'">
-            <img src="${l.img || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=200&q=80'}"
-                 class="w-16 h-16 rounded-lg object-cover shrink-0 group-hover:scale-105 transition-transform duration-300"
-                 onerror="this.src='https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=200&q=80'" />
-            <div class="flex-1 min-w-0">
-                <p class="text-sm font-black text-slate-900 truncate">${l.title}</p>
-                <p class="text-xs text-slate-400 font-medium truncate">${l.location}</p>
-                <div class="flex items-center justify-between mt-1">
-                    <p class="text-sm font-black text-slate-900">${price}</p>
-                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-0.5 rounded">${l.type}</span>
-                </div>
-            </div>
-            <button class="shrink-0 text-red-400 hover:text-red-600 transition-colors self-start mt-1"
-                    title="Remove from saved"
-                    onclick="event.stopPropagation(); removeSavedListing('${l.id}')">
-                <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1">favorite</span>
-            </button>
-        </div>
-        `;
-    }).join('');
-  }
-
-  window.removeSavedListing = async function(id) {
-    let saved = JSON.parse(localStorage.getItem('savedProperties') || '[]');
-    saved = saved.filter(s => String(s) !== String(id));
-    localStorage.setItem('savedProperties', JSON.stringify(saved));
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('preferences')
-            .eq('id', session.user.id)
-            .single();
-        const merged = {
-            ...(profile?.preferences || {}),
-            saved_listings: saved
-        };
-        await supabase
-            .from('profiles')
-            .update({ preferences: merged })
-            .eq('id', session.user.id);
-    }
-
-    showToast('Removed from saved listings.');
-    await renderSavedListings();
-  };
+    window.addEventListener('projectx:wishlist-changed', () => {
+      if (document.getElementById('saved-listings-card')) renderSavedListings();
+    });
 
     function initProfilePage() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -1384,6 +1391,10 @@
       const saveProfBtn = document.getElementById('save-prof-btn');
       if (saveProfBtn) {
         saveProfBtn.onclick = saveBrokerProfessionalInfo;
+      }
+
+      if (window.wireNominatimCitySearch) {
+        window.wireNominatimCitySearch('field-city', 'field-city-results', { cityOnly: true });
       }
 
       // 1. Optimistic first render (only if own profile)

@@ -1,49 +1,42 @@
 // demo-data.js — Realistic Mumbai & Delhi property listings (inspired by real market data)
 // Automatically seeds the property grid on properties.html and map.html
+import { listingAgeBadgeMarkup } from './lib/listing-card-presentation.js';
 
 const DEMO_LISTINGS = [
   {
     id: 1, title: "Mehdi's house",
     address: "Bandra West, Mumbai",
-    location: "Mumbai", type: "Apartment", beds: 1, baths: 1, price: 0.45, intent: "Rent",
+    location: "Mumbai", type: "Apartment/ High Rise", beds: 1, baths: 1, price: 0.45, intent: "Rent",
     sqft: 4500, date: "2026-05-17", badge: "Premium", badgeColor: "bg-amber-500",
     img: "https://images.unsplash.com/photo-1600587771525-78b9dba3b914?w=800&auto=format&fit=crop",
     coords: [19.0596, 72.8295]
   }
 ];
 
-// Utility: format price in Cr / L / Lac
-function formatPrice(crore, intent = "Buy") {
+// Utility: format price for display
+function formatPrice(price, intent = "Buy") {
   if (intent === "Rent") {
-    const lac = crore * 100;
-    if (lac >= 1) return `₹${lac.toFixed(lac % 1 === 0 ? 0 : 1)} Lac<span class="text-[10px] font-normal text-slate-400">/mo</span>`;
-    return `₹${(lac * 100000).toLocaleString('en-IN')}<span class="text-[10px] font-normal text-slate-400">/mo</span>`;
+    const p = parseFloat(price);
+    if (isNaN(p)) return "—";
+    return `₹${p.toLocaleString('en-IN')}<span class="text-[10px] font-normal text-slate-400">/mo</span>`;
   }
+  const crore = parseFloat(price);
+  if (isNaN(crore)) return "—";
   if (crore >= 1) return `₹${crore.toFixed(crore % 1 === 0 ? 0 : 1)} Cr`;
   return `₹${(crore * 100).toFixed(0)} L`;
 }
 
-// Returns a listing-age footer row with colour-coded freshness
-function getListingAgeBadge(dateStr) {
+// Keep the exact listing date in the card footer; the age appears on the image.
+function getListingDateFooter(dateStr) {
   const listed = new Date(dateStr);
-  const now = new Date();
-  const days = Math.floor((now - listed) / (1000 * 60 * 60 * 24));
-
-  let color;
-  if (days <= 5) color = 'text-emerald-600';
-  else if (days <= 10) color = 'text-orange-500';
-  else color = 'text-red-500';
-
   const listedFormatted = listed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
-  const label = days === 0 ? 'NEW TODAY' : `${days} DAY${days === 1 ? '' : 'S'} OLD`;
 
   return `
-    <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+    <div class="flex items-center mt-4 pt-3 border-t border-slate-100">
       <div class="flex items-center gap-1.5 text-slate-400">
         <span class="material-symbols-outlined text-[14px]">schedule</span>
         <span class="text-[10px] font-bold uppercase tracking-widest">Listed ${listedFormatted}</span>
       </div>
-      <span class="text-[10px] font-black uppercase tracking-widest ${color}">${label}</span>
     </div>
   `;
 }
@@ -60,12 +53,7 @@ function buildCardHTML(l) {
         <img loading="lazy" src="${l.img}"
              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
              onerror="this.src='https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop'">
-        <div class="absolute top-4 left-4 ${l.badgeColor} ${l.badgeColor.includes('bg-white') ? '' : 'text-white'} px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
-          ${l.badge}
-        </div>
-        <div class="absolute top-4 right-[92px] bg-slate-900/80 backdrop-blur text-white px-2 py-1 rounded-md text-[8px] font-bold uppercase tracking-wider">
-          For ${l.intent}
-        </div>
+        ${listingAgeBadgeMarkup(l.date)}
         <button aria-label="Save Property" class="save-property-btn absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow text-slate-400 hover:text-red-500 transition-colors">
           <span class="material-symbols-outlined text-[20px]">favorite</span>
         </button>
@@ -74,17 +62,15 @@ function buildCardHTML(l) {
         </button>
       </div>
       <div class="p-5">
-        <div class="flex justify-between items-start mb-1">
-          <h3 class="text-xl font-black text-slate-900">${formatPrice(l.price, l.intent)}</h3>
-          <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-1 rounded-md">${l.type}</span>
-        </div>
+        <h3 class="text-xl font-black text-slate-900">${formatPrice(l.price, l.intent)}</h3>
+        <p class="mt-1 mb-3 text-xs font-semibold text-slate-500">${l.type} <span class="font-medium text-slate-400">· For ${l.intent}</span></p>
         <p class="text-slate-500 text-sm font-medium mb-4 truncate">${l.address}</p>
         <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
-          ${l.beds > 0 ? `<div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${l.beds}</span></div>` : ''}
+          ${l.beds > 0 ? `<div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${l.beds >= 5 ? '5BHK+' : `${l.beds}BHK`}</span></div>` : ''}
           ${l.baths > 0 ? `<div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bathtub</span><span class="text-xs font-black text-slate-900">${l.baths}</span></div>` : ''}
           <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">square_foot</span><span class="text-xs font-black text-slate-900">${l.sqft.toLocaleString()} <span class="font-normal text-slate-400">sqft</span></span></div>
         </div>
-        ${getListingAgeBadge(l.date)}
+        ${getListingDateFooter(l.date)}
       </div>
     </div>
   `;

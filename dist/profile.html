@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html class="light" lang="en">
 
 <head>
   <meta charset="utf-8" />
   <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>My Profile — ProjectX</title>
+  <title>My Profile â€” ProjectX</title>
   <meta name="description" content="Manage your ProjectX buyer profile, personal details, and preferences." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,9 +60,9 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     }
   </style>
-  <script type="module" crossorigin src="/assets/profile-pO4MZNql.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/auth-DcLphbjy.js">
-  <link rel="stylesheet" crossorigin href="/assets/style-DtGEKwrx.css">
+  <script type="module" crossorigin src="/assets/profile-KAonpX_C.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/auth-CdZ_Ku1e.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-c5TlMRur.css">
 </head>
 
 <body class="estate-admin-theme bg-background text-on-background font-['Outfit'] antialiased min-h-screen flex flex-col">
@@ -138,8 +138,8 @@
             </div>
           </div>
           <input type="file" id="avatar-file-input" class="hidden" accept="image/*" />
-          <h2 id="profile-display-name" class="text-xl font-black text-slate-900 mb-1">—</h2>
-          <p id="profile-display-email" class="text-sm text-slate-400 font-medium mb-4">—</p>
+          <h2 id="profile-display-name" class="text-xl font-black text-slate-900 mb-1">â€”</h2>
+          <p id="profile-display-email" class="text-sm text-slate-400 font-medium mb-4">â€”</p>
           <span id="profile-display-role" class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-widest rounded-full px-3 py-1.5">
             <span class="material-symbols-outlined text-[14px]">verified_user</span>
             Buyer
@@ -169,7 +169,7 @@
                 <span class="material-symbols-outlined text-[18px] text-slate-400">calendar_month</span>
                 Member Since
               </span>
-              <span id="stat-joined" class="text-sm font-black text-slate-900">—</span>
+              <span id="stat-joined" class="text-sm font-black text-slate-900">â€”</span>
             </div>
           </div>
         </div>
@@ -203,23 +203,26 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label class="profile-label" for="field-name">Full Name</label>
+              <label class="profile-label" for="field-name">Full Name: </label>
               <input class="profile-input" id="field-name" type="text" placeholder="Your full name" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-email">Email Address</label>
+              <label class="profile-label" for="field-email">Email Address: </label>
               <input class="profile-input" id="field-email" type="email" placeholder="you@example.com" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-phone">Phone Number</label>
+              <label class="profile-label" for="field-phone">Phone Number: </label>
               <input class="profile-input" id="field-phone" type="tel" placeholder="+91 98765 43210" disabled />
             </div>
             <div>
-              <label class="profile-label" for="field-city">City</label>
-              <input class="profile-input" id="field-city" type="text" placeholder="e.g. Mumbai" disabled />
+              <label class="profile-label" for="field-city">City: </label>
+              <div class="relative">
+                <input class="profile-input" id="field-city" type="text" placeholder="e.g. Mumbai" disabled autocomplete="off" />
+                <div id="field-city-results" class="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 hidden flex-col max-h-48 overflow-y-auto z-50"></div>
+              </div>
             </div>
             <div class="md:col-span-2">
-              <label class="profile-label" for="field-bio">About</label>
+              <label class="profile-label" for="field-bio">About: </label>
               <textarea class="profile-input resize-none h-24" id="field-bio" placeholder="A short bio about yourself..." disabled></textarea>
             </div>
           </div>
@@ -245,21 +248,21 @@
               <label class="profile-label" for="pref-type">Property Type</label>
               <select class="profile-input" id="pref-type">
                 <option value="">No preference</option>
-                <option value="apartment">Apartment</option>
-                <option value="house">House / Villa</option>
-                <option value="plot">Plot / Land</option>
-                <option value="commercial">Commercial</option>
+                <option value="Apartment/ High Rise">Apartment/ High Rise</option>
+                <option value="Builder Floor/ Low Rise">Builder Floor/ Low Rise</option>
+                <option value="Bungalow/ Villa">Bungalow/ Villa</option>
+                <option value="Office/Commercial">Office/Commercial</option>
               </select>
             </div>
             <div>
               <label class="profile-label" for="pref-budget">Max Budget</label>
               <select class="profile-input" id="pref-budget">
                 <option value="">No preference</option>
-                <option value="50">Up to ₹50 Lakhs</option>
-                <option value="100">Up to ₹1 Crore</option>
-                <option value="200">Up to ₹2 Crores</option>
-                <option value="500">Up to ₹5 Crores</option>
-                <option value="999">₹5 Crores+</option>
+                <option value="50">Up to â‚¹50 Lakhs</option>
+                <option value="100">Up to â‚¹1 Crore</option>
+                <option value="200">Up to â‚¹2 Crores</option>
+                <option value="500">Up to â‚¹5 Crores</option>
+                <option value="999">â‚¹5 Crores+</option>
               </select>
             </div>
             <div>
