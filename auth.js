@@ -105,6 +105,7 @@ let activeInquiryId = null;
 let updateHeaderVisibility = null;
 let referrerId = null;
 let uploadedMedia = [];
+let listingEditSnapshot = null;
 
 // Shared listing values used by buyer filters, listing forms, and result cards.
 const PROPERTY_TYPE_OPTIONS = [
@@ -159,6 +160,35 @@ function formatListingPrice(price, intent, { html = false } = {}) {
     }
     if (amount >= 1) return `₹${amount % 1 === 0 ? amount : amount.toFixed(2)} Cr`;
     return `₹${(amount * 100).toFixed(0)} L`;
+}
+
+function normalizeBrokerageType(value) {
+    return value === 'annually' ? 'annually' : 'one_time';
+}
+
+function syncListingPriceUnitForIntent(intent, unitField) {
+    if (!unitField) return;
+    if (intent === 'Rent') {
+        unitField.value = 'k';
+    } else if (unitField.value === 'k' || !['lac', 'cr'].includes(unitField.value)) {
+        unitField.value = 'lac';
+    }
+}
+
+function populateListingPriceFields(listing, displayField, unitField, hiddenField) {
+    if (!listing || !displayField || !unitField || !hiddenField) return;
+    const price = Number(listing.price) || 0;
+    hiddenField.value = String(price);
+    if (listing.intent === 'Rent') {
+        unitField.value = 'k';
+        displayField.value = String(price);
+    } else if (price >= 1) {
+        unitField.value = 'cr';
+        displayField.value = String(price);
+    } else {
+        unitField.value = 'lac';
+        displayField.value = String(Number((price * 100).toFixed(2)));
+    }
 }
 
 window.formatBhk = formatBhk;
@@ -675,21 +705,23 @@ window.hasProfanity = hasProfanity;
 
 // ─── Route Maps ───────────────────────────────────────────────────────────────
 
-const buyerPages = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'sell.html', 'profile.html', 'shared-filter.html'];
-const guestPages  = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'sell.html', 'shared-filter.html'];
+const buyerPages = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'];
+const guestPages  = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'shared-filter.html'];
 
 const roleHomePage = {
     'Admin':    'admin-panel.html',
-    'Employee': 'employee-panel.html',
+    'Employee 1': 'employee-1.html',
+    'Employee 2': 'employee-2.html',
     'Broker':   'broker-dashboard.html',
     'Buyer':    'index.html',
     'Guest':    'index.html'
 };
 
 const roleAllowedPages = {
-    'Admin':    ['admin-panel.html', 'employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
-    'Employee': ['employee-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
-    'Broker':   ['broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Admin':    ['admin-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Employee 1': ['employee-1.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Employee 2': ['employee-2.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Broker':   ['broker-dashboard.html', 'sell.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
     'Buyer':    buyerPages,
     'Guest':    guestPages
 };
@@ -725,11 +757,30 @@ async function checkAuth() {
     }
 
     if (session) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
-        if (profile) {
-            role = profile.role;
+        const { data: profile, error: profileError } = await supabase.from('profiles').select('role, employee_type').eq('id', session.user.id).maybeSingle();
+        if (profileError || !profile?.role) {
+            role = null;
+            localStorage.removeItem('role');
+            localStorage.removeItem('employee_type');
+            if (!isLoginPage) {
+                await supabase.auth.signOut();
+                navigateTo('login.html');
+                return;
+            }
+        } else {
+            role = profile.role === 'Employee' ? profile.employee_type : profile.role;
+            if (profile.role === 'Employee' && !['Employee 1', 'Employee 2'].includes(profile.employee_type)) {
+                localStorage.removeItem('role');
+                localStorage.removeItem('employee_type');
+                localStorage.removeItem('userName');
+                sessionStorage.setItem('authNotice', 'This Employee account has no Employee type assigned. Ask an Admin to reopen Create Staff Account with this same email and assign Employee 1 or Employee 2.');
+                await supabase.auth.signOut();
+                navigateTo('staff-login.html');
+                return;
+            }
+            if (profile.role === 'Employee') localStorage.setItem('employee_type', profile.employee_type);
             const activeRole = localStorage.getItem('role');
-            if (role === 'Admin' && (activeRole === 'Broker' || activeRole === 'Employee' || activeRole === 'Admin')) {
+            if (profile.role === 'Admin' && (activeRole === 'Broker' || activeRole === 'Admin')) {
                 role = activeRole;
             } else {
                 localStorage.setItem('role', role); // Sync for sync checks
@@ -750,7 +801,8 @@ async function checkAuth() {
         }
     } else {
         const allowed = roleAllowedPages[role || 'Guest'];
-        if (allowed && !allowed.includes(currentPage)) {
+        const wrongEmployeePage = (currentPage === 'employee-1.html' && role !== 'Employee 1') || (currentPage === 'employee-2.html' && role !== 'Employee 2');
+        if (wrongEmployeePage || (allowed && !allowed.includes(currentPage))) {
             navigateTo(roleHomePage[role || 'Guest']);
         } else {
             if (typeof updateHeaderVisibility === 'function') {
@@ -773,14 +825,17 @@ window.login = async function(role, name, targetRole = null) {
     // For other roles, we expect Supabase session to handle it
     // But we'll keep the role in localStorage for synchronous checks if needed
     localStorage.setItem('role', targetRole || role);
+    if (role === 'Employee 1' || role === 'Employee 2') localStorage.setItem('employee_type', role);
+    else localStorage.removeItem('employee_type');
     if (name) localStorage.setItem('userName', name);
     
     // Admin can bypass to different dashboards depending on selected role
-    if (role === 'Admin' && targetRole && roleHomePage[targetRole]) {
-        navigateTo(roleHomePage[targetRole]);
-    } else {
-        navigateTo(roleHomePage[role] || 'index.html');
-    }
+    const destination = role === 'Admin' && targetRole && roleHomePage[targetRole]
+        ? roleHomePage[targetRole]
+        : (roleHomePage[role] || 'index.html');
+    // Auth has just changed, so start the dashboard with a fresh document and
+    // let its guard read the newly established Supabase session exactly once.
+    window.location.replace(toAppUrl(destination));
 };
 
 window.logout = async function() {
@@ -788,6 +843,7 @@ window.logout = async function() {
         await supabase.auth.signOut();
     } finally {
         localStorage.removeItem('role');
+        localStorage.removeItem('employee_type');
         localStorage.removeItem('userName');
         navigateTo('login.html');
     }
@@ -827,6 +883,11 @@ function initAppPage() {
     // ══════════════════════════════════════════════
     // ── Login Page UI Logic ──
     if (isLoginPage) {
+        const authNotice = sessionStorage.getItem('authNotice');
+        if (authNotice) {
+            sessionStorage.removeItem('authNotice');
+            showToast(authNotice, true);
+        }
         const roleButtons = document.querySelectorAll('#role-tabs button');
         const formTitle   = document.getElementById('form-title');
         const roleSelectionLabel = document.getElementById('role-selection-label');
@@ -887,23 +948,34 @@ function initAppPage() {
         }
 
         function updateUI() {
+            const displayRole = selectedRole;
+            const staffLoginOnly = currentPage === 'staff-login.html';
+            const adminSignupAllowed = staffLoginOnly && selectedRole === 'Admin';
+            if (staffLoginOnly && !adminSignupAllowed) isSignUp = false;
             if (roleSelectionLabel) {
                 const staffAccess = currentPage === 'staff-login.html';
-                roleSelectionLabel.textContent = `${staffAccess ? 'Selected access' : 'Selected account type'}: ${selectedRole}`;
+                roleSelectionLabel.textContent = `${staffAccess ? 'Selected access' : 'Selected account type'}: ${displayRole}`;
             }
             if (formTitle) {
-                formTitle.textContent = isSignUp ? `Join as ${selectedRole}` : `${selectedRole} Sign In`;
+                formTitle.textContent = isSignUp ? `Join as ${displayRole}` : `${displayRole} Sign In`;
             }
             if (signInBtn) {
                 signInBtn.textContent = isSignUp ? 'Create Account' : 'Sign In';
             }
             if (modeText) {
-                modeText.innerHTML = isSignUp 
+                modeText.innerHTML = staffLoginOnly && !adminSignupAllowed
+                    ? 'Staff accounts are created by an Admin. Sign in with your assigned account.'
+                    : staffLoginOnly && isSignUp
+                    ? `Already have an account? <button id="toggle-mode-btn" type="button" class="font-bold text-slate-900 hover:underline ml-1">Sign In</button>`
+                    : staffLoginOnly
+                    ? `First Admin? <button id="toggle-mode-btn" type="button" class="font-bold text-slate-900 hover:underline ml-1">Create Account</button>`
+                    : isSignUp
                     ? `Already have an account? <button id="toggle-mode-btn" type="button" class="font-bold text-slate-900 hover:underline ml-1">Sign In</button>`
                     : `Don't have an account? <button id="toggle-mode-btn" type="button" class="font-bold text-slate-900 hover:underline ml-1">Sign Up</button>`;
                 
                 // Re-bind click event since we replaced innerHTML
-                document.getElementById('toggle-mode-btn').onclick = (e) => {
+                const modeToggle = document.getElementById('toggle-mode-btn');
+                if (modeToggle) modeToggle.onclick = (e) => {
                     e.preventDefault();
                     isSignUp = !isSignUp;
                     updateUI();
@@ -928,14 +1000,15 @@ function initAppPage() {
         }
 
         function selectRole(role) {
-            let normalizedRole = role;
-            if (role) {
-                normalizedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
-            }
+            const inputRole = String(role || '').trim();
+            const roleButton = Array.from(roleButtons).find(b =>
+                (b.dataset.role || b.textContent.trim()).toLowerCase() === inputRole.toLowerCase()
+            );
+            const normalizedRole = roleButton?.dataset.role || (inputRole.charAt(0).toUpperCase() + inputRole.slice(1).toLowerCase());
             selectedRole = normalizedRole;
             resetRoleTabs();
             
-            const btn = Array.from(roleButtons).find(b => b.textContent.trim().toLowerCase() === normalizedRole.toLowerCase());
+            const btn = roleButton || Array.from(roleButtons).find(b => b.textContent.trim().toLowerCase() === normalizedRole.toLowerCase());
             if (btn) {
                 btn.className = 'flex-1 py-2.5 px-3 text-center text-[10px] font-black uppercase tracking-widest rounded-lg role-tab-active font-bold scale-[1.02] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400';
                 btn.setAttribute('aria-pressed', 'true');
@@ -945,7 +1018,7 @@ function initAppPage() {
         }
 
         roleButtons.forEach(btn => {
-            btn.onclick = () => selectRole(btn.textContent.trim());
+            btn.onclick = () => selectRole(btn.dataset.role || btn.textContent.trim());
         });
 
         // Initialize toggle if it exists initially
@@ -1018,38 +1091,38 @@ function initAppPage() {
 
                 try {
                     if (isSignUp) {
-                        if (selectedRole !== 'Buyer' && selectedRole !== 'Broker') {
-                            throw new Error('Staff accounts cannot be created from this page.');
+                        if (selectedRole !== 'Buyer' && selectedRole !== 'Broker' && selectedRole !== 'Admin') {
+                            throw new Error('Employee accounts are created by an Admin from Admin Panel → Create Staff Account.');
                         }
                         const { data, error } = await supabase.auth.signUp({
                             email,
                             password,
+                            options: { data: { full_name: name } }
                         });
                         if (error) throw error;
                         
                         if (data.user) {
-                            // Create profile
                             const profileData = {
                                 id: data.user.id,
+                                email,
                                 full_name: name,
-                                role: selfAssignableProfileRole(selectedRole)
+                                role: selectedRole === 'Admin' ? 'Admin' : selfAssignableProfileRole(selectedRole)
                             };
                             const referredBy = referrerId || localStorage.getItem('referred_by');
                             if (referredBy) {
                                 profileData.referred_by = referredBy;
-                                profileData.preferences = {
-                                    ...(profileData.preferences || {}),
-                                    referrer_id: referredBy
-                                };
+                                profileData.preferences = { ...(profileData.preferences || {}), referrer_id: referredBy };
                             }
-                            const { error: profileError } = await supabase.from('profiles').insert(profileData);
-                            if (profileError) throw profileError;
-                            
-                            // Clear referral after successful profile creation
-                            localStorage.removeItem('referred_by');
+                            if (data.session) {
+                                const { error: profileError } = await supabase.from('profiles').insert(profileData);
+                                if (profileError) throw profileError;
+                                localStorage.removeItem('referred_by');
+                            }
                         }
 
-                        showToast('Account created successfully!');
+                        showToast(!data.session
+                            ? `Account created. Confirm your email, then sign in here to open the ${selectedRole} panel.`
+                            : 'Account created successfully!');
                         
                         if (data.session) {
                             // Automatically sign in if email confirmation is disabled
@@ -1069,7 +1142,7 @@ function initAppPage() {
                         // Fetch profile to get role
                         let { data: profile, error: profileError } = await supabase
                             .from('profiles')
-                            .select('role, full_name')
+                            .select('role, employee_type, full_name')
                             .eq('id', data.user.id)
                             .maybeSingle();
                         
@@ -1080,28 +1153,60 @@ function initAppPage() {
                             const profileData = {
                                 id: data.user.id,
                                 full_name: email.split('@')[0], // fallback name
-                                role: selfAssignableProfileRole(selectedRole)
+                                role: selectedRole === 'Admin' && currentPage === 'staff-login.html'
+                                    ? 'Admin'
+                                    : selfAssignableProfileRole(selectedRole)
                             };
                             const { error: insertError } = await supabase.from('profiles').insert(profileData);
                             if (insertError) throw insertError;
                             profile = profileData;
                         }
 
-                        let matched = (profile.role === selectedRole);
-                        if (!matched && profile.role === 'Admin' && (selectedRole === 'Broker' || selectedRole === 'Employee' || selectedRole === 'Admin')) {
+                        // Recover Admin accounts created before Admin signup
+                        // stopped falling back to Buyer. The database permits
+                        // this only while no Admin profile exists.
+                        if (currentPage === 'staff-login.html' && selectedRole === 'Admin'
+                            && ['Buyer', 'Broker', 'Guest'].includes(profile.role)) {
+                            const { data: promotedProfile, error: promotionError } = await supabase
+                                .from('profiles')
+                                .update({ role: 'Admin' })
+                                .eq('id', data.user.id)
+                                .select('role, full_name')
+                                .maybeSingle();
+                            if (promotionError || !promotedProfile) {
+                                await supabase.auth.signOut();
+                                throw new Error(promotionError?.message || 'Admin setup is already complete. Ask an Admin to create staff accounts.');
+                            }
+                            profile = promotedProfile;
+                        }
+
+                        const effectiveRole = profile.role === 'Employee' ? profile.employee_type : profile.role;
+                        let matched = (effectiveRole === selectedRole);
+                        if (!matched && profile.role === 'Admin' && (selectedRole === 'Broker' || selectedRole === 'Employee 1' || selectedRole === 'Employee 2' || selectedRole === 'Admin')) {
                             matched = true;
                         }
                         if (!matched) {
                             await supabase.auth.signOut();
+                            if (profile.role === 'Employee' && !['Employee 1', 'Employee 2'].includes(profile.employee_type)) {
+                                throw new Error('This Employee account has no Employee type assigned. Ask an Admin to open Create Staff Account and retry with this same email to assign Employee 1 or Employee 2.');
+                            }
+                            if (profile.role === 'Employee') {
+                                throw new Error(`This account is assigned to ${profile.employee_type}. Select that Employee type to sign in.`);
+                            }
                             throw new Error(`This account is registered as a ${profile.role}. Please select the correct role above.`);
                         }
 
-                        window.login(profile.role, profile.full_name, selectedRole);
+                        window.login(effectiveRole, profile.full_name, selectedRole);
                     }
                 } catch (err) {
                     console.error('Authentication error:', err);
                     // Detailed error message if available
                     let msg = err.message || 'Authentication failed.';
+                    if (msg.includes('Cannot assign a privileged profile role')) {
+                        msg = 'Admin signup is blocked by the database role guard. Apply the latest Supabase migration, then retry. If an Admin already exists, that Admin must create additional staff accounts.';
+                    } else if (msg.includes('An Admin account already exists')) {
+                        msg = 'An Admin account is already set up. Sign in with it or ask that Admin to create staff accounts.';
+                    }
                     if (err.status === 400 && msg.toLowerCase().includes('invalid')) {
                         msg = 'Invalid email or password format. Please check your details.';
                     }
@@ -1132,7 +1237,7 @@ function initAppPage() {
         if (currentRoleRaw) {
             currentRole = currentRoleRaw.charAt(0).toUpperCase() + currentRoleRaw.slice(1).toLowerCase();
         }
-        const isStaff = ['Admin', 'Employee', 'Broker'].includes(currentRole);
+        const isStaff = ['Admin', 'Employee 1', 'Employee 2', 'Broker'].includes(currentRoleRaw);
         
         // Find all trailing actions containers
         const containers = [];
@@ -1617,6 +1722,10 @@ function initAppPage() {
         });
     }
 
+    if (userRole === 'Employee 1' && currentPage === 'employee-1.html') {
+        injectListingModal();
+    }
+
     // ── Buyer Property Details ──
     if (currentPage === 'property-details.html') {
         // Handled in initBuyerPageInteractions
@@ -1755,6 +1864,7 @@ function generateListingsHTML(listings, showViews) {
         let badgeClass = 'bg-surface-container-high text-on-surface-variant';
         if (l.status === 'Active') badgeClass = 'bg-secondary-fixed text-on-secondary-fixed-variant';
         else if (l.status === 'Pending') badgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+        else if (l.status === 'Rejected') badgeClass = 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
         else if (l.status === 'Flagged') badgeClass = 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300';
         else if (l.status === 'Sold') badgeClass = 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
 
@@ -1771,6 +1881,7 @@ function generateListingsHTML(listings, showViews) {
           </td>
           <td class="p-4">
             <span class="${badgeClass} px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">${l.status}</span>
+            ${l.status === 'Rejected' && l.rejection_reason ? `<p class="mt-2 max-w-xs whitespace-normal text-left text-xs font-medium text-rose-700"><strong>Reason:</strong> ${escHtml(l.rejection_reason)}</p>` : ''}
           </td>
           <td class="p-4 font-medium">${formatListingPrice(l.price, l.intent)}</td>
           ${showViews ? `<td class="p-4">${(l.views || 0).toLocaleString()}</td>` : ''}
@@ -1821,7 +1932,10 @@ function shareListing(id) {
 window.shareListing = shareListing;
 
 async function openListingModal(id) {
+    userRole = localStorage.getItem('role') || userRole;
+    if (!document.getElementById('listing-modal')) injectListingModal();
     const modal = document.getElementById('listing-modal');
+    if (!modal) throw new Error('Listing form could not be initialized. Refresh the page and try again.');
     
     // Reset any validation warnings
     const errorBanner = document.getElementById('modal-validation-error');
@@ -1914,7 +2028,7 @@ async function openListingModal(id) {
     document.getElementById('modal-type').value          = listing ? normalizePropertyType(listing.type) : PROPERTY_TYPE_OPTIONS[0];
     listingEditSnapshot = null;
     const statusSelect = document.getElementById('modal-status');
-    if (userRole === 'Broker') {
+    if (userRole === 'Broker' || userRole === 'Employee 1') {
         const brokerStatus = listing ? listing.status : 'Pending';
         if (statusSelect) statusSelect.value = brokerStatus;
         if (listing) {
@@ -1950,14 +2064,22 @@ async function openListingModal(id) {
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    modal.style.display = 'flex';
+    modal.style.visibility = 'visible';
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('role', 'dialog');
 }
 
 window.openListingModal = openListingModal;
 
 function closeListingModal() {
     const modal = document.getElementById('listing-modal');
+    if (!modal) return;
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    modal.style.display = 'none';
+    modal.style.visibility = 'hidden';
+    modal.removeAttribute('aria-modal');
 }
 
 window.closeListingModal = closeListingModal;
@@ -2041,6 +2163,12 @@ async function saveListingForm() {
     const sqftEl     = document.getElementById('modal-sqft');
     const latEl      = document.getElementById('modal-lat');
     const lngEl      = document.getElementById('modal-lng');
+    const brokerageEl = document.getElementById('modal-brokerage');
+    const brokerageTypeEl = document.getElementById('modal-brokerage-type');
+    const depositEl = document.getElementById('modal-deposit');
+    const brokerage = Number(brokerageEl?.value) || 0;
+    const brokerage_type = normalizeBrokerageType(brokerageTypeEl?.value);
+    const deposit = Number(depositEl?.value) || 0;
     const title    = titleEl.value.trim();
     const location = locationEl.value.trim();
     const price    = parseFloat(priceEl.value) || 0;
@@ -2131,7 +2259,7 @@ async function saveListingForm() {
 
     let oldStatus = null;
 
-    if (userRole === 'Broker') {
+    if (userRole === 'Broker' || userRole === 'Employee 1') {
         if (!id) {
             status = 'Pending';
         } else {
@@ -2176,17 +2304,22 @@ async function saveListingForm() {
         if (oldListing) oldStatus = oldListing.status;
     }
 
+    const isEmployeeListing = userRole === 'Employee 1';
+    if (isEmployeeListing && !id) status = 'Under Review';
     const listingData = { 
         title, location, price, intent, type, status, beds, baths, sqft, views, lat, lng, img,
         brokerage, brokerage_type, deposit,
-        broker_id: user ? user.id : null
+        broker_id: isEmployeeListing ? null : (user ? user.id : null),
+        ...(isEmployeeListing ? { created_by: user?.id } : {})
     };
 
     let result;
     if (id) {
         result = await supabase.from('listings').update(listingData).eq('id', id);
     } else {
-        result = await supabase.from('listings').insert([listingData]);
+        // Return the row created by this request. Looking up the newest listing
+        // afterward can attach media/history to another user's concurrent insert.
+        result = await supabase.from('listings').insert([listingData]).select('id,status').single();
     }
 
     if (result.error) {
@@ -2195,15 +2328,9 @@ async function saveListingForm() {
         // Resolve listing ID (for inserts we need to fetch the newly created row)
         let resolvedId = id || null;
         if (!id) {
-            const { data: newListing } = await supabase
-                .from('listings')
-                .select('id')
-                .eq('broker_id', user ? user.id : null)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-            if (newListing) {
-                resolvedId = newListing.id;
+            if (result.data) {
+                resolvedId = result.data.id;
+                status = result.data.status || status;
                 await logListingStatusChange(resolvedId, null, status, 'Listing created.');
             }
         } else if (oldStatus !== status) {
@@ -2215,7 +2342,11 @@ async function saveListingForm() {
             await saveListingMedia(resolvedId, user ? user.id : null);
         }
 
-        await renderListings();
+        if (isEmployeeListing && window.refreshEmployee1Listings) {
+            await window.refreshEmployee1Listings();
+        } else {
+            await renderListings();
+        }
         closeListingModal();
 
         // Only show share popup for NEW listings (no id means it was an insert)
@@ -2626,7 +2757,7 @@ function injectListingModal() {
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Bathrooms *</label>
               <input id="modal-baths" type="number" min="0" step="1" placeholder="0" class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed"/>
             </div>
-            ${userRole === 'Broker' ? `
+            ${userRole === 'Broker' || userRole === 'Employee 1' ? `
             <div class="md:col-span-2">
               <input type="hidden" id="modal-status" value="Pending"/>
               <p class="text-xs text-on-surface-variant font-medium">All new listings and listing updates require approval before becoming visible.</p>
@@ -5584,8 +5715,12 @@ async function initBuyerDetailsPage() {
     // Check if the user is authorized to view non-Active properties
     const { data: { session } } = await supabase.auth.getSession();
     const isOwner = session && session.user && session.user.id === l.broker_id;
-    const isStaff = userRole === 'Admin' || userRole === 'Employee';
-    const isAdminPreview = new URLSearchParams(window.location.search).get('adminPreview') === '1';
+    const { data: viewerProfile } = session
+        ? await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle()
+        : { data: null };
+    const actualViewerRole = viewerProfile?.role;
+    const isStaff = ['Admin', 'Employee 1', 'Employee 2'].includes(actualViewerRole);
+    const isAdminPreview = actualViewerRole === 'Admin' && new URLSearchParams(window.location.search).get('adminPreview') === '1';
     if (l.status !== 'Active' && !isOwner && !isStaff && !isAdminPreview) {
         showToast('Property details are pending review or unavailable.', true);
         setTimeout(() => { window.location.href = 'properties.html'; }, 2000);

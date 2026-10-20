@@ -14,9 +14,9 @@
 <style>
         body { font-family: 'Inter', sans-serif; }
     </style>
-  <script type="module" crossorigin src="/assets/employeePanel-D1EfJ-Z_.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/auth-DcLphbjy.js">
-  <link rel="stylesheet" crossorigin href="/assets/style-DtGEKwrx.css">
+  <script type="module" crossorigin src="/assets/employeePanel-CAqmr2Yx.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/auth-CdZ_Ku1e.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-c5TlMRur.css">
 </head>
 <body class="estate-admin-theme bg-background text-on-background antialiased min-h-screen flex flex-col md:flex-row">
 <!-- Mobile Sidebar Backdrop -->
@@ -108,7 +108,10 @@
 <h1 class="font-h2 text-h2 text-on-background mb-1">Employee Operations Panel</h1>
 <p class="font-body-md text-body-md text-on-surface-variant">Manage listings, support requests, and platform moderation.</p>
 </div>
-<div class="flex gap-3">
+<div class="flex gap-3 items-center">
+<button id="create-staff-btn" class="bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold text-sm hover:bg-slate-700 transition-colors flex items-center gap-2">
+  <span class="material-symbols-outlined text-[18px]">person_add</span> Create Staff Account
+</button>
 <span class="inline-flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full font-label-caps text-label-caps text-on-surface">
 <span class="w-2 h-2 rounded-full bg-secondary"></span>
                         System Operational
@@ -245,7 +248,46 @@
 </div>
 </div>
 </div>
-</main>
+</main>
+<!-- Create Staff Modal -->
+<div id="create-staff-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 transform scale-95 transition-transform duration-300" id="create-staff-inner">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div>
+        <h3 class="text-lg font-black text-slate-900">Create Staff Account</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Creates a role-specific staff login. Share credentials privately.</p>
+      </div>
+      <button id="close-staff-modal" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Full Name</label>
+        <input id="staff-name" type="text" placeholder="e.g. Rahul Sharma" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all"/>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Email Address</label>
+        <input id="staff-email" type="email" placeholder="employee@company.com" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all"/>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Role</label>
+        <select id="staff-role" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 transition-all">
+          <option value="Employee 1">Employee 1 · Virtual Verifier</option>
+          <option value="Employee 2">Employee 2 · Field Agent</option>
+          <option value="Admin">Admin</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Password</label>
+        <input id="staff-password" type="password" placeholder="Min. 8 characters" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all"/>
+      </div>
+      <button id="submit-staff-btn" class="w-full bg-slate-900 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-colors mt-2">
+        Create Account
+      </button>
+    </div>
+  </div>
+</div>
 <!-- Remarks Modal -->
 <div id="remarks-modal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/50 backdrop-blur-sm">
   <div class="bg-surface-container-lowest rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-outline-variant animate-fade-in">

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee 1 Dashboard · EstatePro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script type="module" src="/auth.js"></script>
+  <script type="module" src="/employee-workflow.js"></script>
+  <style>
+    #listing-modal-map { height:220px; width:100%; border-radius:12px; border:1px solid #e2e8f0; margin-top:8px; z-index:1; }
+  </style>
+</head>
+<body data-employee-type="Employee 1" class="estate-admin-theme bg-background text-on-background font-body-md text-body-md antialiased min-h-screen font-['Outfit']">
+  <div class="min-h-screen md:pl-64">
+    <aside class="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 md:flex">
+      <a href="/employee-1.html" class="mb-8 flex items-center gap-3 rounded-xl px-2 py-3">
+        <span class="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-on-primary">real_estate_agent</span>
+        <span><strong class="block text-lg font-bold text-slate-900">EstatePro</strong><small class="text-xs text-slate-500">Employee workspace</small></span>
+      </a>
+      <a href="#overview" class="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200"><span class="material-symbols-outlined text-xl">dashboard</span>Overview</a>
+      <a href="#my-listings" class="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"><span class="material-symbols-outlined text-xl">apartment</span>My Listings</a>
+      <div class="mt-auto border-t border-slate-200 pt-4">
+        <div class="mb-3 truncate px-3 text-sm font-semibold text-slate-700" id="staff-name">Employee 1</div>
+        <button onclick="window.logout()" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"><span class="material-symbols-outlined text-xl">logout</span>Sign out</button>
+      </div>
+    </aside>
+
+    <main id="overview" class="mx-auto max-w-7xl px-5 py-7 sm:px-8 lg:px-10">
+      <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div><p class="text-xs font-semibold uppercase tracking-[.18em] text-slate-400">Employee workspace</p><h1 data-page-heading class="mt-1 text-3xl font-semibold tracking-tight text-slate-900">Employee 1 Dashboard</h1><p class="mt-1 text-sm text-slate-500">Create listings and follow their review, field verification, and approval status.</p></div>
+        <button type="button" data-create-listing class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-on-primary shadow-sm transition hover:opacity-90"><span class="material-symbols-outlined text-xl">add</span>Create Listing</button>
+      </header>
+
+      <div id="workflow-feedback" class="mb-6 hidden rounded-lg p-3 text-sm font-semibold"></div>
+
+      <section aria-label="Listing summary" class="mb-9 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-center justify-between"><span class="text-sm font-medium text-slate-500">Listings in my workflow</span><span class="material-symbols-outlined text-slate-400">home_work</span></div><p id="employee1-total" class="mt-4 text-3xl font-semibold tracking-tight text-slate-900">—</p></article>
+        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-center justify-between"><span class="text-sm font-medium text-slate-500">Sent to field verification</span><span class="material-symbols-outlined text-emerald-600">task_alt</span></div><p id="employee1-approved" class="mt-4 text-3xl font-semibold tracking-tight text-slate-900">—</p></article>
+        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-center justify-between"><span class="text-sm font-medium text-slate-500">In review</span><span class="material-symbols-outlined text-amber-600">pending_actions</span></div><p id="employee1-pending" class="mt-4 text-3xl font-semibold tracking-tight text-slate-900">—</p></article>
+        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-center justify-between"><span class="text-sm font-medium text-slate-500">Not approved</span><span class="material-symbols-outlined text-rose-600">cancel</span></div><p id="employee1-rejected" class="mt-4 text-3xl font-semibold tracking-tight text-slate-900">—</p></article>
+      </section>
+
+      <section class="mb-9 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-200 px-5 py-5 sm:px-6"><h2 class="text-xl font-semibold text-slate-900">Assigned for Virtual Verification</h2><p class="mt-1 text-sm text-slate-500">Broker listings assigned to you. Approving sends the listing to an Employee 2 field agent.</p></div>
+        <div id="listing-queue" class="divide-y divide-slate-100"><div class="p-8 text-center text-slate-500">Loading assigned listings…</div></div>
+      </section>
+
+      <section id="my-listings" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-5 sm:px-6"><div><h2 class="text-xl font-semibold text-slate-900">My Listings</h2><p class="mt-1 text-sm text-slate-500">Current status and field verification for listings you submitted.</p></div><button type="button" data-create-listing class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><span class="material-symbols-outlined text-lg">add</span>Add listing</button></div>
+        <div id="employee1-listings" class="divide-y divide-slate-100"><div class="p-8 text-center text-slate-500">Loading your listings…</div></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
