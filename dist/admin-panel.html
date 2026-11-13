@@ -11,9 +11,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 
 
-  <script type="module" crossorigin src="/assets/adminPanel-CWzSoLlb.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/auth-CdZ_Ku1e.js">
-  <link rel="stylesheet" crossorigin href="/assets/style-c5TlMRur.css">
+  <script type="module" crossorigin src="/assets/adminPanel-CDqq_0AH.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/auth-DQ9kNLxK.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-BOH4RMcm.css">
 </head>
 <body class="estate-admin-theme bg-background text-on-background font-body-md antialiased flex flex-col md:flex-row min-h-screen">
 <!-- Mobile Sidebar Backdrop -->
@@ -38,13 +38,9 @@
 <span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
                 Overview
             </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/properties.html">
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-listings.html">
 <span class="material-symbols-outlined text-[20px]" data-icon="domain">domain</span>
                 Listings
-            </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/properties.html">
-<span class="material-symbols-outlined text-[20px]" data-icon="person_search">person_search</span>
-                Leads
             </a>
 <a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html">
 <span class="material-symbols-outlined text-[20px]" data-icon="insights">insights</span>
@@ -155,7 +151,7 @@
 </div>
 </div>
 <!-- Section 2: User Management Table -->
-<div class="col-span-12 mb-stack-lg">
+<div class="col-span-12 mb-stack-lg" id="users">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col h-full">
 <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
 <h3 class="font-h3 text-h3 text-on-background">User Management</h3>
@@ -196,9 +192,9 @@ Loading platform user profiles...
 </div>
 </div>
 <!-- Section 3: Split View (Listings Moderation & Platform Breakdown) -->
-<div class="col-span-12 lg:col-span-7 flex flex-col gap-gutter">
+<div class="col-span-12 lg:col-span-7 flex min-w-0 flex-col gap-gutter">
 <!-- Listings Moderation Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col flex-1">
+<div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
 <div class="p-stack-md border-b border-outline-variant flex items-center justify-between">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface-variant">real_estate_agent</span>
@@ -212,10 +208,12 @@ Loading platform user profiles...
   <button class="status-filter-tab px-3 py-1.5 text-xs font-bold rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" data-status="Active">Active</button>
   <button class="status-filter-tab px-3 py-1.5 text-xs font-bold rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" data-status="Flagged">Flagged</button>
 </div>
-<div class="p-stack-md flex flex-col gap-stack-sm flex-1" id="listings-moderation-list">
+<div class="p-stack-md grid min-w-0 grid-cols-1 gap-stack-sm" id="listings-moderation-list">
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading recent listings...</div>
+</div>
+</div>
 <!-- Reported Issues Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col flex-1 mt-6">
+<div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
   <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-on-surface-variant">report</span>
@@ -243,12 +241,10 @@ Loading platform user profiles...
   </div>
 </div>
 </div>
-</div>
-</div>
 
-<div class="col-span-12 lg:col-span-5 flex flex-col gap-gutter">
+<div class="col-span-12 lg:col-span-5 flex min-w-0 flex-col items-start gap-gutter">
 <!-- Platform Breakdown Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col h-full">
+<div class="h-fit w-full self-start overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
 <div class="p-stack-md border-b border-outline-variant flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface-variant">analytics</span>
 <h3 class="font-h3 text-h3 text-on-background">Platform Breakdown</h3>
@@ -256,6 +252,7 @@ Loading platform user profiles...
 <div class="p-stack-md flex flex-col gap-stack-lg" id="platform-breakdown-container">
 <!-- Will be populated dynamically -->
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading composition...</div>
+</div>
 </div>
 </div>
 </div>

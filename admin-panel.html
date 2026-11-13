@@ -37,17 +37,13 @@
 <span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
                 Overview
             </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/properties.html">
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-listings.html">
 <span class="material-symbols-outlined text-[20px]" data-icon="domain">domain</span>
                 Listings
             </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/properties.html">
-<span class="material-symbols-outlined text-[20px]" data-icon="person_search">person_search</span>
-                Leads
-            </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html">
-<span class="material-symbols-outlined text-[20px]" data-icon="insights">insights</span>
-                Analytics
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html#users">
+<span class="material-symbols-outlined text-[20px]" data-icon="group">group</span>
+                Users &amp; Brokers
             </a>
 <a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out flex justify-between" href="/admin-panel.html#listings-moderation-list">
 <div class="flex items-center gap-3">
@@ -55,10 +51,6 @@
                     Listing Workflow
                 </div>
 </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html">
-<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
-                Settings
-            </a>
 </nav>
 <!-- Footer Navigation -->
 <div class="mt-auto pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-1">
@@ -154,7 +146,7 @@
 </div>
 </div>
 <!-- Section 2: User Management Table -->
-<div class="col-span-12 mb-stack-lg">
+<div class="col-span-12 mb-stack-lg" id="users">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col h-full">
 <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
 <h3 class="font-h3 text-h3 text-on-background">User Management</h3>
@@ -318,6 +310,32 @@ function showAdminToast(msg, isError = false) {
   setTimeout(() => t.style.transform = 'translateX(-50%) translateY(80px)', 3000);
 }
 
+function withAdminDeadline(request, label, ms = 15000) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(request),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out. Check the connection and database access, then retry.`)), ms);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+
+function showAdminDataError(message) {
+  const safeMessage = escHtml(message || 'Unable to load admin data.');
+  const userBody = document.getElementById('user-table-body');
+  if (userBody) userBody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-error">${safeMessage}</td></tr>`;
+  const breakdown = document.getElementById('platform-breakdown-container');
+  if (breakdown) breakdown.innerHTML = `<p class="py-8 text-center text-error">${safeMessage}</p>`;
+  const listings = document.getElementById('listings-moderation-list');
+  if (listings) listings.innerHTML = `<div class="text-center py-8 text-error text-sm">${safeMessage}</div>`;
+  const reports = document.getElementById('reports-table-body');
+  if (reports) reports.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-error">${safeMessage}</td></tr>`;
+  ['stat-total-users', 'stat-active-listings', 'stat-total-brokers', 'stat-total-inquiries'].forEach(id => {
+    const metric = document.getElementById(id);
+    if (metric) metric.textContent = 'Unavailable';
+  });
+}
+
 // Global relative time helper
 function getRelativeTime(isoString) {
   if (!isoString) return 'Never';
@@ -340,32 +358,31 @@ function getRelativeTime(isoString) {
 let session = null;
 let currentStatusFilter = 'All';
 async function checkAuth() {
-  const { data } = await supabase.auth.getSession();
-  session = data.session;
-  if (!session) {
-    window.navigateTo('login.html');
-    return;
-  }
-  
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', session.user.id)
-    .single();
+  try {
+    const { data, error: sessionError } = await withAdminDeadline(supabase.auth.getSession(), 'Session check');
+    if (sessionError) throw sessionError;
+    session = data.session;
+    if (!session) {
+      window.navigateTo('login.html');
+      return;
+    }
 
-  if (error || !profile || profile.role !== 'Admin') {
-    alert('Access Denied. You must be an authorized Administrator.');
-    await supabase.auth.signOut();
-    window.navigateTo('login.html');
-    return;
-  }
+    const { data: profile, error } = await withAdminDeadline(supabase
+      .from('profiles').select('role').eq('id', session.user.id).single(), 'Admin access check');
+    if (error) throw error;
+    if (!profile || profile.role !== 'Admin') {
+      alert('Access Denied. You must be an authorized Administrator.');
+      await supabase.auth.signOut();
+      window.navigateTo('login.html');
+      return;
+    }
 
-  // Initialize page
-  loadStats();
-  loadUsers();
-  setupFilterTabs();
-  loadListingsModeration();
-  loadReports();
+    setupFilterTabs();
+    await Promise.all([loadStats(), loadUsers(), loadListingsModeration(), loadReports()]);
+  } catch (error) {
+    console.error('Admin page initialization failed:', error);
+    showAdminDataError(error.message);
+  }
 }
 
 function setupFilterTabs() {
@@ -397,40 +414,42 @@ window.logout = async () => {
 
 // 1. Stats Loading
 async function loadStats() {
-  try {
-    const [
-      { count: totalUsers },
-      { count: activeListings },
-      { count: totalBrokers },
-      { count: totalInquiries }
-    ] = await Promise.all([
-      supabase.from('profiles').select('id', { count: 'exact', head: true }),
-      supabase.from('listings').select('*', { count: 'exact', head: true }),
-      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'Broker'),
-      supabase.from('inquiries').select('*', { count: 'exact', head: true })
-    ]);
-
-    document.getElementById('stat-total-users').textContent = Number(totalUsers || 0).toLocaleString();
-    document.getElementById('stat-active-listings').textContent = Number(activeListings || 0).toLocaleString();
-    document.getElementById('stat-total-brokers').textContent = Number(totalBrokers || 0).toLocaleString();
-    document.getElementById('stat-total-inquiries').textContent = Number(totalInquiries || 0).toLocaleString();
-
-    document.getElementById('active-listings-badge').textContent = `${activeListings || 0} Active`;
-  } catch (err) {
-    console.error("Failed to load statistics:", err);
-  }
+  const specs = [
+    ['stat-total-users', supabase.from('profiles').select('id', { count: 'exact', head: true })],
+    ['stat-active-listings', supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'Active')],
+    ['stat-total-brokers', supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'Broker')],
+    ['stat-total-inquiries', supabase.from('inquiries').select('id', { count: 'exact', head: true })]
+  ];
+  const results = await Promise.allSettled(specs.map(([id, request]) => withAdminDeadline(request, id)));
+  results.forEach((result, index) => {
+    const [id] = specs[index];
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (result.status === 'fulfilled' && !result.value.error) {
+      el.textContent = Number(result.value.count || 0).toLocaleString();
+      if (id === 'stat-active-listings') document.getElementById('active-listings-badge').textContent = `${result.value.count || 0} Active`;
+    } else {
+      const error = result.status === 'rejected' ? result.reason : result.value.error;
+      console.error(`Failed to load ${id}:`, error);
+      el.textContent = 'Unavailable';
+    }
+  });
 }
 
 // 2. User Management Loading and Search
 let allUsers = [];
 async function loadUsers() {
-  const { data, error } = await supabase
+  const { data, error } = await withAdminDeadline(supabase
     .from('profiles')
     .select('id, full_name, email, role, employee_type, updated_at')
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false }), 'User accounts').catch(error => ({ data: null, error }));
 
   if (error) {
     console.error(error);
+    const tbody = document.getElementById('user-table-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-error">Could not load user accounts: ${escHtml(error.message)}</td></tr>`;
+    const breakdown = document.getElementById('platform-breakdown-container');
+    if (breakdown) breakdown.innerHTML = `<p class="py-8 text-center text-error">Could not load platform composition.</p>`;
     return;
   }
 
@@ -604,17 +623,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const remarksToSend = remarks || 'No remarks provided.';
-        const { error } = await supabase
-          .from('listings')
-          .update({ status: newStatus })
-          .eq('id', id);
+        const { error } = await supabase.rpc('admin_update_listing_status', {
+          p_listing_id: id,
+          p_new_status: newStatus,
+          p_reason: remarksToSend
+        });
 
         if (error) throw error;
-
-        // Log the change
-        if (window.logListingStatusChange) {
-          await window.logListingStatusChange(id, oldStatus, newStatus, remarksToSend);
-        }
 
         // Send notification
         if (window.sendBrokerNotification) {
@@ -642,12 +657,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 4. Property Listings Moderation Queue
 async function loadListingsModeration() {
-  const { data: staff, error: staffError } = await supabase
+  const container = document.getElementById('listings-moderation-list');
+  const { data: staff, error: staffError } = await withAdminDeadline(supabase
       .from('profiles')
       .select('id, full_name, role, employee_type')
     .in('role', ['Employee', 'Admin'])
-      .order('full_name');
-  if (staffError) console.error("Failed to load staff list:", staffError.message);
+      .order('full_name'), 'Reviewer list').catch(error => ({ data: null, error }));
+  if (staffError) {
+    container.innerHTML = `<div class="text-center py-8 text-error text-sm">Could not load reviewers: ${escHtml(staffError.message)}</div>`;
+    return;
+  }
   const staffList = staff || [];
 
   let query = supabase.from('listings').select('*').order('created_at', { ascending: false });
@@ -655,10 +674,12 @@ async function loadListingsModeration() {
     query = query.eq('status', currentStatusFilter);
   }
 
-  const { data: listings, error } = await query.limit(20);
-
-  const container = document.getElementById('listings-moderation-list');
-  if (error || !listings || listings.length === 0) {
+  const { data: listings, error } = await withAdminDeadline(query.limit(20), 'Listing moderation queue').catch(error => ({ data: null, error }));
+  if (error) {
+    container.innerHTML = `<div class="text-center py-8 text-error text-sm">Could not load listings: ${escHtml(error.message)}</div>`;
+    return;
+  }
+  if (!listings || listings.length === 0) {
     container.innerHTML = `
       <div class="text-center py-8 text-on-surface-variant text-sm">
         No property listings available with status "${currentStatusFilter}".
@@ -933,13 +954,13 @@ function escHtml(str) {
 
 async function loadReports() {
   try {
-    const { data: reports, error } = await supabase
+    const { data: reports, error } = await withAdminDeadline(supabase
         .from('reports')
         .select(`
             *,
             profiles:reporter_id (full_name, role)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }), 'Reported issues');
 
     const tbody = document.getElementById('reports-table-body');
     const badge = document.getElementById('pending-reports-badge');
@@ -967,10 +988,12 @@ async function loadReports() {
         return;
     }
 
-    const [{ data: listings }, { data: profiles }] = await Promise.all([
-        supabase.from('listings').select('id, title'),
-        supabase.from('profiles').select('id, full_name')
+    const [{ data: listings, error: listingsError }, { data: profiles, error: profilesError }] = await Promise.all([
+        withAdminDeadline(supabase.from('listings').select('id, title'), 'Reported listing names'),
+        withAdminDeadline(supabase.from('profiles').select('id, full_name'), 'Report profile names')
     ]);
+    if (listingsError) throw listingsError;
+    if (profilesError) throw profilesError;
 
     const listingsMap = {};
     if (listings) listings.forEach(l => listingsMap[l.id] = l.title);
@@ -1102,6 +1125,8 @@ async function loadReports() {
     });
   } catch (err) {
     console.error(err);
+    const tbody = document.getElementById('reports-table-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-error">Could not load reports: ${escHtml(err.message)}</td></tr>`;
   }
 }
 

@@ -718,7 +718,7 @@ const roleHomePage = {
 };
 
 const roleAllowedPages = {
-    'Admin':    ['admin-panel.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
+    'Admin':    ['admin-panel.html', 'admin-listings.html', 'admin-listing-detail.html', 'broker-dashboard.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
     'Employee 1': ['employee-1.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
     'Employee 2': ['employee-2.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
     'Broker':   ['broker-dashboard.html', 'sell.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'],
@@ -4485,7 +4485,8 @@ async function initBuyerSearchPage() {
         maxZoom: 19
     }).addTo(map);
 
-    setTimeout(() => map.invalidateSize(), 300);
+    const mapSizeObserver = new ResizeObserver(() => map.invalidateSize({ pan: false }));
+    mapSizeObserver.observe(mapContainer);
 
     // Coordinate mapping for listings missing exact lat/lng
     const defaultCoordsMap = {
@@ -6149,13 +6150,14 @@ async function initBuyerDetailsPage() {
                     return;
                 }
 
+                const lastName = document.getElementById('buyer-last-name')?.value?.trim() || '';
+                const fullName = `${firstName} ${lastName}`.trim();
                 if (window.hasProfanity && (window.hasProfanity(firstName) || window.hasProfanity(fullName) || window.hasProfanity(message))) {
                     showToast('WARNING: Swearing is strictly prohibited! Please remove all offensive language to proceed.', 'profanity');
                     return;
                 }
 
                 const phone = document.getElementById('buyer-phone')?.value?.trim();
-                const fullName = `${firstName} ${document.getElementById('buyer-last-name')?.value || ''}`.trim();
                 const type = document.getElementById('inquiry-type')?.value || 'Inquiry';
                 const finalMessage = phone ? `${message} (Contact: ${phone})` : message;
 
@@ -6165,7 +6167,8 @@ async function initBuyerDetailsPage() {
                     type: type,
                     read: false,
                     listing_id: l.id,
-                    broker_id: l.broker_id
+                    broker_id: l.broker_id,
+                    buyer_id: user?.id || null
                 }]);
 
                 if (error) {
@@ -6453,7 +6456,7 @@ window.initBrokerChat = async function initBrokerChat() {
 
     const { data: messages, error } = await supabase
         .from('messages')
-        .select('buyer_id, listing_id, created_at')
+        .select('buyer_id, broker_id, listing_id, created_at')
         .eq('broker_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -6462,9 +6465,26 @@ window.initBrokerChat = async function initBrokerChat() {
         return;
     }
 
+    // An inquiry is the start of a conversation even before either side sends
+    // a chat message. Include only inquiries assigned to this broker.
+    const { data: inquiries, error: inquiryError } = await supabase
+        .from('inquiries')
+        .select('buyer_id, broker_id, listing_id, created_at')
+        .eq('broker_id', user.id)
+        .not('buyer_id', 'is', null)
+        .order('created_at', { ascending: false });
+
+    if (inquiryError) {
+        console.error('Unable to load inquiry conversations:', inquiryError);
+    }
+
     const uniqueMap = new Map();
+    (inquiries || []).forEach(inquiry => {
+        const key = `${inquiry.buyer_id}-${inquiry.broker_id}-${inquiry.listing_id}`;
+        uniqueMap.set(key, inquiry);
+    });
     messages?.forEach(m => {
-        const key = `${m.buyer_id}-${m.listing_id}`;
+        const key = `${m.buyer_id}-${m.broker_id}-${m.listing_id}`;
         if (!uniqueMap.has(key)) {
             uniqueMap.set(key, m);
         }
@@ -6846,23 +6866,43 @@ async function ajaxLoadPage(url, replaceState = false) {
 async function syncHead(parsedDoc) {
     const currentHead = document.head;
     const newHead = parsedDoc.head;
+    const loadPromises = [];
 
-    // 1. Sync Stylesheets
+    // Sync stylesheets before revealing the incoming page. Without waiting here,
+    // the new body can paint once with only the previous page's CSS.
     const newStylesheets = Array.from(newHead.querySelectorAll('link[rel="stylesheet"]'));
     newStylesheets.forEach(link => {
         const href = link.getAttribute('href');
-        if (href && !currentHead.querySelector(`link[href="${href}"]`)) {
+        const existingLink = href && Array.from(currentHead.querySelectorAll('link[rel="stylesheet"]'))
+            .find(currentLink => currentLink.getAttribute('href') === href);
+        if (existingLink && !existingLink.sheet) {
+            loadPromises.push(new Promise(resolve => {
+                existingLink.addEventListener('load', resolve, { once: true });
+                existingLink.addEventListener('error', resolve, { once: true });
+            }));
+        } else if (href && !existingLink) {
             const newLink = document.createElement('link');
             Array.from(link.attributes).forEach(attr => {
                 newLink.setAttribute(attr.name, attr.value);
             });
+            const promise = new Promise(resolve => {
+                newLink.addEventListener('load', resolve, { once: true });
+                newLink.addEventListener('error', resolve, { once: true });
+            });
+            loadPromises.push(promise);
             currentHead.appendChild(newLink);
         }
     });
 
-    // 2. Load and wait for external scripts in the head (excluding auth.js)
+    // Page-level styles are part of the fetched document too. Replace only the
+    // tagged page styles, preserving app-wide styles injected by auth.js.
+    currentHead.querySelectorAll('style[data-page-styles]').forEach(style => style.remove());
+    newHead.querySelectorAll('style[data-page-styles]').forEach(style => {
+        currentHead.appendChild(style.cloneNode(true));
+    });
+
+    // Load and wait for external scripts in the head (excluding auth.js)
     const newScripts = Array.from(newHead.querySelectorAll('script[src]'));
-    const loadPromises = [];
 
     newScripts.forEach(script => {
         const src = script.getAttribute('src');
@@ -6944,9 +6984,9 @@ document.addEventListener('click', (e) => {
     const targetUrl = new URL(href, window.location.href);
     if (targetUrl.origin !== window.location.origin) return;
 
-    // Login pages rely on page-specific inline styles and module initialization.
-    // Load them as full documents so they are ready on first navigation.
-    if (/\/(?:login|staff-login|signup)(?:\.html)?\/?$/i.test(targetUrl.pathname)) return;
+    // These pages use page-specific head styles and module entry points. Load
+    // them as full documents so their styles and data scripts get normal browser lifecycle.
+    if (/\/(?:login|staff-login|signup|admin-panel|admin-listings|admin-listing-detail)(?:\.html)?\/?$/i.test(targetUrl.pathname)) return;
 
     e.preventDefault();
     ajaxLoadPage(targetUrl.href);
@@ -7299,5 +7339,4 @@ window.logListingStatusChange = logListingStatusChange;
 window.sendBrokerNotification = sendBrokerNotification;
 window.updateSidebarNotificationsBadge = updateSidebarNotificationsBadge;
 window.initNotificationsManager = initNotificationsManager;
-
 
