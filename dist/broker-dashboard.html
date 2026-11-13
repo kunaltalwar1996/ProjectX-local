@@ -39,9 +39,51 @@
   .location-result-item:hover {
     background-color: #f8fafc;
   }
+  @media (max-width: 1023px) {
+    #tab-messages {
+      height: calc(100dvh - 130px);
+      min-height: 300px;
+    }
+    #tab-messages > header { display: none; }
+    #tab-messages > section {
+      flex-direction: column;
+      min-height: 0;
+    }
+    #chat-list-panel {
+      width: 100%;
+      min-height: 0;
+      border-right: 0;
+    }
+    #chat-list {
+      min-height: 0;
+    }
+    #chat-area-panel {
+      display: none !important;
+      width: 100%;
+      min-height: 0;
+    }
+    #chat-messages {
+      min-height: 0;
+    }
+    #tab-messages.chat-thread-open #chat-list-panel {
+      display: none !important;
+    }
+    #tab-messages.chat-thread-open #chat-area-panel {
+      display: flex !important;
+    }
+  }
+  @media (max-width: 767px) {
+    main:has(#tab-messages:not(.hidden)) {
+      padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+    }
+    #tab-messages {
+      height: calc(100dvh - 200px);
+      min-height: 220px;
+    }
+  }
 </style>
-  <script type="module" crossorigin src="/assets/auth-DQ9kNLxK.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/style-BOH4RMcm.css">
+  <script type="module" crossorigin src="/assets/auth-Ccq06AyR.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/style-B5qmhIPF.css">
 </head>
 <body class="estate-admin-theme bg-background text-on-background font-body-md text-body-md antialiased min-h-screen flex flex-col md:flex-row">
 <!-- Mobile Sidebar Backdrop -->
@@ -407,7 +449,7 @@
         <section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col md:flex-row flex-1 overflow-hidden min-h-[500px]">
             <!-- Chat List Sidebar -->
             <div class="w-full md:w-1/3 border-r border-outline-variant flex flex-col bg-slate-50 md:max-h-none" id="chat-list-panel">
-                <div class="p-4 border-b border-outline-variant font-bold text-slate-700 bg-white">Conversations</div>
+                <div class="px-4 py-3 border-b border-outline-variant font-semibold text-sm text-slate-700 bg-white">Conversations</div>
                 <div id="chat-list" class="flex-1 overflow-y-auto">
                     <!-- Injected by JS -->
                 </div>
@@ -541,35 +583,22 @@
     const desktopBadge = document.getElementById('unread-messages-badge');
     if (desktopBadge) observer.observe(desktopBadge, { attributes: true, attributeFilter: ['class'] });
 
-    // On mobile, tapping a chat conversation shows the chat area and hides the list
+    // On phones and tablets, show one pane at a time for a familiar chat flow.
     document.addEventListener('click', (e) => {
       const card = e.target.closest('#chat-list .cursor-pointer');
       if (!card) return;
-      const isMobile = window.innerWidth < 768;
-      if (!isMobile) return;
-      const listPanel = document.getElementById('chat-list-panel');
-      const chatPanel = document.getElementById('chat-area-panel');
-      if (listPanel && chatPanel) {
-        listPanel.classList.add('hidden');
-        chatPanel.classList.remove('hidden');
-        chatPanel.classList.add('flex');
-      }
+      if (window.innerWidth >= 1024) return;
+      document.getElementById('tab-messages')?.classList.add('chat-thread-open');
     });
 
-    // Back button in chat header on mobile
+    // Back button in the chat header returns to the conversation list.
     const chatHeader = document.getElementById('chat-header');
     if (chatHeader) {
       const backBtn = document.createElement('button');
-      backBtn.className = 'md:hidden mr-2 text-slate-500 hover:text-slate-900 flex items-center';
+      backBtn.className = 'broker-chat-back mr-2 text-slate-500 hover:text-slate-900 flex items-center lg:hidden';
       backBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">arrow_back</span>';
       backBtn.onclick = () => {
-        const listPanel = document.getElementById('chat-list-panel');
-        const chatPanel = document.getElementById('chat-area-panel');
-        if (listPanel && chatPanel) {
-          listPanel.classList.remove('hidden');
-          chatPanel.classList.add('hidden');
-          chatPanel.classList.remove('flex');
-        }
+        document.getElementById('tab-messages')?.classList.remove('chat-thread-open');
       };
       chatHeader.prepend(backBtn);
     }

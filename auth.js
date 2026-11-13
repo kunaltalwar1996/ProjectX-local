@@ -102,6 +102,7 @@ if (isSharedFilterRoute) {
 let userRole = localStorage.getItem('role');
 let isLoginPage = currentPage === 'login.html' || currentPage === 'staff-login.html' || currentPage === 'signup.html';
 let activeInquiryId = null;
+let activeInquiryRecord = null;
 let updateHeaderVisibility = null;
 let referrerId = null;
 let uploadedMedia = [];
@@ -308,7 +309,7 @@ function ensureHamburgerTrigger() {
 
     btn.type = 'button';
     btn.id = 'hamburger-btn';
-    btn.className = 'md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors';
+    btn.className = 'lg:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors';
     btn.setAttribute('aria-label', 'Open menu');
     btn.setAttribute('aria-controls', 'mobile-menu');
     btn.setAttribute('aria-expanded', isMegaMenuOpen() ? 'true' : 'false');
@@ -335,12 +336,12 @@ function ensureMegaMenuDrawer() {
 
     const backdrop = document.createElement('div');
     backdrop.id = 'mobile-menu-backdrop';
-    backdrop.className = 'fixed inset-0 bg-slate-900/50 z-[60] hidden opacity-0 transition-opacity duration-300 md:hidden';
+    backdrop.className = 'fixed inset-0 bg-slate-900/50 z-[60] hidden opacity-0 transition-opacity duration-300 lg:hidden';
     backdrop.addEventListener('click', toggleMobileMenu);
 
     const menu = document.createElement('nav');
     menu.id = 'mobile-menu';
-    menu.className = 'fixed right-0 top-0 bottom-0 w-64 bg-white z-[70] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col p-6 md:hidden';
+    menu.className = 'fixed right-0 top-0 bottom-0 w-64 bg-white z-[70] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col p-6 lg:hidden';
     menu.setAttribute('aria-label', 'Menu');
     menu.innerHTML = `
         <div class="flex items-center justify-between mb-8">
@@ -385,7 +386,7 @@ function initGuestBuyerMegaMenu() {
         Array.from(row.children).forEach(child => {
             if (child.id === 'hamburger-btn') return;
             if (child.classList.contains('items-center') && child.classList.contains('gap-4')) {
-                child.classList.add('hidden', 'md:flex');
+                child.classList.add('hidden', 'lg:flex');
             }
         });
     }
@@ -705,7 +706,7 @@ window.hasProfanity = hasProfanity;
 
 // ─── Route Maps ───────────────────────────────────────────────────────────────
 
-const buyerPages = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html'];
+const buyerPages = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'profile.html', 'shared-filter.html', 'chats.html'];
 const guestPages  = ['index.html', 'properties.html', 'map.html', 'search.html', 'property-details.html', 'shared-filter.html'];
 
 const roleHomePage = {
@@ -1290,6 +1291,10 @@ function initAppPage() {
             } else if (currentRole === 'Buyer') {
                 if (isMobileContainer) {
                     container.innerHTML = `
+                        <a id="buyer-chats-link-mobile" href="${window.toAppUrl('chats.html')}" class="hidden w-full text-center border border-slate-200 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors uppercase tracking-wider items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">chat</span>
+                            Chats
+                        </a>
                         <a href="${window.toAppUrl('profile.html')}" class="w-full text-center border border-slate-200 text-slate-700 px-5 py-3 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors uppercase tracking-wider flex items-center justify-center gap-2">
                             <span class="material-symbols-outlined text-[18px]">account_circle</span>
                             Profile
@@ -1301,6 +1306,9 @@ function initAppPage() {
                     `;
                 } else {
                     container.innerHTML = `
+                        <a id="buyer-chats-link" href="${window.toAppUrl('chats.html')}" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" aria-label="Chats" title="Chats">
+                            <span class="material-symbols-outlined text-[24px]">chat</span>
+                        </a>
                         <button onclick="window.location.href=window.toAppUrl('profile.html')" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" title="Signed in as Buyer — Go to Profile">
                             <span class="material-symbols-outlined text-[24px]">account_circle</span>
                         </button>
@@ -1491,6 +1499,7 @@ function initAppPage() {
             if (targetEl) {
                 targetEl.classList.remove('hidden');
                 if (targetId === 'tab-messages') {
+                    targetEl.classList.remove('chat-thread-open');
                     targetEl.classList.add('flex');
                     if (typeof initBrokerChat === 'function') initBrokerChat();
                 } else {
@@ -1684,8 +1693,8 @@ function initAppPage() {
                         if (msg.sender_id !== user.id) {
                             // 1. Check if the broker is currently actively chatting in this exact viewport
                             const isActivelyChatting = currentChatConversation &&
-                                currentChatConversation.buyerId === msg.buyer_id &&
-                                currentChatConversation.listingId === msg.listing_id &&
+                                String(currentChatConversation.buyerId) === String(msg.buyer_id) &&
+                                String(currentChatConversation.listingId) === String(msg.listing_id) &&
                                 !document.getElementById('tab-messages').classList.contains('hidden');
 
                             if (!isActivelyChatting) {
@@ -3025,6 +3034,7 @@ async function openInquiry(id) {
     document.getElementById('inquiry-modal-time').textContent = new Date(inquiry.created_at).toLocaleTimeString();
     document.getElementById('inquiry-modal-reply').value = inquiry.broker_reply || '';
     activeInquiryId = id;
+    activeInquiryRecord = inquiry;
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -3101,12 +3111,18 @@ function injectInquiryModal() {
                 showToast('WARNING: Swearing is strictly prohibited! Please remove all offensive language to proceed.', 'profanity');
                 return;
             }
-            const { error } = await supabase.from('inquiries').update({ broker_reply: reply, read: true }).eq('id', activeInquiryId);
-            if (error) {
-                showToast('Error sending reply: ' + error.message);
-            } else {
+            const inquiry = activeInquiryRecord;
+            const { data: { user: brokerUser } = {} } = await supabase.auth.getUser();
+            if (!inquiry || !brokerUser) return showToast('Could not verify this inquiry. Please reopen it.');
+            const { data: conversationId, error } = await supabase.rpc('broker_reply_to_inquiry', {
+                p_inquiry_id: String(activeInquiryId),
+                p_reply: reply
+            });
+            if (error) showToast('Could not send reply: ' + error.message);
+            else {
                 await renderInquiries();
-                showToast('Reply sent to buyer.');
+                if (conversationId) await window.initBrokerChat?.();
+                showToast(inquiry.buyer_id ? 'Reply sent. Chat is now available to the buyer.' : 'Reply saved to this guest inquiry.');
             }
         });
     }
@@ -3917,7 +3933,10 @@ window.testCustomFilter = testCustomFilter;
 function initBuyerPageInteractions() {
     wireCommonLinks();
 
-    if (currentPage === 'index.html') {
+    if (currentPage === 'chats.html') {
+        initBuyerChatsPage();
+    } else if (currentPage === 'index.html') {
+        initGuestBuyerMegaMenu();
         initBuyerHomePage();
     } else if (currentPage === 'search.html') {
         initBuyerSearchPage();
@@ -3960,6 +3979,14 @@ function normalizeInternalLinks() {
 }
 
 async function initBuyerHomePage() {
+    const chatsLink = document.getElementById('buyer-chats-link');
+    const chatsLinkMobile = document.getElementById('buyer-chats-link-mobile');
+    const isBuyerSignedIn = localStorage.getItem('role') === 'Buyer';
+    [chatsLink, chatsLinkMobile].forEach(link => {
+        if (!link) return;
+        link.classList.toggle('hidden', !isBuyerSignedIn);
+        if (link === chatsLinkMobile) link.classList.toggle('flex', isBuyerSignedIn);
+    });
     // ── [Search Bar Navigation] ──
     const searchInput = document.getElementById('location-search');
     const searchBtn = document.getElementById('search-btn');
@@ -6205,19 +6232,22 @@ async function initBuyerDetailsPage() {
     const role = localStorage.getItem('role');
     
     const form = document.getElementById('buyer-inquiry-form');
-    const chatSection = document.getElementById('buyer-chat-section');
     const submitBtn = document.getElementById('contact-agent-btn');
-
-    if (user && role === 'Buyer') {
-        if (form) form.classList.add('hidden');
-        if (chatSection) {
-            chatSection.classList.remove('hidden');
-            chatSection.classList.add('flex');
-            initBuyerChat(user.id, l.broker_id, l.id, brokerName);
-        }
-    } else {
-        // Fallback to inquiry form for guests/others
-        if (form && submitBtn) {
+    // First contact remains an inquiry for both signed-in buyers and guests.
+    // Chat is opened after the broker replies and creates a conversation.
+    if (form && submitBtn) {
+            if (user && role === 'Buyer') {
+                const { data: buyerProfile } = await supabase.from('profiles').select('full_name,email,phone').eq('id', user.id).maybeSingle();
+                const nameParts = (buyerProfile?.full_name || '').trim().split(/\s+/);
+                const first = document.getElementById('buyer-first-name');
+                const last = document.getElementById('buyer-last-name');
+                const emailInput = document.getElementById('buyer-email');
+                const phoneInput = document.getElementById('buyer-phone');
+                if (first && !first.value) first.value = nameParts[0] || '';
+                if (last && !last.value) last.value = nameParts.slice(1).join(' ');
+                if (emailInput && !emailInput.value) emailInput.value = buyerProfile?.email || user.email || '';
+                if (phoneInput && !phoneInput.value) phoneInput.value = buyerProfile?.phone || '';
+            }
             // Allow Enter key on text inputs (not textarea) to trigger submit
             ['buyer-first-name', 'buyer-last-name', 'buyer-email', 'buyer-phone'].forEach(id => {
                 const el = document.getElementById(id);
@@ -6253,7 +6283,7 @@ async function initBuyerDetailsPage() {
                     read: false,
                     listing_id: l.id,
                     broker_id: l.broker_id,
-                    buyer_id: user?.id || null
+                    buyer_id: user && role === 'Buyer' ? user.id : null
                 }]);
 
                 if (error) {
@@ -6263,7 +6293,6 @@ async function initBuyerDetailsPage() {
                     form.reset();
                 }
             };
-        }
     }
 }
 
@@ -6355,6 +6384,145 @@ async function initBuyerChat(buyerId, brokerId, listingId, brokerName = 'Broker'
                 window.renderMessage(payload.new, buyerId, msgsEl);
                 msgsEl.scrollTop = msgsEl.scrollHeight;
             }
+        })
+        .subscribe();
+}
+
+let buyerChatsChannel = null;
+async function initBuyerChatsPage() {
+    const list = document.getElementById('buyer-conversation-list');
+    const layout = document.getElementById('buyer-chat-layout');
+    const messagesEl = document.getElementById('buyer-chat-messages');
+    const header = document.getElementById('buyer-chat-header');
+    const input = document.getElementById('buyer-chat-page-input');
+    const send = document.getElementById('buyer-chat-page-send');
+    if (!list || !layout) return;
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user || localStorage.getItem('role') !== 'Buyer') { location.replace('/login.html'); return; }
+    list.innerHTML = '<div class="p-5 text-sm text-slate-500">Loading chats…</div>';
+    const { data: conversationRows, error } = await supabase.from('conversations')
+        .select('id,buyer_id,broker_id,listing_id,created_at,last_message_at,last_message_preview')
+        .eq('buyer_id', user.id).order('last_message_at', { ascending: false, nullsFirst: false });
+    if (error) { list.innerHTML = `<div class="p-5 text-sm text-red-600">Could not load chats: ${escHtml(error.message)}</div>`; return; }
+    const conversations = conversationRows || [];
+    const brokerIds = [...new Set(conversations.map(c => c.broker_id))];
+    const listingIds = [...new Set(conversations.map(c => c.listing_id))];
+    const [brokers, listings] = conversations.length ? await Promise.all([
+        fetchRelatedProfileIdentities(brokerIds),
+        supabase.from('listings').select('id,title,location').in('id', listingIds).then(r => r.data || [])
+    ]) : [[], []];
+    const brokerById = new Map((brokers || []).map(broker => [broker.id, broker]));
+    const listingById = new Map(listings.map(listing => [String(listing.id), listing]));
+    let active = null;
+    const open = async (c, broker, listing) => {
+        active = c;
+        layout.classList.add('thread-open');
+        header.innerHTML = `<button type="button" id="buyer-chat-back" class="buyer-chat-back hidden mr-1 text-slate-500 items-center" aria-label="Back to conversations"><span class="material-symbols-outlined">arrow_back</span></button><div class="min-w-0"><div class="font-semibold text-sm truncate">${escHtml(broker?.full_name || 'Broker')}</div><div class="text-xs text-slate-500 truncate">${escHtml(listing?.title || 'Property')} · ${escHtml(listing?.location || '')}</div></div>`;
+        document.getElementById('buyer-chat-back')?.addEventListener('click', () => layout.classList.remove('thread-open'));
+        activeChatNames[user.id] = 'You'; activeChatNames[c.broker_id] = broker?.full_name || 'Broker';
+        messagesEl.innerHTML = '<div class="text-center text-slate-500 mt-8">Loading messages…</div>';
+        input.disabled = true; send.disabled = true;
+        const { data: msgs, error: msgError } = await supabase.from('messages').select('*').eq('buyer_id', user.id).eq('broker_id', c.broker_id).eq('listing_id', c.listing_id).order('created_at', { ascending: true });
+        messagesEl.innerHTML = '';
+        if (msgError) messagesEl.innerHTML = `<div class="text-red-600 text-sm">Could not load messages: ${escHtml(msgError.message)}</div>`;
+        else if (!msgs?.length) messagesEl.innerHTML = '<div class="text-center text-slate-400 mt-8">No messages yet.</div>';
+        else msgs.forEach(m => window.renderMessage(m, user.id, messagesEl));
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        input.disabled = false; send.disabled = false; input.focus();
+        await supabase.from('conversations').update({ buyer_last_read_at: new Date().toISOString() }).eq('id', c.id);
+    };
+    const renderConversation = c => {
+        const broker = brokerById.get(c.broker_id);
+        const listing = listingById.get(String(c.listing_id));
+        const item = document.createElement('button');
+        item.type = 'button'; item.dataset.conversationId = c.id; item.dataset.brokerId = c.broker_id; item.dataset.listingId = c.listing_id; item.className = 'w-full text-left px-4 py-3 border-b border-slate-200 hover:bg-white focus:bg-white transition-colors';
+        const title = broker?.full_name || 'Broker';
+        item.innerHTML = `<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold">${escHtml(title.charAt(0).toUpperCase())}</div><div class="min-w-0 flex-1"><div class="font-semibold text-sm truncate">${escHtml(title)}</div><div class="text-xs text-slate-500 truncate">${escHtml(listing?.title || 'Property')}</div><div class="buyer-chat-preview text-xs text-slate-400 truncate mt-1">${escHtml(c.last_message_preview || 'Conversation started')}</div></div></div>`;
+        item.addEventListener('click', () => open(c, broker, listing));
+        return item;
+    };
+    list.innerHTML = '';
+    if (conversations.length) conversations.forEach(c => list.appendChild(renderConversation(c)));
+    else list.innerHTML = '<div class="buyer-chat-empty p-6 text-center text-sm text-slate-500">No conversations yet. Contact a broker from a property page to start a chat.</div>';
+    const sendMessage = async () => {
+        if (!active) return;
+        const content = input.value.trim();
+        if (!content || content.length > 4000) return;
+        if (window.hasProfanity && window.hasProfanity(content)) return showToast('Please remove offensive language before sending.', 'profanity');
+        input.disabled = true; send.disabled = true;
+        const { data: sentMessage, error: sendError } = await supabase.from('messages')
+            .insert({ buyer_id: user.id, broker_id: active.broker_id, listing_id: active.listing_id, sender_id: user.id, content })
+            .select('*').single();
+        if (sendError) showToast('Message could not be sent: ' + sendError.message);
+        else {
+            input.value = '';
+            if (!messagesEl.querySelector('[data-chat-message]')) messagesEl.innerHTML = '';
+            window.renderMessage(sentMessage, user.id, messagesEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            const item = list.querySelector(`[data-conversation-id="${active.id}"]`);
+            const preview = item?.querySelector('.buyer-chat-preview');
+            if (preview) preview.textContent = content.slice(0, 160);
+            if (item) list.prepend(item);
+        }
+        input.disabled = false; send.disabled = false; input.focus();
+    };
+    document.getElementById('buyer-chat-form')?.addEventListener('submit', e => { e.preventDefault(); sendMessage(); });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendMessage(); } });
+    if (buyerChatsChannel) supabase.removeChannel(buyerChatsChannel);
+    buyerChatsChannel = supabase.channel(`buyer_chats_${user.id}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations', filter: `buyer_id=eq.${user.id}` }, async payload => {
+            const c = payload.new;
+            if (list.querySelector(`[data-conversation-id="${c.id}"]`)) return;
+            const [newBrokers, listingResult] = await Promise.all([
+                fetchRelatedProfileIdentities([c.broker_id]),
+                supabase.from('listings').select('id,title,location').eq('id', c.listing_id).maybeSingle()
+            ]);
+            const broker = newBrokers?.find(p => p.id === c.broker_id);
+            if (broker) brokerById.set(broker.id, broker);
+            if (listingResult.data) listingById.set(String(listingResult.data.id), listingResult.data);
+            if (list.querySelector(`[data-conversation-id="${c.id}"]`)) return;
+            const item = renderConversation(c);
+            list.querySelector('.buyer-chat-empty')?.remove();
+            list.prepend(item);
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `buyer_id=eq.${user.id}` }, async payload => {
+            if (active && payload.new.broker_id === active.broker_id && String(payload.new.listing_id) === String(active.listing_id)) {
+                if (!messagesEl.querySelector('[data-chat-message]')) messagesEl.innerHTML = '';
+                window.renderMessage(payload.new, user.id, messagesEl); messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+            const item = Array.from(list.querySelectorAll('[data-conversation-id]'))
+                .find(row => row.dataset.brokerId === String(payload.new.broker_id)
+                    && row.dataset.listingId === String(payload.new.listing_id));
+            let conversationItem = item;
+            if (!conversationItem) {
+                const { data: conversation, error: conversationError } = await supabase.from('conversations')
+                    .select('id,buyer_id,broker_id,listing_id,created_at,last_message_at,last_message_preview')
+                    .eq('buyer_id', user.id).eq('broker_id', payload.new.broker_id)
+                    .eq('listing_id', payload.new.listing_id).maybeSingle();
+                if (conversationError) {
+                    console.error('Could not refresh buyer conversations:', conversationError);
+                    return;
+                }
+                if (conversation) {
+                    conversationItem = Array.from(list.querySelectorAll('[data-conversation-id]'))
+                        .find(row => row.dataset.brokerId === String(conversation.broker_id)
+                            && row.dataset.listingId === String(conversation.listing_id));
+                    if (!conversationItem) {
+                        const [newBrokers, listingResult] = await Promise.all([
+                            fetchRelatedProfileIdentities([conversation.broker_id]),
+                            supabase.from('listings').select('id,title,location').eq('id', conversation.listing_id).maybeSingle()
+                        ]);
+                        const broker = newBrokers?.find(profile => profile.id === conversation.broker_id);
+                        if (broker) brokerById.set(broker.id, broker);
+                        if (listingResult.data) listingById.set(String(listingResult.data.id), listingResult.data);
+                        conversationItem = renderConversation(conversation);
+                        list.querySelector('.buyer-chat-empty')?.remove();
+                    }
+                }
+            }
+            const preview = conversationItem?.querySelector('.buyer-chat-preview');
+            if (preview) preview.textContent = payload.new.content.slice(0, 160);
+            if (conversationItem) list.prepend(conversationItem);
         })
         .subscribe();
 }
@@ -6539,43 +6707,18 @@ window.initBrokerChat = async function initBrokerChat() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: messages, error } = await supabase
-        .from('messages')
-        .select('buyer_id, broker_id, listing_id, created_at')
+    const { data: conversations, error } = await supabase
+        .from('conversations')
+        .select('id,buyer_id,broker_id,listing_id,created_at,last_message_at,last_message_preview')
         .eq('broker_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('last_message_at', { ascending: false, nullsFirst: false });
 
     if (error) {
         listEl.innerHTML = `<div class="p-4 text-error">${error.message}</div>`;
         return;
     }
 
-    // An inquiry is the start of a conversation even before either side sends
-    // a chat message. Include only inquiries assigned to this broker.
-    const { data: inquiries, error: inquiryError } = await supabase
-        .from('inquiries')
-        .select('buyer_id, broker_id, listing_id, created_at')
-        .eq('broker_id', user.id)
-        .not('buyer_id', 'is', null)
-        .order('created_at', { ascending: false });
-
-    if (inquiryError) {
-        console.error('Unable to load inquiry conversations:', inquiryError);
-    }
-
-    const uniqueMap = new Map();
-    (inquiries || []).forEach(inquiry => {
-        const key = `${inquiry.buyer_id}-${inquiry.broker_id}-${inquiry.listing_id}`;
-        uniqueMap.set(key, inquiry);
-    });
-    messages?.forEach(m => {
-        const key = `${m.buyer_id}-${m.broker_id}-${m.listing_id}`;
-        if (!uniqueMap.has(key)) {
-            uniqueMap.set(key, m);
-        }
-    });
-
-    const uniqueConversations = Array.from(uniqueMap.values());
+    const uniqueConversations = conversations || [];
 
     if (uniqueConversations.length === 0) {
         listEl.innerHTML = '<div class="p-4 text-center text-slate-500 font-medium">No conversations yet.</div>';
@@ -6586,8 +6729,26 @@ window.initBrokerChat = async function initBrokerChat() {
     const buyerIds = [...new Set(uniqueConversations.map(c => c.buyer_id))];
     const listingIds = [...new Set(uniqueConversations.map(c => c.listing_id))];
 
-    const profiles = await fetchRelatedProfileIdentities(buyerIds);
-    const { data: listings } = await supabase.from('listings').select('id, title').in('id', listingIds);
+    const [profiles, listingsResult, inquiriesResult] = await Promise.all([
+        fetchRelatedProfileIdentities(buyerIds),
+        supabase.from('listings').select('id, title').in('id', listingIds),
+        supabase.from('inquiries')
+            .select('buyer_id,broker_id,listing_id,name,created_at')
+            .eq('broker_id', user.id)
+            .in('buyer_id', buyerIds)
+            .in('listing_id', listingIds)
+            .order('created_at', { ascending: false })
+    ]);
+    if (listingsResult.error) console.warn('Chat listing lookup failed:', listingsResult.error);
+    if (inquiriesResult.error) console.warn('Chat inquiry name lookup failed:', inquiriesResult.error);
+    const listings = listingsResult.data || [];
+    const inquiryNameByConversation = new Map();
+    (inquiriesResult.data || []).forEach(inquiry => {
+        const key = `${inquiry.buyer_id}-${inquiry.listing_id}`;
+        if (!inquiryNameByConversation.has(key) && inquiry.name?.trim()) {
+            inquiryNameByConversation.set(key, inquiry.name.trim());
+        }
+    });
 
     profiles?.forEach(p => {
         activeChatNames[p.id] = p.full_name;
@@ -6598,7 +6759,7 @@ window.initBrokerChat = async function initBrokerChat() {
     uniqueConversations.forEach(c => {
         const buyer = profiles?.find(p => p.id === c.buyer_id);
         const listing = listings?.find(l => l.id === c.listing_id);
-        const name = buyer?.full_name || 'Buyer';
+        const name = inquiryNameByConversation.get(`${c.buyer_id}-${c.listing_id}`) || buyer?.full_name || 'Buyer';
         const letter = name.charAt(0).toUpperCase();
         
         // Premium HSL matching palette
@@ -6616,6 +6777,9 @@ window.initBrokerChat = async function initBrokerChat() {
         const isUnread = unreadConversations.has(conversationKey);
 
         const div = document.createElement('div');
+        div.dataset.conversationId = c.id;
+        div.dataset.buyerId = c.buyer_id;
+        div.dataset.listingId = c.listing_id;
         div.className = `p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-all flex items-center gap-3 group relative ${isUnread ? 'bg-red-50/20' : ''}`;
         div.innerHTML = `
             <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${colorClass} shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-200">
@@ -6630,6 +6794,7 @@ window.initBrokerChat = async function initBrokerChat() {
                     <span class="material-symbols-outlined text-[14px] text-slate-300">domain</span>
                     ${escHtml(listing?.title || 'Property')}
                 </div>
+                <div class="chat-preview text-xs text-slate-500 mt-1 truncate">${escHtml(c.last_message_preview || 'Conversation started')} · ${escHtml(formatMsgTime(c.last_message_at))}</div>
             </div>
             <span class="material-symbols-outlined text-slate-300 text-[16px] opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">chevron_right</span>
         `;
@@ -6639,26 +6804,43 @@ window.initBrokerChat = async function initBrokerChat() {
             div.classList.remove('bg-red-50/20');
             const dot = div.querySelector('.bg-red-500');
             if (dot) dot.remove();
-            window.loadChatMessages(c.buyer_id, user.id, c.listing_id, name, listing?.title || 'Property');
+        window.loadChatMessages(c.buyer_id, user.id, c.listing_id, name, listing?.title || 'Property', c.id);
         };
         listEl.appendChild(div);
     });
 };
 
-window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, listingId, buyerName, listingTitle) {
-    currentChatConversation = { buyerId, brokerId, listingId };
+window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, listingId, buyerName, listingTitle, conversationId = null) {
+    currentChatConversation = { buyerId, brokerId, listingId, conversationId };
     activeChatNames[buyerId] = buyerName;
     activeChatNames[brokerId] = localStorage.getItem('userName') || 'You';
     
     document.getElementById('chat-header').innerHTML = `
-        <div>
-            <a href="/profile.html?id=${buyerId}" target="_blank" class="text-lg font-bold text-slate-900 hover:text-slate-600 transition-colors flex items-center gap-1.5 hover:underline">
+        <div class="flex items-center justify-between gap-4 w-full min-w-0">
+            <a href="/profile.html?id=${buyerId}" target="_blank" class="text-base font-bold text-slate-900 hover:text-slate-600 transition-colors flex items-center gap-1.5 hover:underline">
                 ${escHtml(buyerName)}
                 <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             </a>
-            <div class="text-xs font-medium text-slate-500">${listingTitle}</div>
+            <a href="/property-details.html?id=${encodeURIComponent(listingId)}" target="_blank" rel="noopener noreferrer"
+               class="min-w-0 text-right text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors">
+                <span class="block text-[10px] uppercase tracking-wide text-slate-400">About this listing</span>
+                <span class="inline-flex max-w-full items-center justify-end gap-1 font-semibold">
+                    <span class="truncate">${escHtml(listingTitle)}</span>
+                    <span class="material-symbols-outlined text-[16px] shrink-0">open_in_new</span>
+                </span>
+            </a>
         </div>
     `;
+    if (!document.querySelector('#chat-header .broker-chat-back')) {
+        const back = document.createElement('button');
+        back.type = 'button'; back.className = 'broker-chat-back mr-2 text-slate-500 flex items-center lg:hidden';
+        back.setAttribute('aria-label', 'Back to conversations');
+        back.innerHTML = '<span class="material-symbols-outlined text-[20px]">arrow_back</span>';
+        back.onclick = () => {
+            document.getElementById('tab-messages')?.classList.remove('chat-thread-open');
+        };
+        document.getElementById('chat-header').prepend(back);
+    }
 
     const msgsEl = document.getElementById('chat-messages');
 
@@ -6695,6 +6877,7 @@ window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, lis
     };
 
     await fetchMsgs();
+    if (conversationId) await supabase.from('conversations').update({ broker_last_read_at: new Date().toISOString() }).eq('id', conversationId);
 
     // Enable input
     const input = document.getElementById('chat-input');
@@ -6709,19 +6892,29 @@ window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, lis
             showToast('WARNING: Swearing is strictly prohibited! Please remove all offensive language to proceed.', 'profanity');
             return;
         }
-        input.value = '';
         input.disabled = true;
         sendBtn.disabled = true;
 
-        const { error } = await supabase.from('messages').insert([{
+        const { data: sentMessage, error } = await supabase.from('messages').insert([{
             buyer_id: buyerId,
             broker_id: brokerId,
             listing_id: listingId,
             sender_id: user.id,
             content: content
-        }]);
+        }]).select('*').single();
 
         if (error) showToast('Failed to send message: ' + error.message);
+        else {
+            input.value = '';
+            if (!msgsEl.querySelector('[data-chat-message]')) msgsEl.innerHTML = '';
+            window.renderMessage(sentMessage, user.id, msgsEl);
+            msgsEl.scrollTop = msgsEl.scrollHeight;
+            const row = Array.from(document.querySelectorAll('#chat-list [data-conversation-id]'))
+                .find(item => item.dataset.conversationId === String(conversationId));
+            const preview = row?.querySelector('.chat-preview');
+            if (preview) preview.textContent = `${content.slice(0, 160)} · ${formatMsgTime(sentMessage.created_at)}`;
+            if (row) row.parentElement.prepend(row);
+        }
 
         input.disabled = false;
         sendBtn.disabled = false;
@@ -6748,6 +6941,7 @@ window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, lis
                 if (msgsEl.innerHTML.includes('No messages yet')) msgsEl.innerHTML = '';
                 window.renderMessage(payload.new, user.id, msgsEl);
                 msgsEl.scrollTop = msgsEl.scrollHeight;
+                window.setTimeout(() => window.initBrokerChat?.(), 150);
             }
         })
         .subscribe();
@@ -6773,11 +6967,15 @@ function formatMsgTime(dateStr) {
 }
 
 window.renderMessage = function renderMessage(m, currentUserId, container) {
+    if (m.id != null && Array.from(container.querySelectorAll('[data-chat-message-id]'))
+        .some(message => message.dataset.chatMessageId === String(m.id))) return;
     const isMe = m.sender_id === currentUserId;
     const senderName = isMe ? 'You' : (activeChatNames[m.sender_id] || 'Buyer');
     const timeStr = formatMsgTime(m.created_at);
 
     const msgWrapper = document.createElement('div');
+    msgWrapper.dataset.chatMessage = 'true';
+    if (m.id != null) msgWrapper.dataset.chatMessageId = String(m.id);
     msgWrapper.className = `flex flex-col gap-1 w-full ${isMe ? 'items-end' : 'items-start'}`;
 
     // Premium header
@@ -7424,4 +7622,3 @@ window.logListingStatusChange = logListingStatusChange;
 window.sendBrokerNotification = sendBrokerNotification;
 window.updateSidebarNotificationsBadge = updateSidebarNotificationsBadge;
 window.initNotificationsManager = initNotificationsManager;
-

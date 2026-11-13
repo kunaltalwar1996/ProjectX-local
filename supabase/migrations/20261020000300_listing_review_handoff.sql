@@ -219,11 +219,14 @@ AS $$
 BEGIN
   IF NEW.status = 'Active' AND OLD.status IS DISTINCT FROM 'Active'
      AND NOT (auth.role() = 'service_role' OR EXISTS (
-       SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Employee' AND employee_type = 'Employee 2'
+       SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (
+         role = 'Admin' OR (role = 'Employee' AND employee_type = 'Employee 2')
+       )
      )) THEN
-    RAISE EXCEPTION 'Only the assigned Employee 2 can approve and publish a listing';
+    RAISE EXCEPTION 'Only an administrator or the assigned Employee 2 can approve and publish a listing';
   END IF;
   IF NEW.status = 'Active' AND OLD.status IS DISTINCT FROM 'Active'
+     AND NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
      AND (NEW.status IS DISTINCT FROM 'Active' OR NEW.virtually_verified IS DISTINCT FROM true
        OR NEW.field_verified IS DISTINCT FROM true OR NEW.field_verified_by IS DISTINCT FROM auth.uid()
        OR NEW.assigned_field_agent_id IS DISTINCT FROM auth.uid()

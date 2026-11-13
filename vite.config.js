@@ -43,7 +43,8 @@ export default defineConfig({
         staffLogin: 'staff-login.html',
         sitemap: 'sitemap.html',
         sharedFilter: 'shared-filter.html',
-        search: 'search.html'
+        search: 'search.html',
+        chats: 'chats.html'
       }
     }
   }

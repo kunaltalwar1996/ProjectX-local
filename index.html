@@ -25,7 +25,7 @@
         <a href="/index.html" class="text-xl font-black tracking-tighter text-slate-900">ProjectX</a>
       </div>
       <!-- Navigation Links -->
-      <div class="hidden md:flex items-center gap-8">
+      <div class="hidden lg:flex items-center gap-8">
         <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
           href="/map.html">Search Your Home</a>
 
@@ -48,7 +48,10 @@
         </div>
       </div>
       <!-- Trailing Actions (Desktop) -->
-      <div class="hidden md:flex items-center gap-4">
+      <div class="hidden lg:flex items-center gap-4">
+        <a id="buyer-chats-link" href="/chats.html" class="hidden relative text-slate-500 hover:text-slate-900 transition-colors" aria-label="Chats" title="Chats">
+          <span class="material-symbols-outlined text-[24px]">chat</span>
+        </a>
         <button class="text-slate-500 hover:text-slate-900 transition-colors">
           <span class="material-symbols-outlined text-[24px]">account_circle</span>
         </button>
@@ -59,9 +62,11 @@
       </div>
 
       <!-- Mobile Menu Toggle -->
-      <button type="button" id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer; min-width: 44px; min-height: 44px;">
+      <div class="lg:hidden flex items-center gap-1">
+      <button type="button" id="hamburger-btn" class="flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer; min-width: 44px; min-height: 44px;">
         <span class="material-symbols-outlined text-[28px]">menu</span>
       </button>
+      </div>
     </div>
   </nav>
 

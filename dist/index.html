@@ -12,8 +12,8 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap"
     rel="stylesheet" />
-  <script type="module" crossorigin src="/assets/auth-DQ9kNLxK.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/style-BOH4RMcm.css">
+  <script type="module" crossorigin src="/assets/auth-Ccq06AyR.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/style-B5qmhIPF.css">
 </head>
 
 <body class="bg-[#f8f9fa] text-slate-900 font-['Outfit'] antialiased min-h-screen flex flex-col">
@@ -25,7 +25,7 @@
         <a href="/index.html" class="text-xl font-black tracking-tighter text-slate-900">ProjectX</a>
       </div>
       <!-- Navigation Links -->
-      <div class="hidden md:flex items-center gap-8">
+      <div class="hidden lg:flex items-center gap-8">
         <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
           href="/map.html">Search Your Home</a>
 
@@ -48,7 +48,10 @@
         </div>
       </div>
       <!-- Trailing Actions (Desktop) -->
-      <div class="hidden md:flex items-center gap-4">
+      <div class="hidden lg:flex items-center gap-4">
+        <a id="buyer-chats-link" href="/chats.html" class="hidden relative text-slate-500 hover:text-slate-900 transition-colors" aria-label="Chats" title="Chats">
+          <span class="material-symbols-outlined text-[24px]">chat</span>
+        </a>
         <button class="text-slate-500 hover:text-slate-900 transition-colors">
           <span class="material-symbols-outlined text-[24px]">account_circle</span>
         </button>
@@ -59,17 +62,20 @@
       </div>
 
       <!-- Mobile Menu Toggle -->
-      <button type="button" id="hamburger-btn" class="md:hidden flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer; min-width: 44px; min-height: 44px;">
+      <div class="lg:hidden flex items-center gap-1">
+      <button type="button" id="hamburger-btn" class="flex items-center justify-center text-slate-900 hover:text-slate-600 transition-colors" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer; min-width: 44px; min-height: 44px;">
         <span class="material-symbols-outlined text-[28px]">menu</span>
       </button>
+      </div>
     </div>
   </nav>
 
   <!-- Hero Section with Background Image -->
-  <header class="relative pt-32 pb-24 min-h-[600px] flex flex-col items-center justify-center mt-16">
+  <header class="relative pt-32 pb-24 min-h-[600px] flex flex-col items-center justify-center mt-16 bg-slate-900">
     <!-- Background Image -->
     <div class="absolute inset-0 z-0">
-      <img src="https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png"
+      <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2400&q=85"
+        onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2400&q=85'"
         alt="Luxury home exterior" class="w-full h-full object-cover" />
       <div class="absolute inset-0 bg-slate-900/50"></div>
     </div>
