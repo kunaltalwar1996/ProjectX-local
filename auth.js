@@ -1761,12 +1761,17 @@ document.addEventListener('DOMContentLoaded', initAppPage);
 // ══════════════════════════════════════════════════════
 
 async function getListings() {
-    const { data, error } = await supabase.from('listings').select('*').order('created_at', { ascending: false });
+    const { data: { user } } = await supabase.auth.getUser();
+    let query = supabase.from('listings').select('*').order('created_at', { ascending: false });
+    if (user && userRole === 'Broker' && currentPage === 'broker-dashboard.html') {
+        query = query.eq('broker_id', user.id);
+    }
+    const { data, error } = await query;
     if (error) {
         console.error('Error fetching listings:', error);
         return [];
     }
-    return (data || []).map(listing => ({ ...listing, type: normalizePropertyType(listing.type) }));
+    return (data || []).map(listing => ({ ...listing, status: (listing.status || '').trim(), type: normalizePropertyType(listing.type) }));
 }
 
 async function saveListings(listings) {

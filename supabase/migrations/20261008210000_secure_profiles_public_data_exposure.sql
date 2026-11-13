@@ -1,7 +1,36 @@
--- Unit 1: Secure public.profiles against public/guest raw-record exposure.
--- Reversible in practice by restoring dropped policies, disabling RLS, and
--- re-adding public.profiles.password as nullable text without recovered values.
--- This migration does not copy, return, or transform profiles.password contents.
+-- =============================================================================
+-- HISTORICAL MIGRATION — SUPERSEDED
+-- File: supabase/migrations/20261008210000_secure_profiles_public_data_exposure.sql
+-- Status: DO NOT RE-EXECUTE AGAINST THE LIVE DATABASE
+-- =============================================================================
+--
+-- This migration file was the initial Unit 1 implementation commit.
+-- It has been superseded by the authoritative manual remediation:
+--
+--   supabase/manual_remediation_unit1_and_active_listing_visibility.sql
+--
+-- The authoritative process is:
+--   Preflight (unit1_preflight.sql) → Review → Manual Remediation → Verification
+--
+-- DO NOT re-run this file. It may reference columns that do not exist on the
+-- live database, may conflict with the idempotent remediation script, and was
+-- corrected after the initial commit.
+--
+-- Corrections made to this historical record:
+-- 1. Removed "ALTER TABLE public.profiles DROP COLUMN IF EXISTS password;" —
+--    the product owner's decision is to PRESERVE profiles.password and all
+--    stored values. The column must never be dropped, truncated, or overwritten.
+-- 2. Removed misleading recovery wording (the original comment implied password
+--    values could be "re-added as nullable text without recovered values" on
+--    rollback; this was incorrect and implied data destruction).
+-- 3. The search_path ALTER statements below are retained as historical record
+--    of what was initially applied; they are idempotent if re-applied.
+-- 4. All other changes in this file (RPCs, trigger, policies, grants) have been
+--    superseded by the corrected authoritative remediation script.
+--
+-- If you need to understand what this commit changed, use:
+--   git show e6d34118e64f110ccceff4af0c87ccc225bc1610
+-- =============================================================================
 
 -- ---------------------------------------------------------------------------
 -- 1. Harden existing role helpers (fixed search_path; same role model)
@@ -128,146 +157,22 @@ REVOKE ALL ON FUNCTION public.get_own_referral_stats() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_own_referral_stats() TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- 5. Prevent self-escalation and protected-field mutation
+-- 5. Sensitive-column trigger (NOTE: superseded version — see authoritative
+--    remediation script. This version incorrectly referenced absent columns.)
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.protect_profile_sensitive_columns()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO pg_catalog, public
-AS $$
-BEGIN
-  IF auth.role() = 'service_role' THEN
-    RETURN NEW;
-  END IF;
-
-  IF TG_OP = 'INSERT' THEN
-    IF NEW.id IS DISTINCT FROM auth.uid() THEN
-      RAISE EXCEPTION 'Cannot create a profile for another user';
-    END IF;
-
-    IF NEW.role IS NULL OR NEW.role NOT IN ('Buyer', 'Broker', 'Guest') THEN
-      RAISE EXCEPTION 'Cannot assign a privileged profile role';
-    END IF;
-
-    NEW.employee_type := NULL;
-
-    IF NEW.email IS NOT NULL AND NEW.email IS DISTINCT FROM auth.email() THEN
-      RAISE EXCEPTION 'Cannot set profile email to a different address';
-    END IF;
-
-    RETURN NEW;
-  END IF;
-
-  IF NEW.id IS DISTINCT FROM OLD.id THEN
-    RAISE EXCEPTION 'Cannot change profile id';
-  END IF;
-
-  IF NEW.id IS DISTINCT FROM auth.uid() THEN
-    IF NOT public.is_staff() THEN
-      RAISE EXCEPTION 'Cannot update another profile';
-    END IF;
-
-    -- Staff may flag another account via bio only (existing panel behavior).
-    NEW.full_name := OLD.full_name;
-    NEW.role := OLD.role;
-    NEW.phone := OLD.phone;
-    NEW.city := OLD.city;
-    NEW.preferences := OLD.preferences;
-    NEW.avatar_url := OLD.avatar_url;
-    NEW.referred_by := OLD.referred_by;
-    NEW.email := OLD.email;
-    NEW.employee_type := OLD.employee_type;
-    NEW."resetOtp" := OLD."resetOtp";
-    NEW."expireOtp" := OLD."expireOtp";
-    NEW.referal_points := OLD.referal_points;
-    NEW.wishlist := OLD.wishlist;
-    RETURN NEW;
-  END IF;
-
-  NEW.role := OLD.role;
-  NEW.email := OLD.email;
-  NEW.referred_by := OLD.referred_by;
-  NEW.employee_type := OLD.employee_type;
-  NEW."resetOtp" := OLD."resetOtp";
-  NEW."expireOtp" := OLD."expireOtp";
-  NEW.referal_points := OLD.referal_points;
-  NEW.wishlist := OLD.wishlist;
-  RETURN NEW;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.protect_profile_sensitive_columns() FROM PUBLIC;
-
-DROP TRIGGER IF EXISTS trg_protect_profile_sensitive_columns ON public.profiles;
-CREATE TRIGGER trg_protect_profile_sensitive_columns
-  BEFORE INSERT OR UPDATE ON public.profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION public.protect_profile_sensitive_columns();
+-- Skipped here — apply via authoritative remediation only.
 
 -- ---------------------------------------------------------------------------
--- 6. Replace permissive profile policies and enable RLS
+-- 6. RLS and policies (superseded — apply via authoritative remediation only)
 -- ---------------------------------------------------------------------------
-DROP POLICY IF EXISTS "Allow users to read any profile" ON public.profiles;
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
-DROP POLICY IF EXISTS "Allow users to view their own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Allow users to insert their own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
-DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
-DROP POLICY IF EXISTS "Admins can delete user profiles" ON public.profiles;
-
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles NO FORCE ROW LEVEL SECURITY;
-
-CREATE POLICY profiles_select_own
-  ON public.profiles
-  FOR SELECT
-  TO authenticated
-  USING (id = auth.uid());
-
-CREATE POLICY profiles_select_staff
-  ON public.profiles
-  FOR SELECT
-  TO authenticated
-  USING (public.is_staff());
-
-CREATE POLICY profiles_insert_own
-  ON public.profiles
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    id = auth.uid()
-    AND role IN ('Buyer', 'Broker', 'Guest')
-    AND employee_type IS NULL
-  );
-
-CREATE POLICY profiles_update_own
-  ON public.profiles
-  FOR UPDATE
-  TO authenticated
-  USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
-
-CREATE POLICY profiles_update_staff
-  ON public.profiles
-  FOR UPDATE
-  TO authenticated
-  USING (public.is_staff())
-  WITH CHECK (public.is_staff());
-
-CREATE POLICY profiles_delete_admin
-  ON public.profiles
-  FOR DELETE
-  TO authenticated
-  USING (public.is_admin());
-
-REVOKE ALL ON TABLE public.profiles FROM PUBLIC;
-REVOKE ALL ON TABLE public.profiles FROM anon;
-REVOKE ALL ON TABLE public.profiles FROM authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.profiles TO authenticated;
-GRANT ALL ON TABLE public.profiles TO service_role;
+-- Skipped here — apply via authoritative remediation only.
 
 -- ---------------------------------------------------------------------------
--- 7. Remove unused profiles.password (no view/function/trigger dependents)
+-- NOTE: The following statement was REMOVED from this historical migration:
+--   ALTER TABLE public.profiles DROP COLUMN IF EXISTS password;
+-- The product owner's decision is to preserve profiles.password and all
+-- stored values. This column MUST NOT be dropped. Authentication is performed
+-- through Supabase Auth (auth.users) only. See authoritative remediation for
+-- the column-level privilege approach that protects the password column without
+-- destroying its data.
 -- ---------------------------------------------------------------------------
-ALTER TABLE public.profiles DROP COLUMN IF EXISTS password;
