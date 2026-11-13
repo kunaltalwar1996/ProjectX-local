@@ -4015,40 +4015,78 @@ async function initBuyerHomePage() {
     // ── [Featured Cards from Supabase] ──
     const featuredGrid = document.querySelector('section.py-20 .grid');
     if (featuredGrid) {
-        const listings = (await getListings()).filter(l => l.status === 'Active');
+        let listings = (await getListings()).filter(l => l.status === 'Active');
         const top3 = listings.slice(0, 3);
+
+        if (top3.length) {
+            try {
+                const { data: mediaRows, error } = await supabase
+                    .from('listing_media')
+                    .select('listing_id, url, thumbnail_url, media_type, is_cover, sort_order')
+                    .in('listing_id', top3.map(listing => listing.id))
+                    .order('sort_order', { ascending: true });
+                if (error) throw error;
+
+                const imageByListing = new Map();
+                (mediaRows || []).filter(media => media.media_type?.toLowerCase() !== 'video').forEach(media => {
+                    const current = imageByListing.get(media.listing_id);
+                    if (!current || media.is_cover) {
+                        imageByListing.set(media.listing_id, media.thumbnail_url || media.url);
+                    }
+                });
+                const toPropertyImageUrl = source => {
+                    if (source && typeof source === 'object') source = source.url || source.src || source.path;
+                    if (typeof source !== 'string' || !source.trim()) return null;
+                    source = source.trim();
+                    if (/^(https?:|data:|blob:|\/)/i.test(source)) return source;
+                    return supabase.storage.from('properties').getPublicUrl(source).data.publicUrl;
+                };
+                listings = listings.map(listing => ({
+                    ...listing,
+                    img: [listing.img, listing.thumbnail_url, listing.image_url, listing.cover_image,
+                        listing.image, listing.photo_url,
+                        ...(Array.isArray(listing.images) ? listing.images : []),
+                        ...(Array.isArray(listing.photos) ? listing.photos : []),
+                        imageByListing.get(listing.id)]
+                        .map(toPropertyImageUrl).find(Boolean) || null
+                }));
+            } catch (error) {
+                console.warn('Could not load homepage listing images:', error);
+            }
+        }
+        const featuredListings = listings.slice(0, 3);
         
-        if (top3.length > 0) {
+        if (featuredListings.length > 0) {
             featuredGrid.innerHTML = `
                 <!-- Main Featured (2 cols) -->
-                <div onclick="window.location.href='property-details.html?id=${top3[0].id}'"
-                     data-listing-card data-listing-id="${top3[0].id}" class="md:col-span-2 bg-white border border-slate-200 flex flex-col md:flex-row shadow-sm cursor-pointer hover:shadow-lg transition-all">
+                <div onclick="window.location.href='property-details.html?id=${featuredListings[0].id}'"
+                     data-listing-card data-listing-id="${featuredListings[0].id}" class="md:col-span-2 bg-white border border-slate-200 flex flex-col md:flex-row shadow-sm cursor-pointer hover:shadow-lg transition-all">
                   <div class="w-full md:w-1/2 h-64 md:h-auto relative overflow-hidden">
-                    <img src="${top3[0].img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover">
-                    ${listingAgeBadgeMarkup(top3[0].created_at)}
-                    <button type="button" data-wishlist-button data-listing-id="${top3[0].id}" aria-pressed="false" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/95 text-slate-400 shadow-md flex items-center justify-center hover:text-rose-500 transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
+                    <img src="${escHtml(featuredListings[0].img || MEDIA_PLACEHOLDER)}" onerror="this.onerror=null;this.src='${MEDIA_PLACEHOLDER}'" alt="${escHtml(featuredListings[0].title || 'Property listing')}" class="w-full h-full object-cover">
+                    ${listingAgeBadgeMarkup(featuredListings[0].created_at)}
+                    <button type="button" data-wishlist-button data-listing-id="${featuredListings[0].id}" aria-pressed="false" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/95 text-slate-400 shadow-md flex items-center justify-center hover:text-rose-500 transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
                   </div>
                   <div class="w-full md:w-1/2 p-8 flex flex-col justify-center">
-                    <h3 class="text-2xl font-black text-slate-900 mb-2">${formatListingPrice(top3[0].price, top3[0].intent, { html: true })}</h3>
-                    <p class="text-sm font-semibold text-slate-500 mb-2">${escHtml(normalizePropertyType(top3[0].type || 'Property'))}</p>
-                    <p class="text-sm font-bold text-slate-500 mb-6">${escHtml(top3[0].title)}, ${escHtml(top3[0].location)}</p>
+                    <h3 class="text-2xl font-black text-slate-900 mb-2">${formatListingPrice(featuredListings[0].price, featuredListings[0].intent, { html: true })}</h3>
+                    <p class="text-sm font-semibold text-slate-500 mb-2">${escHtml(normalizePropertyType(featuredListings[0].type || 'Property'))}</p>
+                    <p class="text-sm font-bold text-slate-500 mb-6">${escHtml(featuredListings[0].title)}, ${escHtml(featuredListings[0].location)}</p>
                     <div class="flex items-center gap-6 pt-6 border-t border-slate-100">
-                      <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${formatBhk(top3[0].beds)}</span></div>
-                      <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bathtub</span><span class="text-xs font-black text-slate-900">${top3[0].baths}</span></div>
-                      <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">square_foot</span><span class="text-xs font-black text-slate-900">${(top3[0].sqft || 0).toLocaleString()}</span></div>
+                      <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${formatBhk(featuredListings[0].beds)}</span></div>
+                      <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">bathtub</span><span class="text-xs font-black text-slate-900">${featuredListings[0].baths}</span></div>
+                      <div class="flex items-center gap-2 text-slate-400"><span class="material-symbols-outlined text-[18px]">square_foot</span><span class="text-xs font-black text-slate-900">${(featuredListings[0].sqft || 0).toLocaleString()}</span></div>
                     </div>
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                       <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                        <span class="material-symbols-outlined text-[14px]">schedule</span> Listed ${listingAge(top3[0].created_at).date}
+                        <span class="material-symbols-outlined text-[14px]">schedule</span> Listed ${listingAge(featuredListings[0].created_at).date}
                       </span>
                     </div>
                   </div>
                 </div>
-                ${top3.slice(1).map(l => `
+                ${featuredListings.slice(1).map(l => `
                 <div onclick="window.location.href='property-details.html?id=${l.id}'"
                      data-listing-card data-listing-id="${l.id}" class="bg-white border border-slate-200 flex flex-col shadow-sm cursor-pointer hover:shadow-lg transition-all">
                   <div class="h-48 relative overflow-hidden">
-                    <img src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover">
+                    <img src="${escHtml(l.img || MEDIA_PLACEHOLDER)}" onerror="this.onerror=null;this.src='${MEDIA_PLACEHOLDER}'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover">
                     ${listingAgeBadgeMarkup(l.created_at)}
                     <button type="button" data-wishlist-button data-listing-id="${l.id}" aria-pressed="false" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/95 text-slate-400 shadow-md flex items-center justify-center hover:text-rose-500 transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
                   </div>
@@ -4096,13 +4134,55 @@ async function initBuyerListingsPage() {
     if (brokerId) {
         listings = listings.filter(l => l.broker_id === brokerId);
     }
+
+    // Listing cards need their cover image as well as the listing row. Photos
+    // are stored in listing_media, so populate the card image from the same
+    // records used by the property detail gallery.
+    if (listings.length) {
+        try {
+            const { data: mediaRows, error } = await supabase
+                .from('listing_media')
+                .select('listing_id, url, thumbnail_url, media_type, is_cover, sort_order')
+                .in('listing_id', listings.map(listing => listing.id))
+                .order('sort_order', { ascending: true });
+            if (error) throw error;
+
+            const imageByListing = new Map();
+            (mediaRows || []).filter(media => media.media_type?.toLowerCase() !== 'video').forEach(media => {
+                const current = imageByListing.get(media.listing_id);
+                if (!current || media.is_cover) {
+                    imageByListing.set(media.listing_id, media.thumbnail_url || media.url);
+                }
+            });
+
+            const toPropertyImageUrl = source => {
+                if (source && typeof source === 'object') source = source.url || source.src || source.path;
+                if (typeof source !== 'string' || !source.trim()) return null;
+                source = source.trim();
+                if (/^(https?:|data:|blob:|\/)/i.test(source)) return source;
+                return supabase.storage.from('properties').getPublicUrl(source).data.publicUrl;
+            };
+
+            listings = listings.map(listing => ({
+                ...listing,
+                img: [listing.img, listing.thumbnail_url, listing.image_url, listing.cover_image,
+                    listing.image, listing.photo_url,
+                    ...(Array.isArray(listing.images) ? listing.images : []),
+                    ...(Array.isArray(listing.photos) ? listing.photos : []),
+                    imageByListing.get(listing.id)]
+                    .map(toPropertyImageUrl).find(Boolean) || null
+            }));
+        } catch (error) {
+            console.warn('Could not load property card images:', error);
+        }
+    }
     
     propertyGrid.innerHTML = listings.map(l => `
         <div class="group cursor-pointer property-card bg-white rounded-3xl border border-slate-200 hover:shadow-xl overflow-hidden transition-all duration-300" 
              data-id="${l.id}" data-title="${escHtml(l.title)}" data-location="${escHtml(l.location)}" 
              data-type="${l.type}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}" data-intent="${escHtml(l.intent || '')}">
           <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
-            <img loading="lazy" src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+            <img loading="lazy" src="${escHtml(l.img || MEDIA_PLACEHOLDER)}" onerror="this.onerror=null;this.src='${MEDIA_PLACEHOLDER}'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
               ${listingAgeBadgeMarkup(l.created_at)}
             <button aria-label="Save Property" class="save-property-btn absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow text-slate-400 hover:text-error transition-colors" data-wishlist-button data-listing-id="${l.id}">
               <span class="material-symbols-outlined text-[20px]">favorite</span>
