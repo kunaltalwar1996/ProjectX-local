@@ -315,6 +315,7 @@
 
 <script type="module">
   import { supabase } from './lib/supabase.js';
+  import { distanceInMeters } from './lib/map-radius-selection.js';
 
   // Synchronous monkey-patching of Leaflet to intercept map and markers
   const activeMarkers = new Set();
@@ -329,6 +330,7 @@
   window._mapBathsMin = 0;
   window._mapPriceMin = 0;
   window._mapPriceMax = 50;
+  window._mapSelectionCenter = null;
 
   if (typeof L !== 'undefined') {
     const originalMap = L.map;
@@ -428,7 +430,9 @@
       if (id) {
         const listing = allListingsMap.get(id);
         const element = marker.getElement();
-        if (listing && isFilteredOut(listing)) {
+        const outsideSelectedRadius = window._mapSelectionCenter
+          && distanceInMeters(window._mapSelectionCenter, marker.getLatLng()) > 5000;
+        if (listing && (isFilteredOut(listing) || outsideSelectedRadius)) {
           if (element) element.style.display = 'none';
           if (mapInstance && mapInstance.hasLayer(marker) && marker.isPopupOpen()) {
             marker.closePopup();

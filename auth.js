@@ -1,6 +1,7 @@
 import { supabase } from './lib/supabase.js';
 import { getWishlistIds, setWishlistListing } from './lib/wishlist.js';
 import { listingAgeBadgeMarkup } from './lib/listing-card-presentation.js';
+import { attachMapRadiusSelection, distanceInMeters } from './lib/map-radius-selection.js';
 
 const wishlistPending = new Set();
 
@@ -4599,6 +4600,13 @@ async function initBuyerSearchPage() {
 
     const mapSizeObserver = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     mapSizeObserver.observe(mapContainer);
+    let radiusSelectionCenter = null;
+    attachMapRadiusSelection(map, {
+        onSelect(center) {
+            radiusSelectionCenter = center;
+            renderMapAndListings();
+        }
+    });
 
     // Coordinate mapping for listings missing exact lat/lng
     const defaultCoordsMap = {
@@ -4704,6 +4712,7 @@ async function initBuyerSearchPage() {
 
     function getFilteredListings() {
         return markersData.filter(l => {
+            if (radiusSelectionCenter && distanceInMeters(radiusSelectionCenter, l) > 5000) return false;
             if (activeIntent !== 'all' && l.intent !== activeIntent) return false;
             if (activeTypes.length && !activeTypes.includes(l.type)) return false;
             if (Number(l.beds || 0) < bedsMin) return false;
@@ -4765,9 +4774,13 @@ async function initBuyerSearchPage() {
 
     function updateListingsForMapArea(filtered = getFilteredListings()) {
         const bounds = map.getBounds();
-        const visible = filtered.filter(listing => bounds.contains([listing.lat, listing.lng]));
+        const visible = radiusSelectionCenter
+            ? filtered
+            : filtered.filter(listing => bounds.contains([listing.lat, listing.lng]));
         if (titleEl) titleEl.textContent = currentQuery
-            ? `Over ${visible.length} homes in ${currentQuery.split(',')[0]}`
+            ? `Over ${visible.length} homes ${radiusSelectionCenter ? 'within 5 km of selected point' : `in ${currentQuery.split(',')[0]}`}`
+            : radiusSelectionCenter
+                ? `Properties within 5 km of selected point`
             : `Over ${visible.length} verified homes in this area`;
         if (countEl) countEl.textContent = `${visible.length} PROPERTIES FOUND`;
         renderListingCards(visible);
@@ -4811,7 +4824,7 @@ async function initBuyerSearchPage() {
             mapMarkers.push({ id: l.id, marker, data: l });
         });
 
-        if (bounds.length > 0 && !latParam) {
+        if (bounds.length > 0 && !latParam && !radiusSelectionCenter) {
             map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
         }
 
@@ -5547,7 +5560,9 @@ async function initBuyerMapPage() {
         }
 
         const visibleListings = markersData.filter(p => {
-            if (!bounds.contains([p.lat, p.lng])) return false;
+            if (window._mapSelectionCenter) {
+                if (distanceInMeters(window._mapSelectionCenter, p) > 5000) return false;
+            } else if (!bounds.contains([p.lat, p.lng])) return false;
             if (window._mapIntentFilter && p.intent !== window._mapIntentFilter) return false;
             const normalizedType = typeof normalizePropertyType === 'function' ? normalizePropertyType(p.type) : p.type;
             const selectedTypes = window._mapTypeFilters?.length ? window._mapTypeFilters : (window._mapTypeFilter ? [window._mapTypeFilter] : []);
@@ -5645,6 +5660,12 @@ async function initBuyerMapPage() {
         updateSidebar();
         isProgrammaticMove = wasProgrammaticMove;
     };
+    attachMapRadiusSelection(map, {
+        onSelect(center) {
+            window._mapSelectionCenter = center;
+            if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
+        }
+    });
     map.on('moveend', updateSidebar);
     setTimeout(updateSidebar, 100);
 
