@@ -28,7 +28,11 @@ export default defineConfig({
         map: 'map.html',
         brokerDashboard: 'broker-dashboard.html',
         adminPanel: 'admin-panel.html',
+        adminListings: 'admin-listings.html',
+        adminListingDetail: 'admin-listing-detail.html',
         employeePanel: 'employee-panel.html',
+        employee1: 'employee-1.html',
+        employee2: 'employee-2.html',
         propertyDetails: 'property-details.html',
         login: 'login.html',
         signup: 'signup.html',
@@ -38,7 +42,9 @@ export default defineConfig({
         privacy: 'privacy.html',
         staffLogin: 'staff-login.html',
         sitemap: 'sitemap.html',
-        sharedFilter: 'shared-filter.html'
+        sharedFilter: 'shared-filter.html',
+        search: 'search.html',
+        chats: 'chats.html'
       }
     }
   }

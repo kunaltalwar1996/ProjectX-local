@@ -25,7 +25,8 @@
     font-variation-settings: 'FILL' 1;
   }
   /* Custom map modal styles */
-  #filter-modal-map {
+  #filter-modal-map,
+  #listing-modal-map {
     height: 220px;
     width: 100%;
     border-radius: 12px;
@@ -39,6 +40,48 @@
   }
   .location-result-item:hover {
     background-color: #f8fafc;
+  }
+  @media (max-width: 1023px) {
+    #tab-messages {
+      height: calc(100dvh - 130px);
+      min-height: 300px;
+    }
+    #tab-messages > header { display: none; }
+    #tab-messages > section {
+      flex-direction: column;
+      min-height: 0;
+    }
+    #chat-list-panel {
+      width: 100%;
+      min-height: 0;
+      border-right: 0;
+    }
+    #chat-list {
+      min-height: 0;
+    }
+    #chat-area-panel {
+      display: none !important;
+      width: 100%;
+      min-height: 0;
+    }
+    #chat-messages {
+      min-height: 0;
+    }
+    #tab-messages.chat-thread-open #chat-list-panel {
+      display: none !important;
+    }
+    #tab-messages.chat-thread-open #chat-area-panel {
+      display: flex !important;
+    }
+  }
+  @media (max-width: 767px) {
+    main:has(#tab-messages:not(.hidden)) {
+      padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+    }
+    #tab-messages {
+      height: calc(100dvh - 200px);
+      min-height: 220px;
+    }
   }
 </style>
 </head>
@@ -69,9 +112,9 @@
 <span class="material-symbols-outlined text-[20px]">person_search</span>
             <span class="hidden lg:inline">Leads</span>
         </a>
-<a id="nav-analytics" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#analytics-section">
+<!--  <a id="nav-analytics" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#analytics-section">
 <span class="material-symbols-outlined text-[20px]">insights</span>
-            <span class="hidden lg:inline">Analytics</span>
+            <span class="hidden lg:inline">Analytics</span> -->
         </a>
 <a id="nav-messages" class="flex items-center justify-center lg:justify-between px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors w-full" href="#messages-section">
     <div class="flex items-center gap-3">
@@ -87,7 +130,8 @@
     </div>
     <span id="unread-notifications-badge" class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full hidden">0</span>
 </a>
-<a id="nav-settings" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#settings-section">
+<!-- Hidden for MVP — easily reversible for Release 1 -->
+<a id="nav-settings" class="hidden flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#settings-section">
 <span class="material-symbols-outlined text-[20px]">settings</span>
             <span class="hidden lg:inline">Settings</span>
         </a>
@@ -99,7 +143,11 @@
             </button>
 </div>
 <div class="mt-auto flex flex-col gap-2 pt-4 border-t border-slate-200">
-<a class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#settings-section">
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start"
+    href="https://wa.me/919686128467"
+    target="_blank"
+    rel="noopener noreferrer"
+>
 <span class="material-symbols-outlined text-[20px]">help</span>
                 <span class="hidden lg:inline">Support</span>
             </a>
@@ -133,24 +181,25 @@
     <span class="text-[9px] font-black uppercase tracking-widest">Alerts</span>
     <span id="mobile-unread-notifications-badge" class="absolute top-0 right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full items-center justify-center hidden">!</span>
   </button>
-  <button type="button" data-tab="#settings-section" aria-label="Settings" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
+  <!-- Hidden for MVP — easily reversible for Release 1 -->
+  <button type="button" data-tab="#settings-section" aria-label="Settings" aria-selected="false" class="hidden mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">settings</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Settings</span>
   </button>
 </nav>
 <!-- Mobile Top Header -->
-<header class="md:hidden sticky top-0 bg-white border-b border-slate-200 z-40 flex items-center justify-between px-4 py-3">
-    <div class="flex items-center gap-2">
-        <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80" alt="Profile" class="w-8 h-8 rounded-full object-cover">
-        <span class="font-bold text-slate-900 text-sm" id="mobile-broker-name">Premier Realty</span>
-    </div>
-    <div class="flex items-center gap-2">
-        <button id="mobile-logout-btn" class="text-slate-500 hover:text-red-600 transition-colors bg-slate-100 hover:bg-red-50 p-2 rounded-lg flex items-center justify-center" title="Logout">
+<header class="md:hidden sticky top-0 bg-white border-b border-slate-200 z-40 flex items-center justify-between px-4 py-3 gap-2">
+    <a href="/profile.html" id="mobile-broker-profile-link" class="flex items-center gap-2 min-w-0 flex-1 mr-1 hover:opacity-80 transition-opacity active:scale-[0.98]">
+        <img id="mobile-broker-profile-img" loading="lazy" decoding="async" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80" alt="Profile" class="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200">
+        <span class="font-bold text-slate-900 text-sm truncate" id="mobile-broker-name">Premier Realty</span>
+    </a>
+    <div class="flex items-center shrink-0">
+        <button id="mobile-logout-btn" type="button" class="text-slate-500 hover:text-red-600 transition-colors bg-slate-100 hover:bg-red-50 p-2 rounded-lg flex items-center justify-center" title="Logout">
             <span class="material-symbols-outlined text-[20px]">logout</span>
         </button>
-        <button id="mobile-menu-btn" class="text-slate-500 hover:text-slate-900 transition-colors bg-slate-100 p-2 rounded-lg flex items-center justify-center">
+        <!-- <button id="mobile-menu-btn" class="text-slate-500 hover:text-slate-900 transition-colors bg-slate-100 p-2 rounded-lg flex items-center justify-center">
             <span class="material-symbols-outlined text-[20px]">menu</span>
-        </button>
+        </button> -->
     </div>
 </header>
 
@@ -164,7 +213,7 @@
                 <h1 class="font-h2 text-h2 text-primary">Overview</h1>
                 <p class="font-body-sm text-body-sm text-on-surface-variant mt-unit">Welcome back. Here is your portfolio performance.</p>
             </div>
-            <div class="flex items-center gap-3">
+            <!--<div class="flex items-center gap-3">
                 <button class="md:hidden bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-1.5 active:scale-[0.98] transition-transform" onclick="openListingModal(null)">
                   <span class="material-symbols-outlined text-[16px]">add</span>
                   Add
@@ -179,7 +228,7 @@
                         <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
                     </button>
                 </div>
-            </div>
+            </div> -->
         </header>
 
         <!-- KPI Bento Grid -->
@@ -281,6 +330,7 @@
                                 <th class="p-3 font-label-caps text-label-caps text-on-surface-variant">PROPERTY</th>
                                 <th class="p-3 font-label-caps text-label-caps text-on-surface-variant">STATUS</th>
                                 <th class="p-3 font-label-caps text-label-caps text-on-surface-variant hidden lg:table-cell">PRICE</th>
+                                <th class="p-3 font-label-caps text-label-caps text-on-surface-variant">VIEWS</th>
                                 <th class="p-3 font-label-caps text-label-caps text-on-surface-variant">LISTED</th>
                                 <th class="p-3 font-label-caps text-label-caps text-on-surface-variant text-right">ACTIONS</th>
                             </tr>
@@ -308,6 +358,11 @@
                 </div>
             </section>
         </div>
+
+        <!-- Floating Add Listing Mobile Action (Overview Tab Only) -->
+        <button type="button" aria-label="Add Listing" onclick="openListingModal(null)" class="floating-add-listing-btn md:hidden fixed right-4 z-[150] w-[56px] h-[56px] rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center hover:opacity-90 active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-[24px]">add</span>
+        </button>
     </div>
 
     <!-- TAB: LISTINGS -->
@@ -394,7 +449,7 @@
         <section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col md:flex-row flex-1 overflow-hidden min-h-[500px]">
             <!-- Chat List Sidebar -->
             <div class="w-full md:w-1/3 border-r border-outline-variant flex flex-col bg-slate-50 md:max-h-none" id="chat-list-panel">
-                <div class="p-4 border-b border-outline-variant font-bold text-slate-700 bg-white">Conversations</div>
+                <div class="px-4 py-3 border-b border-outline-variant font-semibold text-sm text-slate-700 bg-white">Conversations</div>
                 <div id="chat-list" class="flex-1 overflow-y-auto">
                     <!-- Injected by JS -->
                 </div>
@@ -418,7 +473,7 @@
         </section>
     </div>
 
-    <!-- TAB: ANALYTICS -->
+    <!-- TAB: ANALYTICS
     <div id="tab-analytics" class="tab-content hidden">
         <header class="flex justify-between items-center mb-stack-lg gap-4">
             <div>
@@ -450,7 +505,7 @@
             </p>
         </section>
     </div>
-
+    -->
     <!-- TAB: NOTIFICATIONS -->
     <div id="tab-notifications" class="tab-content hidden">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-stack-lg gap-4">
@@ -472,8 +527,8 @@
         </section>
     </div>
 
-    <!-- TAB: SETTINGS -->
-    <div id="tab-settings" class="tab-content hidden">
+    <!-- TAB: SETTINGS (hidden for MVP — easily reversible for Release 1) -->
+    <div id="tab-settings" class="tab-content hidden" aria-hidden="true">
         <header class="flex justify-between items-center mb-stack-lg gap-4">
             <div>
                 <h1 class="font-h2 text-h2 text-primary">Settings</h1>
@@ -528,35 +583,22 @@
     const desktopBadge = document.getElementById('unread-messages-badge');
     if (desktopBadge) observer.observe(desktopBadge, { attributes: true, attributeFilter: ['class'] });
 
-    // On mobile, tapping a chat conversation shows the chat area and hides the list
+    // On phones and tablets, show one pane at a time for a familiar chat flow.
     document.addEventListener('click', (e) => {
       const card = e.target.closest('#chat-list .cursor-pointer');
       if (!card) return;
-      const isMobile = window.innerWidth < 768;
-      if (!isMobile) return;
-      const listPanel = document.getElementById('chat-list-panel');
-      const chatPanel = document.getElementById('chat-area-panel');
-      if (listPanel && chatPanel) {
-        listPanel.classList.add('hidden');
-        chatPanel.classList.remove('hidden');
-        chatPanel.classList.add('flex');
-      }
+      if (window.innerWidth >= 1024) return;
+      document.getElementById('tab-messages')?.classList.add('chat-thread-open');
     });
 
-    // Back button in chat header on mobile
+    // Back button in the chat header returns to the conversation list.
     const chatHeader = document.getElementById('chat-header');
     if (chatHeader) {
       const backBtn = document.createElement('button');
-      backBtn.className = 'md:hidden mr-2 text-slate-500 hover:text-slate-900 flex items-center';
+      backBtn.className = 'broker-chat-back mr-2 text-slate-500 hover:text-slate-900 flex items-center lg:hidden';
       backBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">arrow_back</span>';
       backBtn.onclick = () => {
-        const listPanel = document.getElementById('chat-list-panel');
-        const chatPanel = document.getElementById('chat-area-panel');
-        if (listPanel && chatPanel) {
-          listPanel.classList.remove('hidden');
-          chatPanel.classList.add('hidden');
-          chatPanel.classList.remove('flex');
-        }
+        document.getElementById('tab-messages')?.classList.remove('chat-thread-open');
       };
       chatHeader.prepend(backBtn);
     }
