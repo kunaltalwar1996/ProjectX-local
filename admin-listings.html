@@ -30,7 +30,7 @@ body{font-family:Outfit,sans-serif}.admin-sidebar{transform:translateX(-100%)}.a
 <script type="module">
 import { supabase } from './lib/supabase.js';
 const $=s=>document.querySelector(s), esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const statuses=['Draft','Pending','Under Review','Active','Rejected','Suspended','Sold','Flagged']; let records=[],staff=[];
+const statuses=['Draft','Pending','Under Review','Active','Rejected','Suspended','Sold','Rented','Flagged']; let records=[],staff=[];
 function toast(msg,error=false){const el=$('#toast');el.textContent=msg;el.classList.remove('hidden');el.classList.toggle('error',error);setTimeout(()=>el.classList.add('hidden'),3500)}
 function withDeadline(request,label,ms=15000){let timer;return Promise.race([Promise.resolve(request),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} timed out. Check your connection and database access, then retry.`)),ms)})]).finally(()=>clearTimeout(timer))}
 function publicListingImage(source){if(source&&typeof source==='object')source=source.url||source.src||source.path;if(typeof source!=='string'||!source.trim())return null;source=source.trim();if(/^(https?:|data:|blob:|\/)/i.test(source))return source;return supabase.storage.from('properties').getPublicUrl(source).data.publicUrl}

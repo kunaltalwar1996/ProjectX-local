@@ -2,6 +2,7 @@ import { supabase } from './lib/supabase.js';
 import { getWishlistIds, setWishlistListing } from './lib/wishlist.js';
 import { listingAgeBadgeMarkup } from './lib/listing-card-presentation.js';
 import { attachMapRadiusSelection, distanceInMeters } from './lib/map-radius-selection.js';
+import { initBrokerListingDeals, initEmployee1DealReview } from './lib/listing-deals.js';
 
 const wishlistPending = new Set();
 
@@ -1503,6 +1504,8 @@ function initAppPage() {
                     targetEl.classList.remove('chat-thread-open');
                     targetEl.classList.add('flex');
                     if (typeof initBrokerChat === 'function') initBrokerChat();
+                } else if (targetId === 'tab-deals') {
+                    initBrokerListingDeals();
                 } else {
                     targetEl.classList.add('block');
                 }
@@ -1677,6 +1680,7 @@ function initAppPage() {
         initInquiriesManager();
         initCustomFiltersManager();
         initNotificationsManager();
+        initBrokerListingDeals();
 
         // Global Real-time Message Listener for Broker Dashboard
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1695,17 +1699,19 @@ function initAppPage() {
                             // 1. Check if the broker is currently actively chatting in this exact viewport
                             const isActivelyChatting = currentChatConversation &&
                                 String(currentChatConversation.buyerId) === String(msg.buyer_id) &&
-                                String(currentChatConversation.listingId) === String(msg.listing_id) &&
+                                String(currentChatConversation.brokerId) === String(msg.broker_id) &&
                                 !document.getElementById('tab-messages').classList.contains('hidden');
 
                             if (!isActivelyChatting) {
                                 // Fetch buyer name and listing title dynamically to construct a beautiful premium notification
                                 const related = await fetchRelatedProfileIdentities([msg.buyer_id]);
                                 const buyerProf = related[0];
-                                const { data: listingData } = await supabase.from('listings').select('title').eq('id', msg.listing_id).single();
+                                const { data: listingData } = msg.listing_id
+                                    ? await supabase.from('listings').select('title').eq('id', msg.listing_id).maybeSingle()
+                                    : { data: null };
                                 
                                 const buyerName = buyerProf?.full_name || 'Buyer';
-                                const propTitle = listingData?.title || 'Property';
+                                const propTitle = listingData?.title || 'Direct message';
 
                                 activeChatNames[msg.buyer_id] = buyerName;
 
@@ -1713,7 +1719,7 @@ function initAppPage() {
                                 showToast(`💬 New message from ${buyerName} regarding "${propTitle}": "${msg.content}"`);
 
                                 // Mark conversation as unread
-                                const key = `${msg.buyer_id}-${msg.listing_id}`;
+                                const key = String(msg.buyer_id);
                                 unreadConversations.add(key);
 
                                 // Update unread sidebar badge
@@ -1727,6 +1733,14 @@ function initAppPage() {
                             }
                         }
                     })
+                    .on('postgres_changes', {
+                        event: 'UPDATE', schema: 'public', table: 'conversations', filter: `broker_id=eq.${user.id}`
+                    }, async () => {
+                        const listEl = document.getElementById('chat-list');
+                        if (listEl && !document.getElementById('tab-messages').classList.contains('hidden')) {
+                            await window.initBrokerChat?.();
+                        }
+                    })
                     .subscribe();
             }
         });
@@ -1734,6 +1748,7 @@ function initAppPage() {
 
     if (userRole === 'Employee 1' && currentPage === 'employee-1.html') {
         injectListingModal();
+        initEmployee1DealReview();
     }
 
     // ── Buyer Property Details ──
@@ -1784,13 +1799,59 @@ async function getListings() {
     return (data || []).map(listing => ({ ...listing, status: (listing.status || '').trim(), type: normalizePropertyType(listing.type) }));
 }
 
+function isBuyerVisibleListing(listing) {
+    return listing?.status === 'Active' || (listing?.status === 'Rented' && Boolean(listing?.available_from));
+}
+
+function listingAvailabilityMarkup(listing) {
+    if (listing?.status !== 'Rented' || !listing.available_from) return '';
+    const availableDate = new Date(`${listing.available_from}T00:00:00`);
+    const label = Number.isNaN(availableDate.getTime())
+        ? 'Availability date pending'
+        : availableDate <= new Date(new Date().toDateString())
+            ? 'Available now'
+            : `Available from ${availableDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+    return `<span class="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-800">${escHtml(label)}</span>`;
+}
+
 async function saveListings(listings) {
     // This function is no longer needed in its old form as we save individual items
 }
 
 async function initListingsManager() {
+    const filterInputs = [
+        document.getElementById('broker-listing-filter-search'),
+        document.getElementById('broker-listing-filter-status'),
+        document.getElementById('broker-listing-filter-intent'),
+        document.getElementById('broker-listing-filter-recent')
+    ].filter(Boolean);
+    filterInputs.forEach(input => input.addEventListener(input.type === 'search' ? 'input' : 'change', applyBrokerListingFilters));
+    document.getElementById('broker-listing-filter-clear')?.addEventListener('click', () => {
+        filterInputs.forEach(input => { input.value = input.type === 'search' ? '' : (input.id.endsWith('recent') ? '0' : ''); });
+        applyBrokerListingFilters();
+    });
     await renderListings();
     injectListingModal();
+}
+
+function applyBrokerListingFilters() {
+    const query = document.getElementById('broker-listing-filter-search')?.value.trim().toLocaleLowerCase() || '';
+    const status = document.getElementById('broker-listing-filter-status')?.value || '';
+    const intent = document.getElementById('broker-listing-filter-intent')?.value || '';
+    const recentDays = Number(document.getElementById('broker-listing-filter-recent')?.value || 0);
+    const cutoff = recentDays ? Date.now() - recentDays * 86400000 : 0;
+    const rows = Array.from(document.querySelectorAll('#listings-tbody-full tr[data-id]'));
+    rows.forEach(row => {
+        const listedAt = Date.parse(row.dataset.createdAt || '');
+        const matches = (!query || `${row.dataset.title || ''} ${row.dataset.location || ''}`.toLocaleLowerCase().includes(query))
+            && (!status || row.dataset.status === status)
+            && (!intent || row.dataset.intent === intent)
+            && (!recentDays || (Number.isFinite(listedAt) && listedAt >= cutoff));
+        row.hidden = !matches;
+    });
+    const count = [Boolean(query), Boolean(status), Boolean(intent), recentDays > 0].filter(Boolean).length;
+    const badge = document.getElementById('broker-listing-filter-count');
+    if (badge) { badge.textContent = String(count); badge.classList.toggle('hidden', count === 0); }
 }
 
 function updateTrendBadge(items, elementId, dateField = 'created_at', valueField = null) {
@@ -1869,6 +1930,7 @@ async function renderListings() {
     const tbodyFull = document.getElementById('listings-tbody-full');
     if (tbodyFull) {
         tbodyFull.innerHTML = generateListingsHTML(listings, true);
+        applyBrokerListingFilters();
     }
 }
 
@@ -1882,9 +1944,10 @@ function generateListingsHTML(listings, showViews) {
         else if (l.status === 'Rejected') badgeClass = 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
         else if (l.status === 'Flagged') badgeClass = 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300';
         else if (l.status === 'Sold') badgeClass = 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
+        else if (l.status === 'Rented') badgeClass = 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300';
 
         return `
-        <tr class="border-b border-surface-variant hover:bg-surface-container transition-colors group" data-id="${l.id}">
+        <tr class="border-b border-surface-variant hover:bg-surface-container transition-colors group" data-id="${l.id}" data-title="${escHtml(l.title || '')}" data-location="${escHtml(l.location || '')}" data-status="${escHtml(l.status || '')}" data-intent="${escHtml(l.intent || '')}" data-created-at="${escHtml(l.created_at || '')}">
           <td class="p-4">
             <div class="flex items-center gap-3">
               <img src="${l.img || 'https://6ac22fbfae1f22aea6d0b3de.imgix.net/A-clean,-modern-living-room-inside-a-typical-Gurgaon-Sector-builder-floor-461740.png'}" alt="Property" class="w-12 h-12 rounded object-cover shadow-sm border border-outline-variant">
@@ -2051,7 +2114,7 @@ async function openListingModal(id) {
         }
     } else if (statusSelect && statusSelect.tagName === 'SELECT') {
         statusSelect.innerHTML = '';
-        const allowedStatuses = ['Draft', 'Pending', 'Under Review', 'Active', 'Rejected', 'Suspended', 'Sold'];
+        const allowedStatuses = ['Draft', 'Pending', 'Under Review', 'Active', 'Rejected', 'Suspended', 'Sold', 'Rented'];
         const currentStatus = listing ? listing.status : 'Active';
         const finalStatuses = [...allowedStatuses];
         if (!finalStatuses.includes(currentStatus)) {
@@ -2161,6 +2224,7 @@ function deriveBrokerStatusOnMeaningfulEdit(oldStatus, hasMeaningfulChange) {
     if (!hasMeaningfulChange) return oldStatus;
     if (oldStatus === 'Suspended') return 'Suspended';
     if (oldStatus === 'Sold') return 'Sold';
+    if (oldStatus === 'Rented') return 'Rented';
     if (oldStatus === 'Active' || oldStatus === 'Pending' || oldStatus === 'Rejected') return 'Pending';
     return 'Pending';
 }
@@ -3959,7 +4023,7 @@ function wireCommonLinks() {
         'Privacy Policy': 'privacy.html',
         'Cookie Settings': 'privacy.html',
         'Contact Support': 'login.html',
-        'Sitemap': 'sitemap.html'
+        'Sitemap': 'index.html#site-directory'
     };
 
     document.querySelectorAll('a').forEach((a) => {
@@ -3991,20 +4055,27 @@ async function initBuyerHomePage() {
     // ── [Search Bar Navigation] ──
     const searchInput = document.getElementById('location-search');
     const searchBtn = document.getElementById('search-btn');
+    const moreFiltersBtn = document.getElementById('home-more-filters');
     const resultsContainer = document.getElementById('search-results');
     let debounceTimer;
 
+    const navigateHomeSearch = openFilters => {
+        if (!searchInput) return;
+        const val = searchInput.value.trim();
+        const selectedTypes = Array.from(document.querySelectorAll('#property-dropdown input[name="type"]:checked'))
+            .map(input => normalizePropertyType(input.value));
+        const params = new URLSearchParams();
+        if (val) params.set('q', val);
+        if (selectedTypes.length) params.set('type', selectedTypes.join(','));
+        const maxPrice = Number(document.getElementById('home-price-range')?.value || 50);
+        if (maxPrice < 50) params.set('priceMax', String(maxPrice));
+        if (openFilters) params.set('openFilters', '1');
+        const query = params.toString();
+        navigateTo(`search.html${query ? `?${query}` : ''}`);
+    };
+
     if (searchBtn && searchInput) {
-        searchBtn.onclick = () => {
-            const val = searchInput.value.trim();
-            const selectedTypes = Array.from(document.querySelectorAll('#property-dropdown input[name="type"]:checked'))
-                .map(input => normalizePropertyType(input.value));
-            const params = new URLSearchParams();
-            if (val) params.set('q', val);
-            if (selectedTypes.length) params.set('type', selectedTypes.join(','));
-            const query = params.toString();
-            navigateTo(`search.html${query ? `?${query}` : ''}`);
-        };
+        searchBtn.onclick = () => navigateHomeSearch(false);
         searchInput.onkeypress = (e) => { if (e.key === 'Enter') searchBtn.click(); };
 
         if (resultsContainer) {
@@ -4041,9 +4112,11 @@ async function initBuyerHomePage() {
     }
 
     // ── [Featured Cards from Supabase] ──
+    moreFiltersBtn?.addEventListener('click', () => navigateHomeSearch(true));
+
     const featuredGrid = document.querySelector('section.py-20 .grid');
     if (featuredGrid) {
-        let listings = (await getListings()).filter(l => l.status === 'Active');
+        let listings = (await getListings()).filter(isBuyerVisibleListing);
         const top3 = listings.slice(0, 3);
 
         if (top3.length) {
@@ -4095,6 +4168,7 @@ async function initBuyerHomePage() {
                     <button type="button" data-wishlist-button data-listing-id="${featuredListings[0].id}" aria-pressed="false" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/95 text-slate-400 shadow-md flex items-center justify-center hover:text-rose-500 transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
                   </div>
                   <div class="w-full md:w-1/2 p-8 flex flex-col justify-center">
+                    <div class="mb-2">${listingAvailabilityMarkup(featuredListings[0])}</div>
                     <h3 class="text-2xl font-black text-slate-900 mb-2">${formatListingPrice(featuredListings[0].price, featuredListings[0].intent, { html: true })}</h3>
                     <p class="text-sm font-semibold text-slate-500 mb-2">${escHtml(normalizePropertyType(featuredListings[0].type || 'Property'))}</p>
                     <p class="text-sm font-bold text-slate-500 mb-6">${escHtml(featuredListings[0].title)}, ${escHtml(featuredListings[0].location)}</p>
@@ -4119,6 +4193,7 @@ async function initBuyerHomePage() {
                     <button type="button" data-wishlist-button data-listing-id="${l.id}" aria-pressed="false" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/95 text-slate-400 shadow-md flex items-center justify-center hover:text-rose-500 transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
                   </div>
                   <div class="p-6 flex-1 flex flex-col">
+                    <div class="mb-2">${listingAvailabilityMarkup(l)}</div>
                     <h3 class="text-lg font-black text-slate-900 mb-1">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
                     <p class="text-xs font-semibold text-slate-500 mb-1">${escHtml(normalizePropertyType(l.type || 'Property'))}</p>
                     <p class="text-xs font-bold text-slate-500 mb-4 truncate">${escHtml(l.title)}</p>
@@ -4157,11 +4232,16 @@ async function initBuyerListingsPage() {
     let activeIntent = (urlParams.get('intent') || 'Rent').toLowerCase() === 'buy' ? 'Buy' : 'Rent';
     const intent = urlParams.get('intent');
 
-    let listings = (await getListings()).filter(l => l.status === 'Active');
+    let listings = (await getListings()).filter(isBuyerVisibleListing);
 
     if (brokerId) {
         listings = listings.filter(l => l.broker_id === brokerId);
     }
+    const availabilityFilter = document.getElementById('available-from-filter');
+    const availabilityNote = document.getElementById('available-from-note');
+    const hasAvailabilityDates = listings.some(listing => typeof listing.available_from === 'string' && !Number.isNaN(Date.parse(listing.available_from)));
+    if (availabilityFilter) availabilityFilter.disabled = !hasAvailabilityDates;
+    if (availabilityNote && hasAvailabilityDates) availabilityNote.classList.add('hidden');
 
     // Listing cards need their cover image as well as the listing row. Photos
     // are stored in listing_media, so populate the card image from the same
@@ -4208,7 +4288,7 @@ async function initBuyerListingsPage() {
     propertyGrid.innerHTML = listings.map(l => `
         <div class="group cursor-pointer property-card bg-white rounded-3xl border border-slate-200 hover:shadow-xl overflow-hidden transition-all duration-300" 
              data-id="${l.id}" data-title="${escHtml(l.title)}" data-location="${escHtml(l.location)}" 
-             data-type="${l.type}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}" data-intent="${escHtml(l.intent || '')}">
+             data-type="${escHtml(l.type || '')}" data-beds="${l.beds}" data-baths="${l.baths}" data-price="${l.price}" data-date="${l.created_at}" data-available-from="${escHtml(l.available_from || '')}" data-intent="${escHtml(l.intent || '')}">
           <div class="aspect-[16/9] overflow-hidden relative bg-slate-100">
             <img loading="lazy" src="${escHtml(l.img || MEDIA_PLACEHOLDER)}" onerror="this.onerror=null;this.src='${MEDIA_PLACEHOLDER}'" alt="${escHtml(l.title || 'Property listing')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
               ${listingAgeBadgeMarkup(l.created_at)}
@@ -4227,6 +4307,7 @@ async function initBuyerListingsPage() {
               <h3 class="text-xl font-black text-slate-900">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
               <p class="mt-1 text-xs font-semibold text-slate-500">${escHtml(normalizePropertyType(l.type || 'Property'))} <span class="font-medium text-slate-400">· For ${l.intent === 'Rent' ? 'Rent' : 'Sale'}</span></p>
             </div>
+            <div class="mb-3 flex flex-wrap items-center gap-2">${listingAvailabilityMarkup(l)}</div>
             <p class="text-slate-500 text-sm font-medium mb-4 truncate">${escHtml(l.title)}, ${escHtml(l.location)}</p>
             <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
               <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${formatBhk(l.beds)}</span></div>
@@ -4282,6 +4363,9 @@ async function initBuyerListingsPage() {
         
         const activeBeds = document.querySelector('button[data-filter="beds"].bg-primary')?.dataset.value || 0;
         const activeBaths = document.querySelector('button[data-filter="baths"].bg-primary')?.dataset.value || 0;
+        const recentDays = Number(document.getElementById('recent-listings-filter')?.value || 0);
+        const availableFrom = document.getElementById('available-from-filter')?.value || '';
+        const recentCutoff = recentDays ? Date.now() - recentDays * 86400000 : 0;
 
         cards.forEach(card => {
             const title = card.dataset.title.toLowerCase();
@@ -4297,8 +4381,10 @@ async function initBuyerListingsPage() {
             const matchesBeds = beds >= parseFloat(activeBeds);
             const matchesBaths = baths >= parseFloat(activeBaths);
             const matchesPrice = price >= minPrice && price <= maxPrice;
+            const matchesRecent = !recentDays || Date.parse(card.dataset.date || '') >= recentCutoff;
+            const matchesAvailability = !availableFrom || (card.dataset.availableFrom && card.dataset.availableFrom >= availableFrom);
 
-            if (matchesIntent && matchesSearch && matchesType && matchesBeds && matchesBaths && matchesPrice) {
+            if (matchesIntent && matchesSearch && matchesType && matchesBeds && matchesBaths && matchesPrice && matchesRecent && matchesAvailability) {
                 card.style.display = 'block';
             } else {
                 card.style.display = 'none';
@@ -4313,7 +4399,7 @@ async function initBuyerListingsPage() {
         const sortedCards = [...cards].sort((a, b) => {
             if (sortVal === 'price-low') return parseFloat(a.dataset.price) - parseFloat(b.dataset.price);
             if (sortVal === 'price-high') return parseFloat(b.dataset.price) - parseFloat(a.dataset.price);
-            if (sortVal === 'newest') return new Date(b.dataset.date) - new Date(a.dataset.date);
+            if (sortVal === 'newest' || sortVal === 'recommended') return new Date(b.dataset.date) - new Date(a.dataset.date);
             return 0; // recommended/default
         });
         
@@ -4329,7 +4415,7 @@ async function initBuyerListingsPage() {
         if (e.key === 'Enter') applyFilters();
     });
 
-    document.querySelectorAll('input[name="type"], #price-min, #price-max').forEach(el => {
+    document.querySelectorAll('input[name="type"], #price-min, #price-max, #recent-listings-filter, #available-from-filter').forEach(el => {
         el.addEventListener('change', () => {
             if (!document.getElementById('property-filters')?.classList.contains('mobile-open')) applyFilters();
         });
@@ -4358,6 +4444,8 @@ async function initBuyerListingsPage() {
         document.querySelectorAll('input[name="type"]').forEach(i => i.checked = false);
         document.getElementById('price-min').value = '';
         document.getElementById('price-max').value = '';
+        if (document.getElementById('recent-listings-filter')) document.getElementById('recent-listings-filter').value = '0';
+        if (document.getElementById('available-from-filter')) document.getElementById('available-from-filter').value = '';
         document.querySelectorAll('button[data-filter]').forEach(b => b.classList.remove('bg-primary', 'text-on-primary'));
         applyFilters();
         showToast('All filters cleared.');
@@ -4445,6 +4533,8 @@ async function initBuyerListingsPage() {
     const typeParam = urlParams.get('type');
     const beds = urlParams.get('beds');
     const baths = urlParams.get('baths');
+    const recentDays = urlParams.get('recentDays');
+    const availableFrom = urlParams.get('availableFrom');
 
     let shouldApply = false;
 
@@ -4498,7 +4588,14 @@ async function initBuyerListingsPage() {
             shouldApply = true;
         }
     }
-
+    if (recentDays && document.getElementById('recent-listings-filter')) {
+        document.getElementById('recent-listings-filter').value = recentDays;
+        shouldApply = true;
+    }
+    if (availableFrom && availabilityFilter && hasAvailabilityDates) {
+        availabilityFilter.value = availableFrom;
+        shouldApply = true;
+    }
     if (shouldApply || brokerId || intent || activeIntent) {
         applyFilters();
     }
@@ -4540,6 +4637,8 @@ async function initBuyerSearchPage() {
     let priceMax = Number.isFinite(Number(urlParams.get('priceMax'))) && urlParams.has('priceMax') ? Number(urlParams.get('priceMax')) : 50;
     let bedsMin = Number(urlParams.get('beds')) || 0;
     let bathsMin = Number(urlParams.get('baths')) || 0;
+    let recentDays = Number(urlParams.get('recentDays')) || 0;
+    let availableFrom = urlParams.get('availableFrom') || '';
     let sortMode = urlParams.get('sort') || 'newest';
 
     if (searchInput && qParam) {
@@ -4573,6 +4672,10 @@ async function initBuyerSearchPage() {
     if (urlParams.has('priceMin') && filterPriceMinInput) filterPriceMinInput.value = String(priceMin);
     if (urlParams.has('priceMax') && filterPriceMaxInput) filterPriceMaxInput.value = String(priceMax);
     if (filterSortInput && ['newest', 'price-low', 'price-high'].includes(sortMode)) filterSortInput.value = sortMode;
+    const filterRecentInput = document.getElementById('search-filter-recent');
+    const filterAvailableFromInput = document.getElementById('search-filter-available-from');
+    if (filterRecentInput) filterRecentInput.value = String(recentDays);
+    if (filterAvailableFromInput && availableFrom) filterAvailableFromInput.value = availableFrom;
 
     const mapContainer = document.getElementById('search-map');
     if (!mapContainer || typeof L === 'undefined') return;
@@ -4641,7 +4744,14 @@ async function initBuyerSearchPage() {
     }
 
     // Fetch active listings from Supabase
-    let rawListings = (await getListings()).filter(l => l.status === 'Active');
+    let rawListings = (await getListings()).filter(isBuyerVisibleListing);
+    const hasAvailabilityDates = rawListings.some(listing => typeof listing.available_from === 'string' && !Number.isNaN(Date.parse(listing.available_from)));
+    if (filterAvailableFromInput) filterAvailableFromInput.disabled = !hasAvailabilityDates;
+    if (hasAvailabilityDates) document.getElementById('search-filter-availability-note')?.classList.add('hidden');
+    else {
+        availableFrom = '';
+        if (filterAvailableFromInput) filterAvailableFromInput.value = '';
+    }
 
     // Listing photos are stored in listing_media, while older listings may still
     // keep their cover URL directly on the listing row.
@@ -4717,6 +4827,9 @@ async function initBuyerSearchPage() {
             if (activeTypes.length && !activeTypes.includes(l.type)) return false;
             if (Number(l.beds || 0) < bedsMin) return false;
             if (Number(l.baths || 0) < bathsMin) return false;
+            const listedAt = Date.parse(l.created_at || '');
+            if (recentDays && (!Number.isFinite(listedAt) || listedAt < Date.now() - recentDays * 86400000)) return false;
+            if (availableFrom && (!l.available_from || l.available_from < availableFrom)) return false;
             if (l.intent !== 'Rent') {
                 if (priceMin !== null && !isNaN(priceMin) && l.priceNum < priceMin) return false;
                 if (priceMax !== null && !isNaN(priceMax) && l.priceNum > priceMax) return false;
@@ -4764,7 +4877,7 @@ async function initBuyerSearchPage() {
                 </div>
               </div>
               <div class="p-5 flex-1 flex flex-col justify-between">
-                <div><h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3><p class="mt-1 text-xs font-semibold text-slate-500">${escHtml(normalizePropertyType(l.type || 'Property'))} <span class="font-medium text-slate-400">· For ${isRent ? 'Rent' : 'Sale'}</span></p><h4 class="mt-2 text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4><p class="text-xs font-medium text-slate-500 truncate mb-4">${escHtml(l.location || '')}</p></div>
+                <div><h3 class="text-lg font-black text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h3><p class="mt-1 text-xs font-semibold text-slate-500">${escHtml(normalizePropertyType(l.type || 'Property'))} <span class="font-medium text-slate-400">· For ${isRent ? 'Rent' : 'Sale'}</span></p><div class="mt-2">${listingAvailabilityMarkup(l)}</div><h4 class="mt-2 text-sm font-bold text-slate-800 line-clamp-1 mb-1">${escHtml(l.title || 'Exceptional Property')}</h4><p class="text-xs font-medium text-slate-500 truncate mb-4">${escHtml(l.location || '')}</p></div>
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-medium"><div class="flex items-center gap-3"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bed</span> ${formatBhk(l.beds)}</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-slate-400">bathtub</span> ${l.baths || 0} baths</span></div><span class="flex items-center gap-1 font-bold text-slate-700">${(l.sqft || 0).toLocaleString()} sqft</span></div>
               </div>
             </div>`;
@@ -4813,6 +4926,7 @@ async function initBuyerSearchPage() {
                 <div class="p-2 min-w-[160px] text-left">
                     <h4 class="font-bold text-sm text-slate-900">${formatCardPrice(l.priceNum, l.intent)}</h4>
                     <p class="text-xs font-medium text-slate-500 mt-0.5">${escHtml(l.title || '')}</p>
+                    <div class="mt-1">${listingAvailabilityMarkup(l)}</div>
                     <button onclick="window.location.href='property-details.html?id=${l.id}'" class="mt-3 w-full bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold hover:bg-slate-800 transition-colors">View Property</button>
                 </div>
             `, { closeButton: false, offset: [0, -20] });
@@ -5098,8 +5212,11 @@ async function initBuyerSearchPage() {
             if (filterPriceMaxInput) filterPriceMaxInput.value = String(priceMax);
         }
         sortMode = filterSortInput?.value || 'newest';
+        recentDays = Number(filterRecentInput?.value || 0);
+        availableFrom = filterAvailableFromInput?.value || '';
         const activeCount = activeTypes.length + Number(bedsMin > 0) + Number(bathsMin > 0)
-            + Number(activeIntent !== 'all') + Number(minValue !== '') + Number(maxValue !== '');
+            + Number(activeIntent !== 'all') + Number(minValue !== '') + Number(maxValue !== '')
+            + Number(recentDays > 0) + Number(availableFrom !== '');
         [document.getElementById('search-filter-count-mobile'), document.getElementById('search-filter-count-desktop')].forEach(badge => {
             if (badge) { badge.textContent = String(activeCount); badge.classList.toggle('hidden', activeCount === 0); }
         });
@@ -5110,6 +5227,8 @@ async function initBuyerSearchPage() {
         if (bathsMin) nextUrl.searchParams.set('baths', String(bathsMin)); else nextUrl.searchParams.delete('baths');
         if (minValue) nextUrl.searchParams.set('priceMin', String(priceMin)); else nextUrl.searchParams.delete('priceMin');
         if (maxValue) nextUrl.searchParams.set('priceMax', String(priceMax)); else nextUrl.searchParams.delete('priceMax');
+        if (recentDays) nextUrl.searchParams.set('recentDays', String(recentDays)); else nextUrl.searchParams.delete('recentDays');
+        if (availableFrom) nextUrl.searchParams.set('availableFrom', availableFrom); else nextUrl.searchParams.delete('availableFrom');
         nextUrl.searchParams.set('sort', sortMode);
         window.history.replaceState({}, '', nextUrl);
         renderMapAndListings();
@@ -5123,6 +5242,8 @@ async function initBuyerSearchPage() {
         });
         if (filterPriceMinInput) filterPriceMinInput.value = '';
         if (filterPriceMaxInput) filterPriceMaxInput.value = '';
+        if (filterRecentInput) filterRecentInput.value = '0';
+        if (filterAvailableFromInput) filterAvailableFromInput.value = '';
         if (filterSortInput) filterSortInput.value = 'newest';
         applySearchFilterDraft();
     });
@@ -5319,6 +5440,12 @@ async function initBuyerSearchPage() {
     }
 
     renderMapAndListings();
+    if (urlParams.get('openFilters') === '1') {
+        requestAnimationFrame(openSearchFilters);
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('openFilters');
+        window.history.replaceState({}, '', cleanUrl);
+    }
 }
 
 async function initBuyerMapPage() {
@@ -5363,7 +5490,7 @@ async function initBuyerMapPage() {
     document.getElementById('map').style.background = '#ebebeb';
 
     // Load Listings from Supabase
-    const listings = (await getListings()).filter(l => l.status === 'Active');
+    const listings = (await getListings()).filter(isBuyerVisibleListing);
     
     const defaultCoordsMap = {
         'marine drive': [18.9438, 72.8233],
@@ -5404,10 +5531,15 @@ async function initBuyerMapPage() {
     const markers = [];
     let activeListingId = null;
     let isProgrammaticMove = false;
+    let navigatingToCluster = false;
     let lastValidBounds = null;
+    let focusedClusterIds = null;
+    let clusterRenderTimeout = null;
+    const clusterLayer = L.layerGroup().addTo(map);
 
     function selectListing(id, fromMap = false) {
         activeListingId = id;
+        focusedClusterIds = null;
         const markerObj = markers.find(m => m.data.id == id);
         
         if (!fromMap && markerObj) {
@@ -5560,24 +5692,16 @@ async function initBuyerMapPage() {
         }
 
         const visibleListings = markersData.filter(p => {
-            if (window._mapSelectionCenter) {
-                if (distanceInMeters(window._mapSelectionCenter, p) > 5000) return false;
-            } else if (!bounds.contains([p.lat, p.lng])) return false;
-            if (window._mapIntentFilter && p.intent !== window._mapIntentFilter) return false;
-            const normalizedType = typeof normalizePropertyType === 'function' ? normalizePropertyType(p.type) : p.type;
-            const selectedTypes = window._mapTypeFilters?.length ? window._mapTypeFilters : (window._mapTypeFilter ? [window._mapTypeFilter] : []);
-            if (selectedTypes.length && !selectedTypes.includes(normalizedType)) return false;
-            if (Number(p.beds || 0) < Number(window._mapBedsMin || 0)) return false;
-            if (Number(p.baths || 0) < Number(window._mapBathsMin || 0)) return false;
-            if (p.intent !== 'Rent' && (p.price < Number(window._mapPriceMin ?? 0) || p.price > Number(window._mapPriceMax ?? 50))) return false;
-            return true;
+            const isFocusedClusterProperty = focusedClusterIds?.has(String(p.id));
+            if (!isFocusedClusterProperty && !window._mapSelectionCenter && !bounds.contains([p.lat, p.lng])) return false;
+            return matchesMapFilters(p);
         }).sort((a, b) => {
             const mode = window._mapSort || 'newest';
             if (mode === 'price-low') return Number(a.price) - Number(b.price);
             if (mode === 'price-high') return Number(b.price) - Number(a.price);
             return new Date(b.created_at || 0) - new Date(a.created_at || 0);
         });
-        
+
         if (matchesCountEl) {
             matchesCountEl.textContent = `${visibleListings.length} MATCHES FOUND`;
         }
@@ -5606,6 +5730,7 @@ async function initBuyerMapPage() {
                 <div class="mb-1">
                   <h3 class="text-xl font-black text-slate-900">${formatListingPrice(l.price, l.intent, { html: true })}</h3>
                   <p class="mt-1 text-xs font-semibold text-slate-500">${escHtml(normalizePropertyType(l.type || 'Property'))} <span class="font-medium text-slate-400">· For ${l.intent === 'Rent' ? 'Rent' : 'Sale'}</span></p>
+                  <div class="mb-2">${listingAvailabilityMarkup(l)}</div>
                   <div class="flex items-center gap-2">
                     <button class="transition-colors text-slate-200 hover:text-red-500 flex items-center justify-center" onclick="event.stopPropagation(); window.openReportModal('listing', ${l.id}, '${escHtml(l.title)}');" title="Report Listing">
                       <span class="material-symbols-outlined text-[20px]">flag</span>
@@ -5654,20 +5779,141 @@ async function initBuyerMapPage() {
         }
     }
 
+    function matchesMapFilters(p) {
+        if (window._mapSelectionCenter && distanceInMeters(window._mapSelectionCenter, p) > 5000) return false;
+        if (window._mapIntentFilter && p.intent !== window._mapIntentFilter) return false;
+        const normalizedType = typeof normalizePropertyType === 'function' ? normalizePropertyType(p.type) : p.type;
+        const selectedTypes = window._mapTypeFilters?.length ? window._mapTypeFilters : (window._mapTypeFilter ? [window._mapTypeFilter] : []);
+        if (selectedTypes.length && !selectedTypes.includes(normalizedType)) return false;
+        if (Number(p.beds || 0) < Number(window._mapBedsMin || 0)) return false;
+        if (Number(p.baths || 0) < Number(window._mapBathsMin || 0)) return false;
+        if (p.intent !== 'Rent' && (p.price < Number(window._mapPriceMin ?? 0) || p.price > Number(window._mapPriceMax ?? 50))) return false;
+        return true;
+    }
+
+    function renderPinClusters() {
+        clusterLayer.clearLayers();
+        const bounds = map.getBounds();
+        const visibleMarkers = markers.filter(({ data }) =>
+            bounds.contains([data.lat, data.lng]) && matchesMapFilters(data)
+        );
+        const cellSize = 88;
+        const clusterDistance = 76;
+        const positions = visibleMarkers.map(({ data }) =>
+            map.latLngToContainerPoint([data.lat, data.lng])
+        );
+        const parents = visibleMarkers.map((_, index) => index);
+        const findRoot = index => {
+            if (parents[index] !== index) parents[index] = findRoot(parents[index]);
+            return parents[index];
+        };
+        const buckets = new Map();
+
+        positions.forEach((point, index) => {
+            const cellX = Math.floor(point.x / cellSize);
+            const cellY = Math.floor(point.y / cellSize);
+            for (let x = cellX - 1; x <= cellX + 1; x++) {
+                for (let y = cellY - 1; y <= cellY + 1; y++) {
+                    for (const neighborIndex of buckets.get(`${x}:${y}`) || []) {
+                        const neighbor = positions[neighborIndex];
+                        if (point.distanceTo(neighbor) <= clusterDistance) {
+                            const root = findRoot(index);
+                            parents[root] = findRoot(neighborIndex);
+                        }
+                    }
+                }
+            }
+            const key = `${cellX}:${cellY}`;
+            if (!buckets.has(key)) buckets.set(key, []);
+            buckets.get(key).push(index);
+        });
+
+        const groups = new Map();
+        visibleMarkers.forEach((entry, index) => {
+            const root = findRoot(index);
+            if (!groups.has(root)) groups.set(root, []);
+            groups.get(root).push(entry);
+        });
+        const visibleMarkerSet = new Set(visibleMarkers.map(entry => entry.marker));
+        markers.forEach(({ marker }) => {
+            const visible = visibleMarkerSet.has(marker);
+            marker.setOpacity(visible ? 1 : 0);
+            const element = marker.getElement();
+            if (element) element.style.pointerEvents = visible ? '' : 'none';
+        });
+
+        groups.forEach(group => {
+            if (group.length < 2) return;
+            group.forEach(({ marker }) => {
+                marker.setOpacity(0);
+                const element = marker.getElement();
+                if (element) element.style.pointerEvents = 'none';
+            });
+            const center = L.latLng(
+                group.reduce((sum, entry) => sum + entry.data.lat, 0) / group.length,
+                group.reduce((sum, entry) => sum + entry.data.lng, 0) / group.length
+            );
+            const clusterMarker = L.marker(center, {
+                icon: L.divIcon({
+                    className: 'map-property-cluster-icon',
+                    html: `<button type="button" class="map-property-cluster" aria-label="Show ${group.length} properties">${group.length} Properties</button>`,
+                    iconSize: [100, 48],
+                    iconAnchor: [50, 24]
+                }),
+                keyboard: true,
+                zIndexOffset: 1000
+            }).addTo(clusterLayer);
+            clusterMarker.on('click', () => {
+                focusedClusterIds = new Set(group.map(entry => String(entry.data.id)));
+                updateSidebar();
+                const clusterBounds = L.latLngBounds(group.map(entry => [entry.data.lat, entry.data.lng]));
+                const targetZoom = Math.min(map.getBoundsZoom(clusterBounds, false, L.point(64, 64)), map.getZoom() + 3, 17);
+                navigatingToCluster = targetZoom > map.getZoom()
+                    || !map.getCenter().equals(clusterBounds.getCenter(), 1e-7);
+                if (navigatingToCluster) {
+                    map.once('moveend', () => { navigatingToCluster = false; });
+                }
+                map.flyToBounds(clusterBounds, {
+                    padding: [64, 64],
+                    maxZoom: targetZoom,
+                    duration: 0.8
+                });
+            });
+        });
+    }
+
+    function schedulePinClusterRender() {
+        if (clusterRenderTimeout !== null) window.clearTimeout(clusterRenderTimeout);
+        clusterRenderTimeout = window.setTimeout(() => {
+            clusterRenderTimeout = null;
+            renderPinClusters();
+        }, 40);
+    }
+
     window._refreshMapListings = () => {
         const wasProgrammaticMove = isProgrammaticMove;
         isProgrammaticMove = false;
         updateSidebar();
         isProgrammaticMove = wasProgrammaticMove;
+        schedulePinClusterRender();
     };
     attachMapRadiusSelection(map, {
         onSelect(center) {
+            focusedClusterIds = null;
             window._mapSelectionCenter = center;
             if (typeof window._applyMapFilters === 'function') window._applyMapFilters();
         }
     });
+    const clearFocusedCluster = () => {
+        if (navigatingToCluster || !focusedClusterIds) return;
+        focusedClusterIds = null;
+        updateSidebar();
+    };
+    map.on('zoomstart dragstart', clearFocusedCluster);
     map.on('moveend', updateSidebar);
+    map.on('moveend zoomend', schedulePinClusterRender);
     setTimeout(updateSidebar, 100);
+    setTimeout(schedulePinClusterRender, 100);
 
     // Geocode missing coordinates on the fly to support legacy listings
     withoutCoords.forEach((l, index) => {
@@ -5759,6 +6005,7 @@ async function initBuyerMapPage() {
                         markers.push({ marker, data: updatedListing });
                         
                         updateSidebar();
+                        schedulePinClusterRender();
                     }
                 })
                 .catch(err => console.error('On-the-fly geocoding failed:', err));
@@ -5855,7 +6102,13 @@ async function initBuyerDetailsPage() {
     const actualViewerRole = viewerProfile?.role;
     const isStaff = ['Admin', 'Employee 1', 'Employee 2'].includes(actualViewerRole);
     const isAdminPreview = actualViewerRole === 'Admin' && new URLSearchParams(window.location.search).get('adminPreview') === '1';
-    if (l.status !== 'Active' && !isOwner && !isStaff && !isAdminPreview) {
+    let isDealBuyer = false;
+    if (actualViewerRole === 'Buyer' && !isBuyerVisibleListing(l)) {
+        const { data: buyerDeal } = await supabase.from('listing_deals').select('id')
+            .eq('listing_id', l.id).eq('buyer_id', session.user.id).eq('status', 'confirmed').maybeSingle();
+        isDealBuyer = Boolean(buyerDeal);
+    }
+    if (!isBuyerVisibleListing(l) && !isOwner && !isStaff && !isAdminPreview && !isDealBuyer) {
         showToast('Property details are pending review or unavailable.', true);
         setTimeout(() => { window.location.href = 'properties.html'; }, 2000);
         return;
@@ -5924,7 +6177,9 @@ async function initBuyerDetailsPage() {
     // Update top status badge dynamically
     const statusBadge = document.getElementById('detail-status-badge');
     if (statusBadge) {
-        statusBadge.textContent = l.status;
+        statusBadge.textContent = l.status === 'Rented' && l.available_from
+            ? `${l.status} · ${listingAvailabilityMarkup(l).replace(/<[^>]*>/g, '')}`
+            : l.status;
         if (l.status === 'Active') {
             statusBadge.className = 'bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest';
         } else if (l.status === 'Pending') {
@@ -5933,6 +6188,8 @@ async function initBuyerDetailsPage() {
             statusBadge.className = 'bg-rose-100 text-rose-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest';
         } else if (l.status === 'Sold') {
             statusBadge.className = 'bg-slate-100 text-slate-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest';
+        } else if (l.status === 'Rented') {
+            statusBadge.className = 'bg-violet-100 text-violet-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest';
         }
     }
 
@@ -5993,10 +6250,11 @@ async function initBuyerDetailsPage() {
         else if (l.status === 'Pending') statusBadgeClass = 'bg-amber-100 text-amber-800';
         else if (l.status === 'Flagged') statusBadgeClass = 'bg-rose-100 text-rose-800';
         else if (l.status === 'Sold') statusBadgeClass = 'bg-slate-100 text-slate-800';
+        else if (l.status === 'Rented') statusBadgeClass = 'bg-violet-100 text-violet-800';
 
         const updateButtonsVisibility = (status) => {
             const showApprove = status !== 'Active';
-            const showFlag = status !== 'Flagged' && status !== 'Sold';
+            const showFlag = status !== 'Flagged' && status !== 'Sold' && status !== 'Rented';
             
             const approveBtn = modPanel.querySelector('#mod-approve-btn');
             const flagBtn = modPanel.querySelector('#mod-flag-btn');
@@ -6026,7 +6284,7 @@ async function initBuyerDetailsPage() {
                     <span class="material-symbols-outlined text-[20px]">check_circle</span>
                     Approve Listing
                 </button>
-                <button id="mod-flag-btn" class="w-full flex items-center justify-center gap-2 py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-bold text-sm transition-colors shadow-sm ${(l.status === 'Flagged' || l.status === 'Sold') ? 'hidden' : ''}">
+                <button id="mod-flag-btn" class="w-full flex items-center justify-center gap-2 py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-bold text-sm transition-colors shadow-sm ${(l.status === 'Flagged' || l.status === 'Sold' || l.status === 'Rented') ? 'hidden' : ''}">
                     <span class="material-symbols-outlined text-[20px]">flag</span>
                     Flag Listing
                 </button>
@@ -6337,13 +6595,20 @@ async function initBuyerChat(buyerId, brokerId, listingId, brokerName = 'Broker'
 
     msgsEl.innerHTML = '<div class="text-center text-slate-500 my-auto">Loading...</div>';
 
+    const { data: conversationId, error: conversationError } = await supabase.rpc('start_direct_broker_chat', { p_broker_id: brokerId });
+    if (conversationError || !conversationId) {
+        msgsEl.innerHTML = `<div class="text-error">Could not open this chat: ${escHtml(conversationError?.message || 'Conversation unavailable')}</div>`;
+        input.disabled = true;
+        sendBtn.disabled = true;
+        return;
+    }
+
     const fetchMsgs = async () => {
         const { data: msgs, error } = await supabase
             .from('messages')
             .select('*')
             .eq('buyer_id', buyerId)
             .eq('broker_id', brokerId)
-            .eq('listing_id', listingId)
             .order('created_at', { ascending: true });
 
         if (error) {
@@ -6393,12 +6658,9 @@ async function initBuyerChat(buyerId, brokerId, listingId, brokerName = 'Broker'
     };
 
     if (buyerChatChannel) supabase.removeChannel(buyerChatChannel);
-    buyerChatChannel = supabase.channel(`buyer_chat_${buyerId}_${brokerId}_${listingId}`)
-        .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'messages',
-            filter: `listing_id=eq.${listingId}` 
+    buyerChatChannel = supabase.channel(`buyer_chat_${conversationId}`)
+        .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'messages', filter: `buyer_id=eq.${buyerId}`
         }, payload => {
             if (payload.new.buyer_id === buyerId && payload.new.broker_id === brokerId) {
                 if (msgsEl.innerHTML.includes('Start a conversation!')) msgsEl.innerHTML = '';
@@ -6407,6 +6669,74 @@ async function initBuyerChat(buyerId, brokerId, listingId, brokerName = 'Broker'
             }
         })
         .subscribe();
+}
+
+function mergeConversationRowsByPartner(rows, partnerField) {
+    const ordered = [...(rows || [])].sort((a, b) => {
+        const createdOrder = new Date(a.created_at || 0) - new Date(b.created_at || 0);
+        return createdOrder || String(a.id).localeCompare(String(b.id));
+    });
+    const merged = new Map();
+    ordered.forEach(row => {
+        const key = String(row[partnerField]);
+        const firstStarted = merged.get(key);
+        if (!firstStarted) {
+            merged.set(key, { ...row });
+            return;
+        }
+        if (row.last_message_at && (!firstStarted.last_message_at || new Date(row.last_message_at) > new Date(firstStarted.last_message_at))) {
+            firstStarted.last_message_at = row.last_message_at;
+            firstStarted.last_message_preview = row.last_message_preview;
+        }
+        for (const readField of ['buyer_last_read_at', 'broker_last_read_at']) {
+            if (row[readField] && (!firstStarted[readField] || new Date(row[readField]) > new Date(firstStarted[readField]))) {
+                firstStarted[readField] = row[readField];
+            }
+        }
+    });
+    return [...merged.values()].sort((a, b) =>
+        new Date(b.last_message_at || b.created_at || 0) - new Date(a.last_message_at || a.created_at || 0));
+}
+
+function attachChatDeleteMenu(chatRow, conversationId, onDeleted) {
+    chatRow.addEventListener('contextmenu', event => {
+        event.preventDefault();
+        document.querySelector('[data-chat-context-menu]')?.remove();
+        const menu = document.createElement('div');
+        menu.dataset.chatContextMenu = 'true';
+        menu.className = 'fixed z-[1000] min-w-40 rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl';
+        menu.style.left = `${Math.max(8, Math.min(event.clientX, window.innerWidth - 176))}px`;
+        menu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - 56))}px`;
+        menu.innerHTML = '<button type="button" data-delete-chat class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50"><span class="material-symbols-outlined text-lg">delete</span>Delete chat</button>';
+        document.body.appendChild(menu);
+        const dismissOutside = event => {
+            if (menu.contains(event.target)) return;
+            menu.remove();
+            document.removeEventListener('keydown', dismissEscape);
+        };
+        const dismissEscape = event => {
+            if (event.key !== 'Escape') return;
+            menu.remove();
+            document.removeEventListener('pointerdown', dismissOutside);
+        };
+        document.addEventListener('pointerdown', dismissOutside);
+        document.addEventListener('keydown', dismissEscape);
+        menu.querySelector('[data-delete-chat]').addEventListener('click', async () => {
+            const button = menu.querySelector('[data-delete-chat]');
+            button.disabled = true;
+            button.textContent = 'Deleting…';
+            const { error } = await supabase.rpc('archive_conversation_for_self', { p_conversation_id: conversationId });
+            menu.remove();
+            document.removeEventListener('pointerdown', dismissOutside);
+            document.removeEventListener('keydown', dismissEscape);
+            if (error) {
+                showToast(`Could not delete chat: ${error.message}`);
+                return;
+            }
+            onDeleted?.();
+            showToast('Chat deleted from your list. The other participant keeps their chat history.');
+        });
+    });
 }
 
 let buyerChatsChannel = null;
@@ -6422,49 +6752,77 @@ async function initBuyerChatsPage() {
     if (!user || localStorage.getItem('role') !== 'Buyer') { location.replace('/login.html'); return; }
     list.innerHTML = '<div class="p-5 text-sm text-slate-500">Loading chats…</div>';
     const { data: conversationRows, error } = await supabase.from('conversations')
-        .select('id,buyer_id,broker_id,listing_id,created_at,last_message_at,last_message_preview')
+        .select('id,buyer_id,broker_id,listing_id,created_at,last_message_at,last_message_preview,buyer_last_read_at')
         .eq('buyer_id', user.id).order('last_message_at', { ascending: false, nullsFirst: false });
     if (error) { list.innerHTML = `<div class="p-5 text-sm text-red-600">Could not load chats: ${escHtml(error.message)}</div>`; return; }
-    const conversations = conversationRows || [];
+    const conversations = mergeConversationRowsByPartner(conversationRows, 'broker_id');
     const brokerIds = [...new Set(conversations.map(c => c.broker_id))];
-    const listingIds = [...new Set(conversations.map(c => c.listing_id))];
+    const listingIds = [...new Set(conversations.map(c => c.listing_id).filter(Boolean))];
     const [brokers, listings] = conversations.length ? await Promise.all([
         fetchRelatedProfileIdentities(brokerIds),
-        supabase.from('listings').select('id,title,location').in('id', listingIds).then(r => r.data || [])
+        listingIds.length ? supabase.from('listings').select('id,title,location').in('id', listingIds).then(r => r.data || []) : Promise.resolve([])
     ]) : [[], []];
     const brokerById = new Map((brokers || []).map(broker => [broker.id, broker]));
     const listingById = new Map(listings.map(listing => [String(listing.id), listing]));
     let active = null;
     const open = async (c, broker, listing) => {
         active = c;
+        list.querySelectorAll('[data-conversation-id]').forEach(row => {
+            const selected = row.dataset.conversationId === String(c.id);
+            row.setAttribute('aria-current', selected ? 'true' : 'false');
+            row.classList.toggle('bg-indigo-50', selected);
+            row.classList.toggle('ring-1', selected);
+            row.classList.toggle('ring-inset', selected);
+            row.classList.toggle('ring-indigo-200', selected);
+        });
+        const activeItem = list.querySelector(`[data-conversation-id="${CSS.escape(String(c.id))}"]`);
+        activeItem?.querySelector('.buyer-conversation-status')?.remove();
         layout.classList.add('thread-open');
-        header.innerHTML = `<button type="button" id="buyer-chat-back" class="buyer-chat-back hidden mr-1 text-slate-500 items-center" aria-label="Back to conversations"><span class="material-symbols-outlined">arrow_back</span></button><div class="min-w-0"><div class="font-semibold text-sm truncate">${escHtml(broker?.full_name || 'Broker')}</div><div class="text-xs text-slate-500 truncate">${escHtml(listing?.title || 'Property')} · ${escHtml(listing?.location || '')}</div></div>`;
+        header.innerHTML = `<button type="button" id="buyer-chat-back" class="buyer-chat-back hidden mr-1 text-slate-500 items-center" aria-label="Back to conversations"><span class="material-symbols-outlined">arrow_back</span></button><div class="min-w-0"><div class="font-semibold text-sm truncate">${escHtml(broker?.full_name || 'Broker')}</div><div class="text-xs text-slate-500 truncate">${listing ? `${escHtml(listing.title || 'Property')} · ${escHtml(listing.location || '')}` : 'Direct message'}</div></div>`;
         document.getElementById('buyer-chat-back')?.addEventListener('click', () => layout.classList.remove('thread-open'));
         activeChatNames[user.id] = 'You'; activeChatNames[c.broker_id] = broker?.full_name || 'Broker';
         messagesEl.innerHTML = '<div class="text-center text-slate-500 mt-8">Loading messages…</div>';
         input.disabled = true; send.disabled = true;
-        const { data: msgs, error: msgError } = await supabase.from('messages').select('*').eq('buyer_id', user.id).eq('broker_id', c.broker_id).eq('listing_id', c.listing_id).order('created_at', { ascending: true });
+        const { data: msgs, error: msgError } = await supabase.from('messages').select('*')
+            .eq('buyer_id', user.id).eq('broker_id', c.broker_id).order('created_at', { ascending: true });
         messagesEl.innerHTML = '';
         if (msgError) messagesEl.innerHTML = `<div class="text-red-600 text-sm">Could not load messages: ${escHtml(msgError.message)}</div>`;
         else if (!msgs?.length) messagesEl.innerHTML = '<div class="text-center text-slate-400 mt-8">No messages yet.</div>';
         else msgs.forEach(m => window.renderMessage(m, user.id, messagesEl));
+        await window.renderListingDealCards?.(c.id, user.id, messagesEl, { buyerId: user.id, brokerId: c.broker_id });
         messagesEl.scrollTop = messagesEl.scrollHeight;
         input.disabled = false; send.disabled = false; input.focus();
-        await supabase.from('conversations').update({ buyer_last_read_at: new Date().toISOString() }).eq('id', c.id);
+        c.buyer_last_read_at = new Date().toISOString();
+        await supabase.from('conversations').update({ buyer_last_read_at: c.buyer_last_read_at }).eq('id', c.id);
     };
     const renderConversation = c => {
         const broker = brokerById.get(c.broker_id);
-        const listing = listingById.get(String(c.listing_id));
+        const listing = c.listing_id ? listingById.get(String(c.listing_id)) : null;
         const item = document.createElement('button');
-        item.type = 'button'; item.dataset.conversationId = c.id; item.dataset.brokerId = c.broker_id; item.dataset.listingId = c.listing_id; item.className = 'w-full text-left px-4 py-3 border-b border-slate-200 hover:bg-white focus:bg-white transition-colors';
+        item.type = 'button'; item.dataset.conversationId = c.id; item.dataset.brokerId = c.broker_id; item.dataset.listingId = c.listing_id || ''; item.className = 'w-full text-left px-4 py-3 border-b border-slate-200 hover:bg-white focus:bg-white transition-colors';
         const title = broker?.full_name || 'Broker';
-        item.innerHTML = `<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold">${escHtml(title.charAt(0).toUpperCase())}</div><div class="min-w-0 flex-1"><div class="font-semibold text-sm truncate">${escHtml(title)}</div><div class="text-xs text-slate-500 truncate">${escHtml(listing?.title || 'Property')}</div><div class="buyer-chat-preview text-xs text-slate-400 truncate mt-1">${escHtml(c.last_message_preview || 'Conversation started')}</div></div></div>`;
+        const unread = c.last_message_at && (!c.buyer_last_read_at || new Date(c.last_message_at) > new Date(c.buyer_last_read_at));
+        const status = unread ? 'New' : (!c.last_message_at ? 'New chat' : '');
+        item.innerHTML = `<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold">${escHtml(title.charAt(0).toUpperCase())}</div><div class="min-w-0 flex-1"><div class="flex items-center gap-2"><div class="buyer-conversation-name font-semibold text-sm truncate">${escHtml(title)}</div>${status ? `<span class="buyer-conversation-status shrink-0 rounded-full ${unread ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'} px-2 py-0.5 text-[10px] font-bold">${status}</span>` : ''}</div><div class="text-xs text-slate-500 truncate">${escHtml(listing?.title || 'Direct message')}</div><div class="buyer-chat-preview text-xs text-slate-400 truncate mt-1">${escHtml(c.last_message_preview || 'Conversation started')}</div></div></div>`;
         item.addEventListener('click', () => open(c, broker, listing));
+        attachChatDeleteMenu(item, c.id, () => {
+            item.remove();
+            if (active?.id === c.id) {
+                active = null;
+                layout.classList.remove('thread-open');
+                header.innerHTML = '<div class="font-semibold text-sm">Select a conversation</div>';
+                messagesEl.innerHTML = '<div class="text-center text-slate-500 mt-8">Select a chat to view messages.</div>';
+                input.disabled = true; send.disabled = true;
+            }
+            if (!list.querySelector('[data-conversation-id]')) list.innerHTML = '<div class="buyer-chat-empty p-6 text-center text-sm text-slate-500">No conversations yet.</div>';
+        });
         return item;
     };
     list.innerHTML = '';
     if (conversations.length) conversations.forEach(c => list.appendChild(renderConversation(c)));
-    else list.innerHTML = '<div class="buyer-chat-empty p-6 text-center text-sm text-slate-500">No conversations yet. Contact a broker from a property page to start a chat.</div>';
+    else list.innerHTML = '<div class="buyer-chat-empty p-6 text-center text-sm text-slate-500">No conversations yet. Contact a broker from a property or broker profile to start a chat.</div>';
+    const initialConversation = new URLSearchParams(location.search).get('conversation');
+    if (initialConversation) list.querySelector(`[data-conversation-id="${CSS.escape(initialConversation)}"]`)?.click();
     const sendMessage = async () => {
         if (!active) return;
         const content = input.value.trim();
@@ -6472,11 +6830,13 @@ async function initBuyerChatsPage() {
         if (window.hasProfanity && window.hasProfanity(content)) return showToast('Please remove offensive language before sending.', 'profanity');
         input.disabled = true; send.disabled = true;
         const { data: sentMessage, error: sendError } = await supabase.from('messages')
-            .insert({ buyer_id: user.id, broker_id: active.broker_id, listing_id: active.listing_id, sender_id: user.id, content })
+        .insert({ buyer_id: user.id, broker_id: active.broker_id, listing_id: active.listing_id, sender_id: user.id, content })
             .select('*').single();
         if (sendError) showToast('Message could not be sent: ' + sendError.message);
         else {
             input.value = '';
+            active.buyer_last_read_at = new Date().toISOString();
+            await supabase.from('conversations').update({ buyer_last_read_at: active.buyer_last_read_at }).eq('id', active.id);
             if (!messagesEl.querySelector('[data-chat-message]')) messagesEl.innerHTML = '';
             window.renderMessage(sentMessage, user.id, messagesEl);
             messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -6493,10 +6853,10 @@ async function initBuyerChatsPage() {
     buyerChatsChannel = supabase.channel(`buyer_chats_${user.id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations', filter: `buyer_id=eq.${user.id}` }, async payload => {
             const c = payload.new;
-            if (list.querySelector(`[data-conversation-id="${c.id}"]`)) return;
+            if (list.querySelector(`[data-broker-id="${CSS.escape(String(c.broker_id))}"]`)) return;
             const [newBrokers, listingResult] = await Promise.all([
                 fetchRelatedProfileIdentities([c.broker_id]),
-                supabase.from('listings').select('id,title,location').eq('id', c.listing_id).maybeSingle()
+                c.listing_id ? supabase.from('listings').select('id,title,location').eq('id', c.listing_id).maybeSingle() : Promise.resolve({ data: null })
             ]);
             const broker = newBrokers?.find(p => p.id === c.broker_id);
             if (broker) brokerById.set(broker.id, broker);
@@ -6506,44 +6866,73 @@ async function initBuyerChatsPage() {
             list.querySelector('.buyer-chat-empty')?.remove();
             list.prepend(item);
         })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `buyer_id=eq.${user.id}` }, async payload => {
+            const conversation = payload.new;
+            let item = list.querySelector(`[data-conversation-id="${CSS.escape(String(conversation.id))}"]`);
+            if (conversation.buyer_archived_at) {
+                item?.remove();
+                if (active?.id === conversation.id) {
+                    active = null;
+                    layout.classList.remove('thread-open');
+                    header.innerHTML = '<div class="font-semibold text-sm">Select a conversation</div>';
+                    messagesEl.innerHTML = '<div class="text-center text-slate-500 mt-8">Select a chat to view messages.</div>';
+                    input.disabled = true; send.disabled = true;
+                }
+                if (!list.querySelector('[data-conversation-id]')) list.innerHTML = '<div class="buyer-chat-empty p-6 text-center text-sm text-slate-500">No conversations yet.</div>';
+                return;
+            }
+            if (!item) {
+                let broker = brokerById.get(conversation.broker_id);
+                if (!broker) {
+                    const identities = await fetchRelatedProfileIdentities([conversation.broker_id]);
+                    broker = identities?.find(profile => profile.id === conversation.broker_id);
+                    if (broker) brokerById.set(broker.id, broker);
+                }
+                item = renderConversation(conversation);
+                list.querySelector('.buyer-chat-empty')?.remove();
+                list.prepend(item);
+            }
+            const preview = item.querySelector('.buyer-chat-preview');
+            if (preview) preview.textContent = conversation.last_message_preview || 'Conversation started';
+            list.prepend(item);
+        })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `buyer_id=eq.${user.id}` }, async payload => {
-            if (active && payload.new.broker_id === active.broker_id && String(payload.new.listing_id) === String(active.listing_id)) {
+            const message = payload.new;
+            const isActiveConversation = active?.broker_id === message.broker_id;
+            if (isActiveConversation) {
                 if (!messagesEl.querySelector('[data-chat-message]')) messagesEl.innerHTML = '';
-                window.renderMessage(payload.new, user.id, messagesEl); messagesEl.scrollTop = messagesEl.scrollHeight;
+                window.renderMessage(message, user.id, messagesEl);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
             }
-            const item = Array.from(list.querySelectorAll('[data-conversation-id]'))
-                .find(row => row.dataset.brokerId === String(payload.new.broker_id)
-                    && row.dataset.listingId === String(payload.new.listing_id));
-            let conversationItem = item;
+            let conversationItem = list.querySelector(`[data-broker-id="${CSS.escape(String(message.broker_id))}"]`);
             if (!conversationItem) {
-                const { data: conversation, error: conversationError } = await supabase.from('conversations')
-                    .select('id,buyer_id,broker_id,listing_id,created_at,last_message_at,last_message_preview')
-                    .eq('buyer_id', user.id).eq('broker_id', payload.new.broker_id)
-                    .eq('listing_id', payload.new.listing_id).maybeSingle();
-                if (conversationError) {
-                    console.error('Could not refresh buyer conversations:', conversationError);
-                    return;
+                const { data: conversationRows, error: conversationError } = await supabase.from('conversations')
+                    .select('id,buyer_id,broker_id,listing_id,created_at,last_message_at,last_message_preview,buyer_last_read_at')
+                    .eq('buyer_id', user.id).eq('broker_id', message.broker_id).order('created_at', { ascending: true });
+                const conversation = mergeConversationRowsByPartner(conversationRows, 'broker_id')[0];
+                if (conversationError || !conversation) return;
+                let broker = brokerById.get(conversation.broker_id);
+                if (!broker) {
+                    const identities = await fetchRelatedProfileIdentities([conversation.broker_id]);
+                    broker = identities?.find(profile => profile.id === conversation.broker_id);
+                    if (broker) brokerById.set(broker.id, broker);
                 }
-                if (conversation) {
-                    conversationItem = Array.from(list.querySelectorAll('[data-conversation-id]'))
-                        .find(row => row.dataset.brokerId === String(conversation.broker_id)
-                            && row.dataset.listingId === String(conversation.listing_id));
-                    if (!conversationItem) {
-                        const [newBrokers, listingResult] = await Promise.all([
-                            fetchRelatedProfileIdentities([conversation.broker_id]),
-                            supabase.from('listings').select('id,title,location').eq('id', conversation.listing_id).maybeSingle()
-                        ]);
-                        const broker = newBrokers?.find(profile => profile.id === conversation.broker_id);
-                        if (broker) brokerById.set(broker.id, broker);
-                        if (listingResult.data) listingById.set(String(listingResult.data.id), listingResult.data);
-                        conversationItem = renderConversation(conversation);
-                        list.querySelector('.buyer-chat-empty')?.remove();
-                    }
-                }
+                conversationItem = renderConversation(conversation);
+                list.querySelector('.buyer-chat-empty')?.remove();
             }
-            const preview = conversationItem?.querySelector('.buyer-chat-preview');
-            if (preview) preview.textContent = payload.new.content.slice(0, 160);
-            if (conversationItem) list.prepend(conversationItem);
+            const preview = conversationItem.querySelector('.buyer-chat-preview');
+            if (preview) preview.textContent = message.content.slice(0, 160);
+            if (message.sender_id !== user.id && !isActiveConversation && !conversationItem.querySelector('.buyer-conversation-status')) {
+                const nameRow = conversationItem.querySelector('.buyer-conversation-name')?.parentElement;
+                if (nameRow) nameRow.insertAdjacentHTML('beforeend', '<span class="buyer-conversation-status shrink-0 rounded-full bg-indigo-600 text-white px-2 py-0.5 text-[10px] font-bold">New</span>');
+            }
+            list.prepend(conversationItem);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'listing_deals', filter: `buyer_id=eq.${user.id}` }, async payload => {
+            if (active && payload.new.buyer_id === user.id && payload.new.broker_id === active.broker_id) {
+                await window.renderListingDealCards?.(active.id, user.id, messagesEl, { buyerId: user.id, brokerId: active.broker_id });
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
         })
         .subscribe();
 }
@@ -6739,7 +7128,7 @@ window.initBrokerChat = async function initBrokerChat() {
         return;
     }
 
-    const uniqueConversations = conversations || [];
+    const uniqueConversations = mergeConversationRowsByPartner(conversations, 'buyer_id');
 
     if (uniqueConversations.length === 0) {
         listEl.innerHTML = '<div class="p-4 text-center text-slate-500 font-medium">No conversations yet.</div>';
@@ -6748,17 +7137,17 @@ window.initBrokerChat = async function initBrokerChat() {
 
     // Fetch listing titles and buyer profiles
     const buyerIds = [...new Set(uniqueConversations.map(c => c.buyer_id))];
-    const listingIds = [...new Set(uniqueConversations.map(c => c.listing_id))];
+    const listingIds = [...new Set(uniqueConversations.map(c => c.listing_id).filter(Boolean))];
 
     const [profiles, listingsResult, inquiriesResult] = await Promise.all([
         fetchRelatedProfileIdentities(buyerIds),
-        supabase.from('listings').select('id, title').in('id', listingIds),
-        supabase.from('inquiries')
+        listingIds.length ? supabase.from('listings').select('id, title').in('id', listingIds) : Promise.resolve({ data: [], error: null }),
+        listingIds.length ? supabase.from('inquiries')
             .select('buyer_id,broker_id,listing_id,name,created_at')
             .eq('broker_id', user.id)
             .in('buyer_id', buyerIds)
             .in('listing_id', listingIds)
-            .order('created_at', { ascending: false })
+            .order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null })
     ]);
     if (listingsResult.error) console.warn('Chat listing lookup failed:', listingsResult.error);
     if (inquiriesResult.error) console.warn('Chat inquiry name lookup failed:', inquiriesResult.error);
@@ -6780,7 +7169,7 @@ window.initBrokerChat = async function initBrokerChat() {
     uniqueConversations.forEach(c => {
         const buyer = profiles?.find(p => p.id === c.buyer_id);
         const listing = listings?.find(l => l.id === c.listing_id);
-        const name = inquiryNameByConversation.get(`${c.buyer_id}-${c.listing_id}`) || buyer?.full_name || 'Buyer';
+        const name = buyer?.full_name || inquiryNameByConversation.get(`${c.buyer_id}-${c.listing_id}`) || 'Buyer';
         const letter = name.charAt(0).toUpperCase();
         
         // Premium HSL matching palette
@@ -6794,13 +7183,15 @@ window.initBrokerChat = async function initBrokerChat() {
         const colorIdx = (name.charCodeAt(0) || 0) % colors.length;
         const colorClass = colors[colorIdx];
 
-        const conversationKey = `${c.buyer_id}-${c.listing_id}`;
+        const conversationKey = String(c.buyer_id);
         const isUnread = unreadConversations.has(conversationKey);
 
         const div = document.createElement('div');
         div.dataset.conversationId = c.id;
         div.dataset.buyerId = c.buyer_id;
-        div.dataset.listingId = c.listing_id;
+        div.dataset.listingId = c.listing_id || '';
+        div.tabIndex = 0;
+        div.setAttribute('role', 'button');
         div.className = `p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-all flex items-center gap-3 group relative ${isUnread ? 'bg-red-50/20' : ''}`;
         div.innerHTML = `
             <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${colorClass} shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-200">
@@ -6813,7 +7204,7 @@ window.initBrokerChat = async function initBrokerChat() {
                 </div>
                 <div class="text-xs text-slate-400 font-medium mt-0.5 truncate flex items-center gap-1">
                     <span class="material-symbols-outlined text-[14px] text-slate-300">domain</span>
-                    ${escHtml(listing?.title || 'Property')}
+                    ${escHtml(listing?.title || 'Direct message')}
                 </div>
                 <div class="chat-preview text-xs text-slate-500 mt-1 truncate">${escHtml(c.last_message_preview || 'Conversation started')} · ${escHtml(formatMsgTime(c.last_message_at))}</div>
             </div>
@@ -6825,8 +7216,20 @@ window.initBrokerChat = async function initBrokerChat() {
             div.classList.remove('bg-red-50/20');
             const dot = div.querySelector('.bg-red-500');
             if (dot) dot.remove();
-        window.loadChatMessages(c.buyer_id, user.id, c.listing_id, name, listing?.title || 'Property', c.id);
+        window.loadChatMessages(c.buyer_id, user.id, c.listing_id, name, listing?.title || 'Direct message', c.id);
         };
+        attachChatDeleteMenu(div, c.id, () => {
+            div.remove();
+            if (currentChatConversation?.conversationId === c.id) {
+                currentChatConversation = null;
+                if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
+                document.getElementById('chat-header').innerHTML = '<div class="font-semibold text-sm">Select a conversation</div>';
+                document.getElementById('chat-messages').innerHTML = '<div class="text-center text-slate-500 mt-8">Select a chat to view messages.</div>';
+                document.getElementById('chat-input').disabled = true;
+                document.getElementById('chat-send-btn').disabled = true;
+            }
+            if (!listEl.querySelector('[data-conversation-id]')) listEl.innerHTML = '<div class="p-4 text-center text-slate-500 font-medium">No conversations yet.</div>';
+        });
         listEl.appendChild(div);
     });
 };
@@ -6842,14 +7245,14 @@ window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, lis
                 ${escHtml(buyerName)}
                 <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             </a>
-            <a href="/property-details.html?id=${encodeURIComponent(listingId)}" target="_blank" rel="noopener noreferrer"
+            ${listingId ? `<a href="/property-details.html?id=${encodeURIComponent(listingId)}" target="_blank" rel="noopener noreferrer"
                class="min-w-0 text-right text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors">
                 <span class="block text-[10px] uppercase tracking-wide text-slate-400">About this listing</span>
                 <span class="inline-flex max-w-full items-center justify-end gap-1 font-semibold">
                     <span class="truncate">${escHtml(listingTitle)}</span>
                     <span class="material-symbols-outlined text-[16px] shrink-0">open_in_new</span>
                 </span>
-            </a>
+            </a>` : '<span class="text-xs font-medium text-slate-500">Direct message</span>'}
         </div>
     `;
     if (!document.querySelector('#chat-header .broker-chat-back')) {
@@ -6865,7 +7268,7 @@ window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, lis
 
     const msgsEl = document.getElementById('chat-messages');
 
-    if (!buyerId || !brokerId || !listingId) {
+    if (!buyerId || !brokerId) {
         msgsEl.innerHTML = '<div class="text-center text-error mt-4 font-medium">Invalid chat details (missing broker or buyer).</div>';
         return;
     }
@@ -6875,13 +7278,8 @@ window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, lis
     const { data: { user } } = await supabase.auth.getUser();
 
     const fetchMsgs = async () => {
-        const { data: msgs, error } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('buyer_id', buyerId)
-            .eq('broker_id', brokerId)
-            .eq('listing_id', listingId)
-            .order('created_at', { ascending: true });
+        const messageQuery = supabase.from('messages').select('*').eq('buyer_id', buyerId).eq('broker_id', brokerId);
+        const { data: msgs, error } = await messageQuery.order('created_at', { ascending: true });
 
         if (error) {
             msgsEl.innerHTML = `<div class="text-error">Error: ${error.message}</div>`;
@@ -6898,6 +7296,7 @@ window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, lis
     };
 
     await fetchMsgs();
+    await window.renderListingDealCards?.(conversationId, user.id, msgsEl, { buyerId, brokerId });
     if (conversationId) await supabase.from('conversations').update({ broker_last_read_at: new Date().toISOString() }).eq('id', conversationId);
 
     // Enable input
@@ -6949,20 +7348,24 @@ window.loadChatMessages = async function loadChatMessages(buyerId, brokerId, lis
     // Set up real-time listener
     if (chatChannel) supabase.removeChannel(chatChannel);
 
-    chatChannel = supabase.channel(`chat_${buyerId}_${brokerId}_${listingId}`)
-        .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'messages',
-            filter: `listing_id=eq.${listingId}` 
-        }, payload => {
-            // Need to make sure it belongs to this conversation
+    const messageSubscription = {
+        event: 'INSERT', schema: 'public', table: 'messages',
+        filter: `buyer_id=eq.${buyerId}`
+    };
+    chatChannel = supabase.channel(`chat_${conversationId || `${buyerId}_${brokerId}`}`)
+        .on('postgres_changes', messageSubscription, payload => {
             if (payload.new.buyer_id === buyerId && payload.new.broker_id === brokerId) {
                 // If it was the first message, clear the "No messages yet" text
                 if (msgsEl.innerHTML.includes('No messages yet')) msgsEl.innerHTML = '';
                 window.renderMessage(payload.new, user.id, msgsEl);
                 msgsEl.scrollTop = msgsEl.scrollHeight;
                 window.setTimeout(() => window.initBrokerChat?.(), 150);
+            }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'listing_deals', filter: `broker_id=eq.${brokerId}` }, async payload => {
+            if (payload.new.buyer_id === buyerId && payload.new.broker_id === brokerId) {
+                await window.renderListingDealCards?.(payload.new.conversation_id || conversationId, user.id, msgsEl, { buyerId, brokerId });
+                msgsEl.scrollTop = msgsEl.scrollHeight;
             }
         })
         .subscribe();

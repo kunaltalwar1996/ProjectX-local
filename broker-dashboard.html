@@ -16,7 +16,7 @@
 <!-- Leaflet Map JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script type="module" src="/auth.js"></script>
-<style>
+<style data-page-styles>
   .mobile-nav-btn.active-mobile-tab {
     color: #0f172a;
     background: #f1f5f9;
@@ -108,6 +108,10 @@
 <span class="material-symbols-outlined text-[20px]">domain</span>
             <span class="hidden lg:inline">Listings</span>
         </a>
+<a id="nav-deals" aria-selected="false" class="flex items-center justify-center lg:justify-between px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors w-full" href="#deals-section">
+    <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">handshake</span><span class="hidden lg:inline">Deals</span></div>
+    <span id="broker-deals-badge" class="hidden rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-black text-white">0</span>
+</a>
 <a id="nav-leads" class="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-900 transition-colors justify-center lg:justify-start" href="#leads-section">
 <span class="material-symbols-outlined text-[20px]">person_search</span>
             <span class="hidden lg:inline">Leads</span>
@@ -166,6 +170,10 @@
   <button type="button" data-tab="#listings-section" aria-label="Listings" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">domain</span>
     <span class="text-[9px] font-black uppercase tracking-widest">Listings</span>
+  </button>
+  <button type="button" data-tab="#deals-section" aria-label="Deals" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors relative">
+    <span class="material-symbols-outlined text-[22px]">handshake</span><span class="text-[9px] font-black uppercase tracking-widest">Deals</span>
+    <span id="mobile-broker-deals-badge" class="absolute top-0 right-0 hidden h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[8px] font-black text-white">0</span>
   </button>
   <button type="button" data-tab="#leads-section" aria-label="Leads" aria-selected="false" class="mobile-nav-btn flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl text-slate-400 transition-colors">
     <span class="material-symbols-outlined text-[22px]">person_search</span>
@@ -376,6 +384,16 @@
                 <span class="material-symbols-outlined text-[18px]">add</span> Add Listing
             </button>
         </header>
+        <details class="mb-4 rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+            <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-on-surface"><span class="material-symbols-outlined text-[20px]">tune</span>Listing filters<span id="broker-listing-filter-count" class="hidden rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-on-primary">0</span><span class="ml-auto material-symbols-outlined text-[18px]">expand_more</span></summary>
+            <div class="grid gap-3 border-t border-outline-variant p-4 sm:grid-cols-2 xl:grid-cols-4">
+                <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-on-surface-variant">Search listings</span><input id="broker-listing-filter-search" type="search" autocomplete="off" placeholder="Title or location" class="w-full rounded-lg border border-outline-variant bg-white px-3 py-2.5 text-sm"></label>
+                <label><span class="mb-1 block text-xs font-semibold text-on-surface-variant">Status</span><select id="broker-listing-filter-status" class="w-full rounded-lg border border-outline-variant bg-white px-3 py-2.5 text-sm"><option value="">Any status</option><option>Active</option><option>Pending</option><option>Under Review</option><option>Rejected</option><option>Sold</option><option>Rented</option></select></label>
+                <label><span class="mb-1 block text-xs font-semibold text-on-surface-variant">Listing type</span><select id="broker-listing-filter-intent" class="w-full rounded-lg border border-outline-variant bg-white px-3 py-2.5 text-sm"><option value="">Buy or rent</option><option value="Buy">Sale</option><option value="Rent">Rent</option></select></label>
+                <label><span class="mb-1 block text-xs font-semibold text-on-surface-variant">Recently listed</span><select id="broker-listing-filter-recent" class="w-full rounded-lg border border-outline-variant bg-white px-3 py-2.5 text-sm"><option value="0">Any time</option><option value="7">Past 7 days</option><option value="30">Past 30 days</option><option value="90">Past 90 days</option></select></label>
+                <button id="broker-listing-filter-clear" type="button" class="self-end rounded-lg border border-outline-variant px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-low">Clear filters</button>
+            </div>
+        </details>
         <section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col mb-8">
             <div class="overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse min-w-[700px]">
@@ -422,6 +440,20 @@
                 </table>
             </div>
         </section>
+    </div>
+
+    <!-- TAB: SALE & RENT DEALS -->
+    <div id="tab-deals" class="tab-content hidden">
+        <header class="mb-stack-lg flex flex-wrap items-center justify-between gap-4">
+            <div><h1 class="font-h2 text-h2 text-primary">Sale &amp; Rental Deals</h1><p class="mt-unit font-body-sm text-body-sm text-on-surface-variant">Choose a buyer from your existing inquiries or chats, send a proposal, and track the review.</p></div>
+            <span class="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800">Employee 1 confirms before listing status changes</span>
+        </header>
+        <label for="deal-listing-search" class="sr-only">Search active listings and open deals</label>
+        <div class="mb-5 flex max-w-xl items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
+            <span class="material-symbols-outlined text-slate-400">search</span>
+            <input id="deal-listing-search" type="search" autocomplete="off" placeholder="Search listings by name or location" class="w-full border-0 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400">
+        </div>
+        <div id="broker-deals-list" class="grid gap-4"><div class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">Loading your listings…</div></div>
     </div>
 
     <!-- TAB: INQUIRIES / LEADS -->
