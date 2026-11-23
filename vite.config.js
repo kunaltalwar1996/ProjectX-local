@@ -41,7 +41,7 @@ export default defineConfig({
         terms: 'terms.html',
         privacy: 'privacy.html',
         staffLogin: 'staff-login.html',
-        sitemap: 'sitemap.html',
+        brokers: 'brokers.html',
         sharedFilter: 'shared-filter.html',
         search: 'search.html',
         chats: 'chats.html'

@@ -248,7 +248,7 @@
           .from('listings')
           .select('*')
           .eq('broker_id', filter.broker_id)
-          .eq('status', 'Active');
+          .or('status.eq.Active,and(status.eq.Rented,available_from.not.is.null)');
 
         if (listingsError) {
           throw new Error('Error loading listings: ' + listingsError.message);
@@ -336,6 +336,7 @@
               <div class="p-5">
                 <h3 class="text-xl font-black text-slate-900">${formatPrice(parseFloat(l.price), l.intent)}</h3>
                 <p class="mt-1 text-xs font-semibold text-slate-500">${l.type || 'Property'} <span class="font-medium text-slate-400">· For ${formatIntentDisplay(l.intent)}</span></p>
+                ${l.status === 'Rented' && l.available_from ? `<p class="mt-2 text-xs font-bold text-violet-800">Available from ${new Date(`${l.available_from}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>` : ''}
                 <p class="text-slate-500 text-sm font-medium mb-4 truncate">${l.title}, ${l.location}</p>
                 <div class="flex flex-wrap items-center gap-y-2 gap-x-4 text-slate-400">
                   <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">bed</span><span class="text-xs font-black text-slate-900">${parseInt(l.beds, 10) >= 5 ? '5BHK+' : `${l.beds || 0}BHK`}</span></div>

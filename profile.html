@@ -1065,6 +1065,10 @@
               <!-- Contact Broker -->
               <div class="space-y-3">
                 <label class="profile-label">Contact Broker</label>
+                <button id="btn-start-projectx-chat" type="button" class="btn-primary w-full text-xs py-2.5 active:scale-[0.98]">
+                  <span class="material-symbols-outlined text-[18px]">chat</span>
+                  Start a chat
+                </button>
                 <div class="grid grid-cols-2 gap-2">
                   <a id="btn-call-broker" href="tel:${profile.phone || ''}" class="btn-secondary flex-1 text-[11px] py-2.5 active:scale-[0.98]">
                     <span class="material-symbols-outlined text-[16px]">call</span>
@@ -1133,6 +1137,29 @@
                 };
               }
             }
+
+            const projectXChatBtn = document.getElementById('btn-start-projectx-chat');
+            if (projectXChatBtn) projectXChatBtn.onclick = async () => {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) {
+                window.navigateTo('/login.html');
+                return;
+              }
+              if (user.id === targetUserId) return showToast('You cannot start a chat with yourself.', true);
+              projectXChatBtn.disabled = true;
+              projectXChatBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">sync</span> Opening chat…';
+              const { data: conversationId, error } = await supabase.rpc('start_direct_broker_chat', { p_broker_id: targetUserId });
+              if (error || !conversationId) {
+                const rpcMissing = /could not find the function|schema cache/i.test(error?.message || '');
+                showToast(rpcMissing
+                  ? 'Direct chat is not enabled on the server yet. Apply the latest Supabase migration, then try again.'
+                  : (error?.message || 'Unable to start a chat.'), true);
+                projectXChatBtn.disabled = false;
+                projectXChatBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">chat</span> Start a chat';
+                return;
+              }
+              window.navigateTo(`/chats.html?conversation=${encodeURIComponent(conversationId)}`);
+            };
           }
         }
       } else {

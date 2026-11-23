@@ -7,6 +7,99 @@ const feedback = document.getElementById('workflow-feedback');
 const esc = (value = '') => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const FIELD_VERIFICATION_RADIUS_METERS = 200;
 const listingDetails = new Map();
+const employeeListingSearch = document.getElementById('employee1-listing-search');
+const employeeRecentFilter = document.getElementById('employee1-recent-filter');
+const employeeAvailableFilter = document.getElementById('employee1-available-filter');
+const employee2ListingSearch = document.getElementById('employee2-listing-search');
+const employee2RecentFilter = document.getElementById('employee2-recent-filter');
+const employee2AvailableFilter = document.getElementById('employee2-available-filter');
+
+function applyEmployee1ListingSearch() {
+  if (kind !== 'Employee 1') return;
+  const query = employeeListingSearch?.value.trim().toLocaleLowerCase() || '';
+  const recentDays = Number(employeeRecentFilter?.value || 0);
+  const recentCutoff = recentDays ? Date.now() - recentDays * 86400000 : 0;
+  const availableFrom = employeeAvailableFilter?.value || '';
+  let matches = 0;
+  document.querySelectorAll('[data-employee-search-section]').forEach(section => {
+    const cards = [...section.querySelectorAll('#employee1-listings article, #employee1-deal-queue article')];
+    cards.forEach(card => {
+      const listedAt = Date.parse(card.dataset.createdAt || '');
+      const visible = (!query || card.textContent.toLocaleLowerCase().includes(query))
+        && (!recentDays || (Number.isFinite(listedAt) && listedAt >= recentCutoff))
+        && (!availableFrom || (card.dataset.availableFrom && card.dataset.availableFrom >= availableFrom));
+      card.hidden = !visible;
+      if (visible) matches += 1;
+    });
+    section.hidden = Boolean(query) && cards.length > 0 && !cards.some(card => !card.hidden);
+  });
+  document.querySelectorAll('[data-employee-listing-group]').forEach(group => {
+    const cards = [...group.querySelectorAll('article')];
+    group.hidden = Boolean(query) && !cards.some(card => !card.hidden);
+  });
+  const empty = document.getElementById('employee1-listing-search-empty');
+  if (empty) empty.classList.toggle('hidden', !(query || recentDays || availableFrom) || matches > 0);
+}
+window.applyEmployee1ListingSearch = applyEmployee1ListingSearch;
+employeeListingSearch?.addEventListener('input', applyEmployee1ListingSearch);
+employeeRecentFilter?.addEventListener('change', applyEmployee1ListingSearch);
+employeeAvailableFilter?.addEventListener('change', applyEmployee1ListingSearch);
+
+function applyEmployee2ListingSearch() {
+  if (kind !== 'Employee 2') return;
+  const query = employee2ListingSearch?.value.trim().toLocaleLowerCase() || '';
+  const recentDays = Number(employee2RecentFilter?.value || 0);
+  const cutoff = recentDays ? Date.now() - recentDays * 86400000 : 0;
+  const availableFrom = employee2AvailableFilter?.value || '';
+  let matches = 0;
+  ['listing-queue', 'employee2-history'].forEach(id => {
+    const host = document.getElementById(id);
+    host?.querySelectorAll('article').forEach(card => {
+      const listedAt = Date.parse(card.dataset.createdAt || '');
+      const visible = (!query || card.textContent.toLocaleLowerCase().includes(query))
+        && (!recentDays || (Number.isFinite(listedAt) && listedAt >= cutoff))
+        && (!availableFrom || (card.dataset.availableFrom && card.dataset.availableFrom >= availableFrom));
+      card.hidden = !visible;
+      if (visible) matches += 1;
+    });
+    host?.querySelectorAll('[data-employee-listing-group]').forEach(group => {
+      group.hidden = Boolean(query || recentDays || availableFrom) && ![...group.querySelectorAll('article')].some(card => !card.hidden);
+    });
+  });
+  const empty = document.getElementById('employee2-search-empty');
+  if (empty) empty.classList.toggle('hidden', !(query || recentDays || availableFrom) || matches > 0);
+}
+employee2ListingSearch?.addEventListener('input', applyEmployee2ListingSearch);
+employee2RecentFilter?.addEventListener('change', applyEmployee2ListingSearch);
+employee2AvailableFilter?.addEventListener('change', applyEmployee2ListingSearch);
+
+function updateAvailabilityControl(listings, inputId, noteId) {
+  const input = document.getElementById(inputId);
+  const note = document.getElementById(noteId);
+  if (!input) return;
+  const available = (listings || []).some(item => typeof item.available_from === 'string' && !Number.isNaN(Date.parse(item.available_from)));
+  input.disabled = !available;
+  if (note) note.classList.toggle('hidden', available);
+}
+
+function syncEmployee1Navigation() {
+  const activeHash = location.hash === '#my-listings' ? '#my-listings' : '#overview';
+  document.querySelectorAll('aside .employee1-nav-link').forEach(link => {
+    const selected = link.getAttribute('href') === activeHash;
+    link.setAttribute('aria-current', selected ? 'page' : 'false');
+    link.classList.toggle('bg-white', selected);
+    link.classList.toggle('text-slate-900', selected);
+    link.classList.toggle('font-semibold', selected);
+    link.classList.toggle('shadow-sm', selected);
+    link.classList.toggle('ring-1', selected);
+    link.classList.toggle('ring-slate-200', selected);
+    link.classList.toggle('text-slate-500', !selected);
+    link.classList.toggle('font-medium', !selected);
+  });
+}
+window.addEventListener('hashchange', syncEmployee1Navigation);
+syncEmployee1Navigation();
+
 const rowSkeleton = () => `<div class="flex animate-pulse items-center gap-4 p-5"><div class="h-20 w-24 rounded-xl bg-slate-200"></div><div class="flex-1 space-y-3"><div class="h-4 w-1/3 rounded bg-slate-200"></div><div class="h-3 w-2/3 rounded bg-slate-200"></div><div class="h-3 w-1/2 rounded bg-slate-200"></div></div></div>`;
 const loadingRows = (count = 3) => Array.from({ length: count }, rowSkeleton).join('<div class="border-t border-slate-100"></div>');
 document.querySelectorAll('#employee1-total,#employee1-approved,#employee1-pending,#employee1-rejected,#employee2-total,#employee2-pending,#employee2-ready,#employee2-rejected').forEach(el => {
@@ -14,13 +107,15 @@ document.querySelectorAll('#employee1-total,#employee1-approved,#employee1-pendi
 });
 
 function renderStatusGroup(title, description, items, emptyText, renderItem) {
-  return `<section class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5"><div class="mb-4 flex flex-wrap items-end justify-between gap-2"><div><h3 class="text-lg font-bold text-slate-900">${esc(title)}</h3><p class="mt-1 text-sm text-slate-500">${esc(description)}</p></div><span class="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">${items.length}</span></div>${items.length ? `<div class="grid gap-3">${items.map(renderItem).join('')}</div>` : `<div class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-500">${esc(emptyText)}</div>`}</section>`;
+  return `<section data-employee-listing-group class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5"><div class="mb-4 flex flex-wrap items-end justify-between gap-2"><div><h3 class="text-lg font-bold text-slate-900">${esc(title)}</h3><p class="mt-1 text-sm text-slate-500">${esc(description)}</p></div><span class="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">${items.length}</span></div>${items.length ? `<div class="grid gap-3">${items.map(renderItem).join('')}</div>` : `<div class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-500">${esc(emptyText)}</div>`}</section>`;
 }
 
 function renderSimpleListing(item, userId, rejected = false) {
   const status = item.status === 'Active' ? 'Published' : item.status || 'Pending';
-  const badge = rejected ? 'bg-rose-50 text-rose-700' : item.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800';
-  return `<article class="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[96px_minmax(0,1fr)_auto] sm:items-center sm:p-5"><img src="${esc(item.img || '')}" alt="Listing photo" class="h-24 w-full rounded-xl bg-slate-100 object-cover sm:w-24" onerror="this.style.display='none'"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h4 class="font-bold text-slate-900">${esc(item.title || 'Listing')}</h4><span class="rounded-full px-2.5 py-1 text-xs font-semibold ${badge}">${esc(status)}</span></div><p class="mt-1 text-sm text-slate-600">${esc(item.location || 'Location not provided')} · ₹${Number(item.price || 0).toLocaleString('en-IN')}</p><p class="mt-2 text-xs text-slate-500">${esc(item.intent || '')}${item.created_at ? ` · Submitted ${new Date(item.created_at).toLocaleDateString('en-IN')}` : ''}</p>${rejected && item.rejection_reason ? `<p class="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800"><strong>Rejection reason:</strong> ${esc(item.rejection_reason)}</p>` : ''}${item.field_verification_lat != null && item.field_verification_lng != null ? `<a class="mt-2 inline-block text-xs font-semibold text-blue-700 underline" href="https://www.google.com/maps?q=${item.field_verification_lat},${item.field_verification_lng}" target="_blank" rel="noopener">View saved field visit location</a>` : ''}</div><button type="button" data-details="${esc(item.id)}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">View details</button></article>`;
+  const badge = rejected ? 'bg-rose-50 text-rose-700' : item.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Sold' ? 'bg-slate-100 text-slate-700' : item.status === 'Rented' ? 'bg-violet-50 text-violet-800' : 'bg-amber-50 text-amber-800';
+  const rentalAvailability = item.status === 'Rented' && item.available_from
+    ? `<p class="mt-2 text-xs font-semibold text-violet-800">Available from ${new Date(`${item.available_from}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>` : '';
+  return `<article data-created-at="${esc(item.created_at || '')}" data-available-from="${esc(item.available_from || '')}" class="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[96px_minmax(0,1fr)_auto] sm:items-center sm:p-5"><img src="${esc(item.img || '')}" alt="Listing photo" class="h-24 w-full rounded-xl bg-slate-100 object-cover sm:w-24" onerror="this.style.display='none'"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h4 class="font-bold text-slate-900">${esc(item.title || 'Listing')}</h4><span class="rounded-full px-2.5 py-1 text-xs font-semibold ${badge}">${esc(status)}</span></div><p class="mt-1 text-sm text-slate-600">${esc(item.location || 'Location not provided')} · ₹${Number(item.price || 0).toLocaleString('en-IN')}</p><p class="mt-2 text-xs text-slate-500">${esc(item.intent || '')}${item.created_at ? ` · Submitted ${new Date(item.created_at).toLocaleDateString('en-IN')}` : ''}</p>${rentalAvailability}${rejected && item.rejection_reason ? `<p class="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800"><strong>Rejection reason:</strong> ${esc(item.rejection_reason)}</p>` : ''}${item.field_verification_lat != null && item.field_verification_lng != null ? `<a class="mt-2 inline-block text-xs font-semibold text-blue-700 underline" href="https://www.google.com/maps?q=${item.field_verification_lat},${item.field_verification_lng}" target="_blank" rel="noopener">View saved field visit location</a>` : ''}</div><button type="button" data-details="${esc(item.id)}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">View details</button></article>`;
 }
 
 function wireListingDetails(host, userId, selector = '[data-details]') {
@@ -192,6 +287,7 @@ async function loadEmployee2Dashboard(userId) {
     return;
   }
   const listings = data || [];
+  updateAvailabilityControl(listings, 'employee2-available-filter', 'employee2-availability-note');
   const pending = listings.filter(item => item.status === 'Under Review' && !item.field_verified).length;
   const ready = listings.filter(item => item.status === 'Under Review' && item.field_verified).length;
   const rejected = listings.filter(item => item.status === 'Rejected').length;
@@ -208,6 +304,7 @@ async function loadEmployee2Dashboard(userId) {
   historyHost.innerHTML = renderStatusGroup('Published', 'Field verification is complete and the listing is live.', published, 'No published listings yet.', item => renderSimpleListing(item, userId))
     + renderStatusGroup('Rejected', 'Rejected listings and the reviewer’s reason.', rejectedItems, 'No rejected listings.', item => renderSimpleListing(item, userId, true));
   wireListingDetails(historyHost, userId);
+  applyEmployee2ListingSearch();
 }
 
 async function loadEmployee1Listings(userId) {
@@ -228,23 +325,31 @@ async function loadEmployee1Listings(userId) {
   const listings = createdResult.data || [];
   const workflowListings = new Map([...listings, ...(assignedResult.data || [])].map(item => [String(item.id), item]));
   const tracked = [...workflowListings.values()];
+  const hasAvailabilityDates = tracked.some(item => typeof item.available_from === 'string' && !Number.isNaN(Date.parse(item.available_from)));
+  if (employeeAvailableFilter) employeeAvailableFilter.disabled = !hasAvailabilityDates;
+  if (hasAvailabilityDates) document.getElementById('employee1-availability-note')?.classList.add('hidden');
   const approved = tracked.filter(item => item.assigned_virtual_verifier_id === userId
     && item.virtually_verified === true && item.assigned_field_agent_id != null).length;
   const rejected = tracked.filter(item => item.status === 'Rejected').length;
-  const pending = tracked.filter(item => !['Active', 'Rejected'].includes(item.status)).length;
+  const pending = tracked.filter(item => !['Active', 'Rejected', 'Sold', 'Rented'].includes(item.status)).length;
   document.getElementById('employee1-total').textContent = tracked.length;
   document.getElementById('employee1-approved').textContent = approved;
   document.getElementById('employee1-pending').textContent = pending;
   document.getElementById('employee1-rejected').textContent = rejected;
   tracked.forEach(item => listingDetails.set(String(item.id), item));
   const rejectedItems = tracked.filter(item => item.status === 'Rejected');
-  const sentToField = tracked.filter(item => item.virtually_verified === true && item.assigned_field_agent_id != null && item.status !== 'Rejected');
-  const current = tracked.filter(item => !['Active', 'Rejected'].includes(item.status) && !(item.virtually_verified === true && item.assigned_field_agent_id != null));
+  const published = tracked.filter(item => item.status === 'Active');
+  const completed = tracked.filter(item => ['Sold', 'Rented'].includes(item.status));
+  const sentToField = tracked.filter(item => item.virtually_verified === true && item.assigned_field_agent_id != null && !['Rejected', 'Sold', 'Rented'].includes(item.status));
+  const current = tracked.filter(item => !['Active', 'Rejected', 'Sold', 'Rented'].includes(item.status) && !(item.virtually_verified === true && item.assigned_field_agent_id != null));
   listingHost.className = 'grid gap-5 p-4 sm:p-5';
   listingHost.innerHTML = renderStatusGroup('Current listings', 'Waiting for review or field verification.', current, 'No listings currently in review.', item => renderSimpleListing(item, userId))
     + renderStatusGroup('Approved for field verification', 'Virtual review passed and assigned to Employee 2.', sentToField, 'No listings have been sent to field verification yet.', item => renderSimpleListing(item, userId))
+    + renderStatusGroup('Published listings', 'Active listings that are available to users.', published, 'No published listings yet.', item => renderSimpleListing(item, userId))
+    + renderStatusGroup('Completed deals', 'Listings confirmed as sold or rented.', completed, 'No completed deals yet.', item => renderSimpleListing(item, userId))
     + renderStatusGroup('Rejected listings', 'Review the rejection reason and open listing details.', rejectedItems, 'No rejected listings.', item => renderSimpleListing(item, userId, true));
   wireListingDetails(listingHost, userId);
+  applyEmployee1ListingSearch();
 }
 
 async function loadQueue(userId) {
@@ -272,6 +377,7 @@ async function loadQueue(userId) {
     queue.innerHTML = kind === 'Employee 1'
       ? renderStatusGroup('Needs virtual verification', 'Review each listing before forwarding it to field operations.', [], 'No listings are awaiting virtual review.', () => '') + renderStatusGroup('Rejected', 'Listings rejected during review.', [], 'No listings have been rejected.', () => '')
       : renderStatusGroup('Awaiting site visit', 'Capture a site photo and confirm your location within 200 m.', [], 'No listings are awaiting a site visit.', () => '') + renderStatusGroup('Ready to publish', 'Field visit saved; approve to make the listing live.', [], 'No listings are ready to publish.', () => '');
+    if (kind === 'Employee 2') applyEmployee2ListingSearch();
     return;
   }
   const displayItems = await Promise.all(data.map(async item => {
@@ -282,7 +388,8 @@ async function loadQueue(userId) {
     return item;
   }));
   displayItems.forEach(item => listingDetails.set(String(item.id), item));
-  const renderQueueCard = item => `<article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-listing="${item.id}" data-lat="${item.lat ?? ''}" data-lng="${item.lng ?? ''}">
+  if (kind === 'Employee 2') updateAvailabilityControl(displayItems, 'employee2-available-filter', 'employee2-availability-note');
+  const renderQueueCard = item => `<article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-listing="${item.id}" data-created-at="${esc(item.created_at || '')}" data-available-from="${esc(item.available_from || '')}" data-lat="${item.lat ?? ''}" data-lng="${item.lng ?? ''}">
     <div class="flex flex-col gap-4 sm:flex-row"><img class="h-28 w-full rounded-xl bg-slate-100 object-cover sm:w-36" src="${esc(item.img || '')}" alt="Listing photo" onerror="this.style.display='none'">
     <div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><h2 class="text-lg font-bold text-slate-900">${esc(item.title)}</h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">${esc(item.status || 'Pending')}</span></div>
     <p class="mt-1 text-sm text-slate-500">${esc(item.location)} Â· â‚¹${Number(item.price || 0).toLocaleString('en-IN')}</p>
@@ -303,6 +410,7 @@ async function loadQueue(userId) {
     : renderStatusGroup('Awaiting site visit', 'Capture a site photo and confirm your location within 200 m.', pending, 'No listings are awaiting a site visit.', renderQueueCard)
       + renderStatusGroup('Ready to publish', 'Field visit saved; approve to make the listing live.', ready, 'No listings are ready to publish.', renderQueueCard);
   queue.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => button.dataset.action === 'details' ? showListingDetails(listingDetails.get(button.closest('[data-listing]').dataset.listing), userId) : act(button, userId)));
+  if (kind === 'Employee 2') applyEmployee2ListingSearch();
 }
 
 async function act(button, userId) {

@@ -6,10 +6,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css"><script type="module" src="/auth.js"></script>
-  <style>
-    .buyer-chat-shell{height:min(76vh,760px);min-height:480px}.buyer-chat-layout{display:grid;grid-template-columns:minmax(250px,32%) 1fr;min-height:0}
-    @media(max-width:1023px){.buyer-chat-main{padding-top:12px;padding-bottom:12px}.buyer-chat-title{display:none}.buyer-chat-shell{height:calc(100dvh - 100px);min-height:280px}.buyer-chat-layout{display:block}.buyer-chat-list,.buyer-chat-thread{height:100%}.buyer-chat-thread{display:none!important}.buyer-chat-layout.thread-open .buyer-chat-list{display:none!important}.buyer-chat-layout.thread-open .buyer-chat-thread{display:flex!important}.buyer-chat-back{display:flex}}
-    @media(max-width:639px){.buyer-chat-shell{height:calc(100dvh - 92px);min-height:260px;border-radius:12px}}
+  <style data-page-styles>
+    .buyer-chat-main{height:calc(100dvh - 64px);min-height:480px;display:flex;flex-direction:column}
+    .buyer-chat-shell{flex:1;min-height:400px;min-width:0}
+    .buyer-chat-layout{display:grid;grid-template-columns:minmax(230px,32%) minmax(0,1fr);min-height:0;min-width:0}
+    .buyer-chat-list,.buyer-chat-thread{min-width:0;min-height:0}
+    #buyer-chat-header,#buyer-chat-form{flex:none;min-width:0}
+    #buyer-chat-messages{min-width:0;overflow-wrap:anywhere;overscroll-behavior:contain;scrollbar-gutter:stable}
+    #buyer-conversation-list button[aria-current="true"]{background:#eef2ff;box-shadow:inset 3px 0 #4f46e5}
+    #buyer-conversation-list button[aria-current="true"] .buyer-conversation-name{color:#312e81}
+    @media(max-width:1023px){.buyer-chat-main{height:calc(100dvh - 64px);min-height:0;padding-top:10px;padding-bottom:10px}.buyer-chat-title{display:none}.buyer-chat-shell{height:auto;min-height:0}.buyer-chat-layout{display:block}.buyer-chat-list,.buyer-chat-thread{width:100%;height:100%}.buyer-chat-thread{display:none!important}.buyer-chat-layout.thread-open .buyer-chat-list{display:none!important}.buyer-chat-layout.thread-open .buyer-chat-thread{display:flex!important}.buyer-chat-back{display:flex}}
+    @media(max-width:639px){.buyer-chat-shell{border-radius:12px}.buyer-chat-thread header{padding-left:12px;padding-right:12px}.buyer-chat-thread form{padding:10px}.buyer-chat-thread form input{padding-left:12px;padding-right:12px}.buyer-chat-thread form button{min-width:44px;padding-left:12px;padding-right:12px}}
   </style>
 </head>
 <body class="min-h-screen bg-[#f8f9fa] text-slate-900 font-['Outfit']">

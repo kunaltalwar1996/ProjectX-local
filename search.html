@@ -338,6 +338,8 @@
     <div class="search-filter-panel-header"><h2 id="search-filter-title" class="text-lg font-bold text-slate-900">Filters</h2><button type="button" id="search-filter-close" class="search-filter-close" aria-label="Close filters"><span class="material-symbols-outlined">close</span></button></div>
     <div class="search-filter-content space-y-7">
       <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Sort by</h3><select id="search-filter-sort" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"><option value="newest">Newest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></section>
+      <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Recently listed</h3><select id="search-filter-recent" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"><option value="0">Any time</option><option value="7">Past 7 days</option><option value="30">Past 30 days</option><option value="90">Past 90 days</option></select></section>
+      <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Available from</h3><input id="search-filter-available-from" type="date" disabled class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:text-slate-400"><p id="search-filter-availability-note" class="text-xs text-slate-500">Availability dates aren’t stored on listings yet.</p></section>
       <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Property Type</h3><div class="space-y-2">
         <label class="flex items-center gap-2 text-sm text-slate-600"><input class="search-filter-type h-4 w-4 accent-slate-900" type="checkbox" value="Apartment/ High Rise">Apartment/ High Rise</label>
         <label class="flex items-center gap-2 text-sm text-slate-600"><input class="search-filter-type h-4 w-4 accent-slate-900" type="checkbox" value="Builder Floor/ Low Rise">Builder Floor/ Low Rise</label>
@@ -407,6 +409,14 @@
       <span id="floating-toggle-text">Show Map</span>
     </button>
   </div>
+
+  <footer class="border-t border-slate-200 bg-white px-4 py-6 sm:px-6">
+    <div class="mx-auto flex max-w-[1280px] flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <a href="/index.html" class="font-black tracking-tight text-slate-900">ProjectX</a>
+      <nav aria-label="Footer" class="flex flex-wrap gap-x-5 gap-y-2 font-semibold text-slate-500"><a href="/properties.html" class="hover:text-slate-900">Properties</a><a href="/brokers.html" class="hover:text-slate-900">Find a broker</a><a href="/#site-directory" class="hover:text-slate-900">Site directory</a><a href="/terms.html" class="hover:text-slate-900">Terms</a><a href="/privacy.html" class="hover:text-slate-900">Privacy</a><a href="/login.html" class="hover:text-slate-900">Support</a></nav>
+      <span class="text-xs text-slate-400">© 2026 ProjectX India</span>
+    </div>
+  </footer>
 
 </body>
 </html>
