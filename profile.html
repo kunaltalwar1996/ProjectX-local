@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html class="light" lang="en">
 
 <head>
@@ -305,11 +305,40 @@
             </div>
             <div>
               <label class="profile-label" for="field-experience">Years of Experience</label>
-              <input class="profile-input" id="field-experience" type="number" placeholder="e.g. 5" min="0" />
+              <input class="profile-input" id="field-experience" type="number" placeholder="e.g. 5" min="0" max="32767" step="1" inputmode="numeric" />
             </div>
             <div class="md:col-span-2">
-              <label class="profile-label" for="field-areas">Areas of Operation</label>
-              <input class="profile-input" id="field-areas" type="text" placeholder="e.g. Bandra, Juhu, Andheri" />
+              <fieldset>
+                <legend class="profile-label">Areas of Operation</legend>
+                <p class="text-xs text-slate-400 font-medium mb-3">Select every location where you actively serve clients.</p>
+                <div id="areas-of-operation-options" class="grid grid-cols-2 md:grid-cols-3 gap-3" aria-describedby="areas-of-operation-help">
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Gurugram" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Gurugram
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Faridabad" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Faridabad
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Mumbai" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Mumbai
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Noida" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Noida
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Ghaziabad" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Ghaziabad
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Delhi" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Delhi
+                  </label>
+                </div>
+                <span id="areas-of-operation-help" class="sr-only">Choose zero or more approved areas of operation.</span>
+              </fieldset>
             </div>
           </div>
           <div class="mt-6">
@@ -335,6 +364,46 @@
 
     const STORAGE_KEY = 'buyerProfile';
     let currentProfile = null;
+    const APPROVED_AREAS_OF_OPERATION = Object.freeze([
+      'Gurugram', 'Faridabad', 'Mumbai', 'Noida', 'Ghaziabad', 'Delhi'
+    ]);
+
+    function normalizeProfessionalDetails(details) {
+      const areas = Array.isArray(details?.areas_of_operation)
+        ? [...new Set(details.areas_of_operation.filter(area => APPROVED_AREAS_OF_OPERATION.includes(area)))]
+        : [];
+
+      return {
+        agency_name: typeof details?.agency_name === 'string' ? details.agency_name : '',
+        years_experience: Number.isInteger(details?.years_experience) ? details.years_experience : null,
+        areas_of_operation: areas
+      };
+    }
+
+    function setAreasOfOperation(areas = []) {
+      const selected = new Set(areas);
+      document.querySelectorAll('input[name="areas-of-operation"]').forEach(input => {
+        input.checked = selected.has(input.value);
+      });
+    }
+
+    // Updated loadBrokerProfessionalDetails with explicit error handling
+    async function loadBrokerProfessionalDetails(brokerId) {
+      const { data, error } = await supabase
+        .from('broker_public_details')
+        .select('agency_name, years_experience, areas_of_operation')
+        .eq('broker_id', brokerId)
+        .maybeSingle();
+
+      if (error) {
+        // Propagate the error to the caller so UI can handle it
+        console.warn('Error loading professional details:', error);
+        throw error;
+      }
+
+      // data may be null when no record exists – treat as empty details
+      return normalizeProfessionalDetails(data);
+    }
 
     function loadLocalProfile() {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -445,6 +514,10 @@
           }
         }
 
+        const professionalDetails = isOwnProfile && profile.role === 'Broker'
+          ? await loadBrokerProfessionalDetails(session.user.id)
+          : null;
+
         // Fetch dynamic stats from database
         let inquiriesCount = 0;
         if (profile.role === 'Buyer') {
@@ -508,6 +581,7 @@
           savedCount: savedCount,
           inquiriesCount: inquiriesCount,
           prefs: profile.preferences || {},
+          professionalDetails: professionalDetails,
           role: profile.role || 'Buyer',
           isOwnProfile: isOwnProfile,
           viewerRole: viewerRole
@@ -744,13 +818,11 @@
         if (brokerProfCard) {
           if (profile.isOwnProfile) {
             brokerProfCard.classList.remove('hidden');
-            const agencyVal = profile.prefs.agency || '';
-            const expVal = profile.prefs.experience || '';
-            const areasVal = profile.prefs.areas || '';
+            const details = normalizeProfessionalDetails(profile.professionalDetails);
             
-            document.getElementById('field-agency').value = agencyVal;
-            document.getElementById('field-experience').value = expVal;
-            document.getElementById('field-areas').value = areasVal;
+            document.getElementById('field-agency').value = details.agency_name;
+            document.getElementById('field-experience').value = details.years_experience ?? '';
+            setAreasOfOperation(details.areas_of_operation);
           } else {
             brokerProfCard.classList.add('hidden');
           }
@@ -1148,65 +1220,71 @@
         return;
       }
 
-      const userId = session.user.id;
-      const agency = document.getElementById('field-agency').value.trim();
-      const experienceInput = document.getElementById('field-experience').value;
-      const experience = experienceInput !== '' ? parseInt(experienceInput, 10) : null;
-      const areas = document.getElementById('field-areas').value.trim();
+      if (!currentProfile?.isOwnProfile || currentProfile.role !== 'Broker') {
+        showToast('Only brokers can update professional information.', true);
+        return;
+      }
 
-      if (window.hasProfanity && (window.hasProfanity(agency) || window.hasProfanity(areas))) {
+      const userId = session.user.id;
+      const agencyInput = document.getElementById('field-agency');
+      const experienceInput = document.getElementById('field-experience');
+      const saveProfBtn = document.getElementById('save-prof-btn');
+      if (!agencyInput || !experienceInput || !saveProfBtn) return;
+
+      const agencyName = agencyInput.value.trim();
+      const rawExperience = experienceInput.value.trim();
+      const selectedAreas = [...new Set(
+        [...document.querySelectorAll('input[name="areas-of-operation"]:checked')]
+          .map(input => input.value)
+          .filter(area => APPROVED_AREAS_OF_OPERATION.includes(area))
+      )];
+
+      if (agencyName.length > 160) {
+        showToast('Agency name must be 160 characters or fewer.', true);
+        return;
+      }
+
+      if (window.hasProfanity && agencyName && window.hasProfanity(agencyName)) {
         showToast('WARNING: Swearing is strictly prohibited! Please remove all offensive language to proceed.', 'profanity');
         return;
       }
 
-      const saveProfBtn = document.getElementById('save-prof-btn');
+      let yearsExperience = null;
+      if (rawExperience !== '') {
+        if (!/^[0-9]+$/.test(rawExperience)) {
+          showToast('Years of experience must be a non-negative whole number.', true);
+          return;
+        }
+        yearsExperience = Number(rawExperience);
+        if (!Number.isSafeInteger(yearsExperience) || yearsExperience > 32767) {
+          showToast('Years of experience must be between 0 and 32767.', true);
+          return;
+        }
+      }
+
       const origContent = saveProfBtn.innerHTML;
 
       try {
         saveProfBtn.disabled = true;
         saveProfBtn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Saving...';
 
-        // 1. Fetch current profile to get existing preferences
-        const { data: profile, error: fetchError } = await supabase
-          .from('profiles')
-          .select('preferences')
-          .eq('id', userId)
+        const { data: savedDetails, error } = await supabase
+          .from('broker_public_details')
+          .upsert({
+            broker_id: userId,
+            agency_name: agencyName || null,
+            years_experience: yearsExperience,
+            areas_of_operation: selectedAreas
+          }, { onConflict: 'broker_id' })
+          .select('agency_name, years_experience, areas_of_operation')
           .single();
 
-        if (fetchError) {
-          throw fetchError;
+        if (error || !savedDetails) {
+          throw error || new Error('Professional information could not be saved.');
         }
 
-        // 2. Merge professional fields into existing preferences
-        const currentPrefs = profile.preferences || {};
-        const mergedPrefs = {
-          ...currentPrefs,
-          agency,
-          experience,
-          areas
-        };
-
-        // 3. Update profiles table
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            preferences: mergedPrefs,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userId);
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        // 4. Update local storage cache
-        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        existing.prefs = mergedPrefs;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-
-        // 5. Update local current profile
         if (currentProfile) {
-          currentProfile.prefs = mergedPrefs;
+          currentProfile.professionalDetails = normalizeProfessionalDetails(savedDetails);
         }
 
         showToast('Professional information saved successfully!');
