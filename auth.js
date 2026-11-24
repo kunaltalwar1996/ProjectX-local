@@ -6966,18 +6966,7 @@ function initSellPage() {
 function initAdminPanelInteractions() {
     document.querySelectorAll('button').forEach((button) => {
         const text = button.textContent.trim();
-        const title = button.getAttribute('title');
-        if (title === 'Approve') {
-            button.addEventListener('click', () => {
-                button.closest('tr, .flex')?.remove();
-                showToast('Broker verification approved.');
-            });
-        } else if (title === 'Reject') {
-            button.addEventListener('click', () => {
-                button.closest('tr, .flex')?.remove();
-                showToast('Broker verification rejected.');
-            });
-        } else if (text === 'Load More Queue Items') {
+        if (text === 'Load More Queue Items') {
             button.addEventListener('click', () => showToast('All queue items are currently loaded.'));
         } else if (text.includes('View All Users')) {
             button.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
