@@ -12,9 +12,9 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap"
     rel="stylesheet" />
-  <script type="module" crossorigin src="/assets/auth-Ccq06AyR.js"></script>
-  <script type="module" crossorigin src="/assets/demo-data-_BmDzGrb.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/style-B5qmhIPF.css">
+  <script type="module" crossorigin src="/assets/auth-PEiDEKAd.js"></script>
+  <script type="module" crossorigin src="/assets/demo-data-DXcLt-g2.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/style-DgWIa-jW.css">
 </head>
 
 <body class="bg-[#f8f9fa] text-slate-900 font-['Outfit'] antialiased min-h-screen flex flex-col">
@@ -47,6 +47,9 @@
             </a>
           </div>
         </div>
+
+        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
+          href="/brokers.html">Top Brokers</a>
       </div>
       <!-- Trailing Actions -->
       <div class="flex items-center gap-4">
@@ -85,12 +88,15 @@
     <div class="max-w-[1280px] mx-auto px-6 py-12">
       <div class="flex flex-col lg:flex-row gap-10">
         <!-- Filter Sidebar -->
-        <aside id="property-filters" class="property-filters w-full lg:w-64 shrink-0 space-y-8">
+        <aside id="property-filters" class="property-filters space-y-8" role="dialog" aria-modal="true" aria-labelledby="property-filter-title" aria-hidden="true">
           <div>
             <div class="flex items-center justify-between mb-4">
-              <h3 class="font-bold text-sm uppercase tracking-wider text-slate-500">Filters</h3>
+              <h3 id="property-filter-title" class="font-bold text-sm uppercase tracking-wider text-slate-500">Filters</h3>
               <button id="clear-all-filters" class="text-xs font-bold text-slate-900 hover:underline">Clear All</button>
             </div>
+
+            <label for="recent-listings-filter" class="mb-5 block space-y-2"><span class="block text-xs font-bold text-slate-900">Recently listed</span><select id="recent-listings-filter" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="0">Any time</option><option value="7">Past 7 days</option><option value="30">Past 30 days</option><option value="90">Past 90 days</option></select></label>
+            <label for="available-from-filter" class="mb-2 block space-y-2"><span class="block text-xs font-bold text-slate-900">Available from</span><input id="available-from-filter" type="date" disabled class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:text-slate-400"><span id="available-from-note" class="block text-xs text-slate-500">Availability dates aren’t stored on listings yet.</span></label>
 
             <div class="space-y-6">
               <!-- Property Type -->
@@ -163,6 +169,7 @@
             </div>
           </div>
           <div class="mobile-filter-actions">
+            <button id="close-property-filters" type="button" class="mb-2 w-full rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 lg:hidden">Close filters</button>
             <button id="apply-mobile-filters" type="button" class="w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800">Apply filters</button>
           </div>
         </aside>
@@ -176,8 +183,8 @@
                 Mumbai & Delhi</p>
             </div>
             <div class="flex flex-wrap items-center gap-3 md:gap-6">
-              <button id="mobile-filter-toggle" type="button" aria-controls="property-filters" aria-expanded="false" class="lg:hidden inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700">
-                <span class="material-symbols-outlined text-[20px]">menu</span><span>Filters</span>
+              <button id="mobile-filter-toggle" type="button" aria-controls="property-filters" aria-expanded="false" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700">
+                <span class="material-symbols-outlined text-[20px]">tune</span><span>Filters</span><span id="property-filter-count" class="hidden rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] text-white">0</span>
               </button>
               <div class="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200">
                 <button id="view-grid" class="p-1.5 rounded-md bg-white shadow-sm text-slate-900 transition-all">
@@ -267,11 +274,12 @@
     </div>
   </main>
 
-  <footer class="bg-white py-12 px-6 mt-auto">
-    </div>
-    <div class="text-[10px] font-medium text-slate-400 text-center md:text-right uppercase tracking-wider">
-      © 2026 ProjectX.<br class="md:hidden"> ALL RIGHTS RESERVED.
-    </div>
+  <footer class="mt-auto border-t border-slate-200 bg-white px-6 py-10">
+    <div class="mx-auto grid max-w-[1280px] gap-8 md:grid-cols-[1.2fr_1fr_1fr]">
+      <div><a href="/index.html" class="text-lg font-black tracking-tight text-slate-900">ProjectX</a><p class="mt-2 max-w-sm text-sm leading-6 text-slate-500">Find homes and connect with property professionals across your area.</p></div>
+      <div><h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">Explore</h2><div class="mt-3 flex flex-col gap-2 text-sm font-semibold text-slate-600"><a href="/properties.html" class="hover:text-slate-950">Properties</a><a href="/map.html" class="hover:text-slate-950">Map search</a><a href="/brokers.html" class="hover:text-slate-950">Find a broker</a></div></div>
+      <div><h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">ProjectX</h2><div class="mt-3 flex flex-col gap-2 text-sm font-semibold text-slate-600"><a href="/#site-directory" class="hover:text-slate-950">Site directory</a><a href="/terms.html" class="hover:text-slate-950">Terms of service</a><a href="/privacy.html" class="hover:text-slate-950">Privacy policy</a><a href="/login.html" class="hover:text-slate-950">Support</a></div></div>
+      <div class="border-t border-slate-100 pt-4 text-xs text-slate-400 md:col-span-3">© 2026 ProjectX India. All rights reserved.</div>
     </div>
   </footer>
   <div id="filter-backdrop" class="filter-backdrop" aria-hidden="true"></div>
@@ -279,15 +287,13 @@
     .intent-toggle { display:flex; align-items:center; padding:4px; border:1px solid #e2e8f0; border-radius:10px; background:white; }
     .intent-option { border:0; border-radius:7px; padding:7px 14px; color:#64748b; background:transparent; font:700 13px Outfit,sans-serif; cursor:pointer; }
     .intent-option.is-active { color:white; background:#0f172a; }
-    @media(max-width:1023px) {
-      .property-filters { display:none; }
-      .property-filters.mobile-open { display:block; position:fixed; z-index:71; inset:0 auto 0 0; width:min(88vw,360px); overflow-y:auto; background:white; padding:24px; box-shadow:0 0 32px #0f172a33; }
-      .mobile-filter-actions { position:sticky; bottom:-24px; margin:24px -24px -24px; padding:16px 24px 24px; background:white; border-top:1px solid #e2e8f0; }
-      .mobile-filter-actions button { min-height:48px; }
-      .filter-backdrop { display:none; position:fixed; z-index:70; inset:0; background:#0f172a80; }
-      .filter-backdrop.is-visible { display:block; }
-    }
-    @media(min-width:1024px) { .mobile-filter-actions { display:none; } }
+    .property-filters { position:fixed; z-index:1200; inset:0 0 0 auto; width:min(92vw,420px); height:100dvh; overflow-y:auto; background:white; padding:24px; box-shadow:0 0 32px #0f172a33; transform:translateX(102%); visibility:hidden; transition:transform .22s ease,visibility .22s ease; }
+    .property-filters.mobile-open { transform:translateX(0); visibility:visible; }
+    .mobile-filter-actions { position:sticky; bottom:-24px; display:grid; gap:8px; margin:24px -24px -24px; padding:16px 24px 24px; background:white; border-top:1px solid #e2e8f0; }
+    .mobile-filter-actions button { min-height:48px; }
+    .filter-backdrop { display:none; position:fixed; z-index:1100; inset:0; background:#0f172a80; }
+    .filter-backdrop.is-visible { display:block; }
+    @media(min-width:1024px) { #close-property-filters { display:none; } }
     @media(max-width:640px) {
       main > div.max-w-\[1280px\] { padding:24px 16px; }
       #listings-count-text { font-size:14px; }
@@ -305,10 +311,12 @@
         filters.classList.toggle('mobile-open', open);
         backdrop.classList.toggle('is-visible', open);
         toggle.setAttribute('aria-expanded', String(open));
+        filters.setAttribute('aria-hidden', String(!open));
         document.body.classList.toggle('overflow-hidden', open);
       };
       toggle.addEventListener('click', () => setOpen(!filters.classList.contains('mobile-open')));
       backdrop.addEventListener('click', () => setOpen(false));
+      document.getElementById('close-property-filters')?.addEventListener('click', () => setOpen(false));
       applyButton.addEventListener('click', () => {
         window.applyPropertyPageFilters?.();
         setOpen(false);
@@ -325,6 +333,13 @@
         const minPrice = Number.parseFloat(document.getElementById('price-min')?.value) || 0;
         const rawMax = Number.parseFloat(document.getElementById('price-max')?.value);
         const intent = document.querySelector('.intent-option[aria-pressed="true"]')?.dataset.intent || 'Rent';
+        const recentDays = Number(document.getElementById('recent-listings-filter')?.value || 0);
+        const availableFrom = document.getElementById('available-from-filter')?.value || '';
+        const recentCutoff = recentDays ? Date.now() - recentDays * 86400000 : 0;
+        const activeCount = types.length + Number(beds > 0) + Number(baths > 0) + Number(minPrice > 0)
+          + Number(Number.isFinite(rawMax)) + Number(recentDays > 0) + Number(availableFrom !== '');
+        const filterCount = document.getElementById('property-filter-count');
+        if (filterCount) { filterCount.textContent = String(activeCount); filterCount.classList.toggle('hidden', activeCount === 0); }
         let visible = 0;
         document.querySelectorAll('#property-grid .property-card').forEach(card => {
           const matches = (!query || `${card.dataset.title || ''} ${card.dataset.location || ''}`.toLowerCase().includes(query))
@@ -333,6 +348,8 @@
             && Number(card.dataset.baths || 0) >= baths
             && Number(card.dataset.price || 0) >= minPrice
             && (!Number.isFinite(rawMax) || Number(card.dataset.price || 0) <= rawMax)
+            && (!recentDays || (Date.parse(card.dataset.date || '') >= recentCutoff))
+            && (!availableFrom || (card.dataset.availableFrom && card.dataset.availableFrom >= availableFrom))
             && String(card.dataset.intent || '').toLowerCase() === intent.toLowerCase();
           card.style.display = matches ? '' : 'none';
           if (matches) visible++;
@@ -350,6 +367,9 @@
         if (!filters.classList.contains('mobile-open')) applyFilters();
       }));
       document.querySelectorAll('input[name="type"], #price-min, #price-max').forEach(input => input.addEventListener('change', () => {
+        if (!filters.classList.contains('mobile-open')) applyFilters();
+      }));
+      document.querySelectorAll('#recent-listings-filter, #available-from-filter').forEach(input => input.addEventListener('change', () => {
         if (!filters.classList.contains('mobile-open')) applyFilters();
       }));
       document.querySelectorAll('.intent-option').forEach(button => button.addEventListener('click', () => {
@@ -374,6 +394,8 @@
         document.querySelectorAll('input[name="type"]').forEach(input => { input.checked = false; });
         document.getElementById('price-min').value = '';
         document.getElementById('price-max').value = '';
+        document.getElementById('recent-listings-filter').value = '0';
+        document.getElementById('available-from-filter').value = '';
         document.querySelectorAll('button[data-filter]').forEach(button => button.classList.remove('is-selected', 'bg-primary', 'text-on-primary'));
         applyFilters();
       });

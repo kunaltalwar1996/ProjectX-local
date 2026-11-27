@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html class="light" lang="en">
 
 <head>
@@ -60,9 +60,10 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     }
   </style>
-  <script type="module" crossorigin src="/assets/profile-6bZ0pVRm.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/auth-Ccq06AyR.js">
-  <link rel="stylesheet" crossorigin href="/assets/style-B5qmhIPF.css">
+  <script type="module" crossorigin src="/assets/profile-DNlygS3x.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/auth-PEiDEKAd.js">
+  <link rel="modulepreload" crossorigin href="/assets/broker-identity-service-MIFfQJ7l.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-DgWIa-jW.css">
 </head>
 
 <body class="estate-admin-theme bg-background text-on-background font-['Outfit'] antialiased min-h-screen flex flex-col">
@@ -96,6 +97,9 @@
             </a>
           </div>
         </div>
+
+        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
+          href="/brokers.html">Top Brokers</a>
       </div>
       <!-- Trailing Actions -->
       <div class="flex items-center gap-4">
@@ -306,11 +310,40 @@
             </div>
             <div>
               <label class="profile-label" for="field-experience">Years of Experience</label>
-              <input class="profile-input" id="field-experience" type="number" placeholder="e.g. 5" min="0" />
+              <input class="profile-input" id="field-experience" type="number" placeholder="e.g. 5" min="0" max="32767" step="1" inputmode="numeric" />
             </div>
             <div class="md:col-span-2">
-              <label class="profile-label" for="field-areas">Areas of Operation</label>
-              <input class="profile-input" id="field-areas" type="text" placeholder="e.g. Bandra, Juhu, Andheri" />
+              <fieldset>
+                <legend class="profile-label">Areas of Operation</legend>
+                <p class="text-xs text-slate-400 font-medium mb-3">Select every location where you actively serve clients.</p>
+                <div id="areas-of-operation-options" class="grid grid-cols-2 md:grid-cols-3 gap-3" aria-describedby="areas-of-operation-help">
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Gurugram" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Gurugram
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Faridabad" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Faridabad
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Mumbai" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Mumbai
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Noida" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Noida
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Ghaziabad" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Ghaziabad
+                  </label>
+                  <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer hover:border-slate-300">
+                    <input type="checkbox" name="areas-of-operation" value="Delhi" class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+                    Delhi
+                  </label>
+                </div>
+                <span id="areas-of-operation-help" class="sr-only">Choose zero or more approved areas of operation.</span>
+              </fieldset>
             </div>
           </div>
           <div class="mt-6">
@@ -319,6 +352,62 @@
               Save Professional Info
             </button>
           </div>
+        </div>
+
+        <!-- Broker Identity Verification (Broker specific) -->
+        <div id="broker-identity-card" class="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 hidden">
+          <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2.5">
+                <h3 class="heading-md">Broker Identity Verification</h3>
+                <span id="identity-status-pill" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-slate-100 text-slate-700">
+                  Not Submitted
+                </span>
+              </div>
+              <p class="text-sm text-slate-400 font-medium mt-0.5">Submit official government identification to earn the Verified Broker badge.</p>
+            </div>
+          </div>
+
+          <!-- Dynamic Status / Rejection Box -->
+          <div id="identity-status-box" class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-700">
+            Loading verification status…
+          </div>
+
+          <!-- Verification Upload Form -->
+          <form id="identity-upload-form" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="profile-label" for="identity-doc-type">Document Type</label>
+                <select id="identity-doc-type" class="profile-input">
+                  <option value="Aadhaar">Aadhaar Card</option>
+                  <option value="Passport">Passport</option>
+                </select>
+              </div>
+              <div>
+                <label class="profile-label" for="identity-file-input">Document File</label>
+                <input type="file" id="identity-file-input" accept=".pdf,.jpeg,.jpg,.png,application/pdf,image/jpeg,image/png" class="profile-input text-xs pt-2.5" />
+                <p class="mt-1 text-xs text-slate-400">Accepted: PDF, JPEG, PNG (max 10 MB). Stored securely in private document storage.</p>
+              </div>
+            </div>
+
+            <!-- Upload progress bar -->
+            <div id="identity-upload-progress" class="hidden space-y-1.5 pt-2">
+              <div class="flex justify-between text-xs font-semibold text-slate-600">
+                <span id="identity-progress-text">Uploading…</span>
+                <span id="identity-progress-pct">0%</span>
+              </div>
+              <div class="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div id="identity-progress-bar" class="h-full bg-indigo-600 transition-all duration-300 w-0"></div>
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <button id="btn-submit-identity" type="submit" class="btn-primary py-3 px-6 text-sm gap-2">
+                <span class="material-symbols-outlined text-[18px]">verified_user</span>
+                <span id="btn-submit-identity-text">Submit for Verification</span>
+              </button>
+            </div>
+          </form>
         </div>
 
 

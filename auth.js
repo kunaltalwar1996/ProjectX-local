@@ -356,6 +356,7 @@ function ensureMegaMenuDrawer() {
             <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('properties.html?intent=Buy')}">Sell</a>
             <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('properties.html?intent=Rent')}">Rent</a>
             <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('map.html')}">Map View</a>
+            <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('brokers.html')}">Top Brokers</a>
             <a class="text-sm font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest" href="${toAppUrl('sell.html')}">Sell</a>
         </div>
         <div class="mt-auto pt-8 border-t border-slate-100 flex flex-col gap-4" id="mobile-trailing-actions">

@@ -1,4 +1,10 @@
-﻿import { supabase } from './lib/supabase.js';
+import { supabase } from './lib/supabase.js';
+import {
+  getIdentityReviewQueue,
+  requestIdentityDocumentAccess,
+  approveBrokerIdentitySubmission,
+  rejectBrokerIdentitySubmission
+} from './lib/broker-identity-service.js';
 
 const kind = document.body.dataset.employeeType;
 const pageHeading = document.querySelector('[data-page-heading]');
@@ -264,7 +270,161 @@ async function boot() {
     await Promise.all([loadEmployee1Listings(user.id), loadQueue(user.id)]);
   } else {
     window.refreshEmployee2Listings = () => loadEmployee2Dashboard(user.id);
-    await Promise.all([loadEmployee2Dashboard(user.id), loadQueue(user.id)]);
+    await Promise.all([
+      loadEmployee2Dashboard(user.id),
+      loadQueue(user.id),
+      loadEmployee2IdentityReviewQueue()
+    ]);
+  }
+}
+
+async function loadEmployee2IdentityReviewQueue() {
+  const queueHost = document.getElementById('identity-review-queue');
+  const feedbackBox = document.getElementById('identity-review-feedback');
+  if (!queueHost) return;
+
+  const refreshBtn = document.getElementById('refresh-identity-queue-btn');
+  if (refreshBtn && !refreshBtn.dataset.bound) {
+    refreshBtn.dataset.bound = '1';
+    refreshBtn.addEventListener('click', () => loadEmployee2IdentityReviewQueue());
+  }
+
+  queueHost.innerHTML = '<div class="p-8 text-center text-slate-500">Loading pending verification submissions…</div>';
+
+  try {
+    const { queue: items, unsupported, message } = await getIdentityReviewQueue();
+
+    if (unsupported) {
+      queueHost.innerHTML = `
+        <div class="p-8 text-center text-slate-500">
+          <span class="material-symbols-outlined text-3xl text-slate-400">pending_actions</span>
+          <p class="mt-2 text-sm font-semibold text-slate-700">${esc(message || 'Identity verification review queue is awaiting database deployment.')}</p>
+        </div>`;
+      return;
+    }
+
+    if (!items || !items.length) {
+      queueHost.innerHTML = `
+        <div class="p-8 text-center text-slate-500">
+          <span class="material-symbols-outlined text-3xl text-slate-300">task_alt</span>
+          <p class="mt-2 text-sm font-semibold text-slate-700">No pending broker identity submissions</p>
+          <p class="mt-0.5 text-xs text-slate-400">All submitted broker verification documents have been reviewed.</p>
+        </div>`;
+      return;
+    }
+
+    queueHost.innerHTML = items.map(item => {
+      const brokerName = item.broker_name || item.full_name || 'ProjectX Broker';
+      const docType = item.document_type || 'Identity Document';
+      const submittedAt = item.created_at
+        ? new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+        : 'Recently';
+
+      return `
+        <article class="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors" data-submission-id="${esc(item.id)}">
+          <div class="flex items-center gap-3.5">
+            <div class="h-11 w-11 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-black text-indigo-700 text-sm">
+              ${esc(brokerName.charAt(0).toUpperCase())}
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="font-bold text-slate-900 text-sm">${esc(brokerName)}</h3>
+                <span class="rounded bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">${esc(docType)}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">Submitted: ${esc(submittedAt)}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button type="button" data-action="view-doc" data-id="${esc(item.id)}"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm transition active:scale-95">
+              <span class="material-symbols-outlined text-[16px]">visibility</span> View Document
+            </button>
+            <button type="button" data-action="approve-id" data-id="${esc(item.id)}" data-name="${esc(brokerName)}"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm transition active:scale-95">
+              <span class="material-symbols-outlined text-[16px]">check</span> Approve
+            </button>
+            <button type="button" data-action="reject-id" data-id="${esc(item.id)}" data-name="${esc(brokerName)}"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 shadow-sm transition active:scale-95">
+              <span class="material-symbols-outlined text-[16px]">close</span> Reject
+            </button>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    // Wire buttons
+    queueHost.querySelectorAll('button[data-action="view-doc"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Loading…';
+
+        try {
+          const docUrl = await requestIdentityDocumentAccess(id);
+          window.open(docUrl, '_blank', 'noopener,noreferrer');
+        } catch (err) {
+          alert('Could not open document: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+        }
+      });
+    });
+
+    queueHost.querySelectorAll('button[data-action="approve-id"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        if (!confirm(`Are you sure you want to approve identity verification for ${name}?`)) return;
+
+        btn.disabled = true;
+        try {
+          await approveBrokerIdentitySubmission(id);
+          if (feedbackBox) {
+            feedbackBox.classList.remove('hidden');
+            feedbackBox.className = 'border-b p-3 text-sm font-semibold bg-emerald-50 text-emerald-800 border-emerald-200';
+            feedbackBox.textContent = `✓ Verification approved for ${name}.`;
+          }
+          await loadEmployee2IdentityReviewQueue();
+        } catch (err) {
+          const isConflict = /conflict|already|stale/i.test(err.message || '');
+          alert(isConflict ? 'This submission was already reviewed or is no longer pending. The queue will refresh.' : err.message);
+          await loadEmployee2IdentityReviewQueue();
+        }
+      });
+    });
+
+    queueHost.querySelectorAll('button[data-action="reject-id"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        const reason = prompt(`Enter the mandatory rejection reason for ${name}:`);
+        if (reason === null) return;
+        if (!reason.trim()) {
+          alert('A non-empty rejection reason is required.');
+          return;
+        }
+
+        btn.disabled = true;
+        try {
+          await rejectBrokerIdentitySubmission(id, reason.trim());
+          if (feedbackBox) {
+            feedbackBox.classList.remove('hidden');
+            feedbackBox.className = 'border-b p-3 text-sm font-semibold bg-rose-50 text-rose-800 border-rose-200';
+            feedbackBox.textContent = `Verification rejected for ${name}. Reason recorded.`;
+          }
+          await loadEmployee2IdentityReviewQueue();
+        } catch (err) {
+          const isConflict = /conflict|already|stale/i.test(err.message || '');
+          alert(isConflict ? 'This submission was already reviewed or is no longer pending. The queue will refresh.' : err.message);
+          await loadEmployee2IdentityReviewQueue();
+        }
+      });
+    });
+  } catch (err) {
+    console.error('Failed to load identity review queue:', err);
+    queueHost.innerHTML = `<div class="p-6 text-sm font-semibold text-rose-700">Could not load identity review queue: ${esc(err.message)}</div>`;
   }
 }
 

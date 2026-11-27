@@ -11,9 +11,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 
 
-  <script type="module" crossorigin src="/assets/adminPanel-BJauSpkL.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/auth-Ccq06AyR.js">
-  <link rel="stylesheet" crossorigin href="/assets/style-B5qmhIPF.css">
+  <script type="module" crossorigin src="/assets/adminPanel-CsOx_I_9.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/auth-PEiDEKAd.js">
+  <link rel="modulepreload" crossorigin href="/assets/broker-identity-service-MIFfQJ7l.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-DgWIa-jW.css">
 </head>
 <body class="estate-admin-theme bg-background text-on-background font-body-md antialiased flex flex-col md:flex-row min-h-screen">
 <!-- Mobile Sidebar Backdrop -->
@@ -51,6 +52,10 @@
 <span class="material-symbols-outlined text-[20px]" data-icon="support_agent">support_agent</span>
                     Listing Workflow
                 </div>
+</a>
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html#broker-verification-card">
+<span class="material-symbols-outlined text-[20px]" data-icon="verified_user">verified_user</span>
+                Broker Verification
 </a>
 </nav>
 <!-- Footer Navigation -->
@@ -208,6 +213,39 @@ Loading platform user profiles...
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading recent listings...</div>
 </div>
 </div>
+<!-- Broker Identity Verification Review Queue Card -->
+<div id="broker-verification-card" class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col mb-stack-lg">
+  <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-indigo-600">verified_user</span>
+      <h3 class="font-h3 text-h3 text-on-background">Broker Identity Verification Queue</h3>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="bg-indigo-50 text-indigo-700 font-label-caps text-[10px] px-2.5 py-1 rounded-full font-bold" id="admin-identity-queue-badge">... Pending</span>
+      <button id="admin-refresh-identity-btn" type="button" class="inline-flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-semibold hover:bg-surface-container-low transition-colors">
+        <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+      </button>
+    </div>
+  </div>
+  <div class="table-container overflow-x-auto">
+    <table class="w-full text-left border-collapse min-w-[600px]">
+      <thead class="bg-surface-container-low border-b border-outline-variant">
+        <tr>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Broker</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Document</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Submitted At</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="admin-identity-queue-body" class="font-body-sm text-body-sm text-on-surface">
+        <tr class="border-b border-surface-variant bg-surface-bright">
+          <td colspan="4" class="py-8 text-center text-on-surface-variant text-sm">Loading pending verification requests...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <!-- Reported Issues Card -->
 <div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
   <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">

@@ -51,6 +51,10 @@
                     Listing Workflow
                 </div>
 </a>
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html#broker-verification-card">
+<span class="material-symbols-outlined text-[20px]" data-icon="verified_user">verified_user</span>
+                Broker Verification
+</a>
 </nav>
 <!-- Footer Navigation -->
 <div class="mt-auto pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-1">
@@ -207,6 +211,39 @@ Loading platform user profiles...
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading recent listings...</div>
 </div>
 </div>
+<!-- Broker Identity Verification Review Queue Card -->
+<div id="broker-verification-card" class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col mb-stack-lg">
+  <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-indigo-600">verified_user</span>
+      <h3 class="font-h3 text-h3 text-on-background">Broker Identity Verification Queue</h3>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="bg-indigo-50 text-indigo-700 font-label-caps text-[10px] px-2.5 py-1 rounded-full font-bold" id="admin-identity-queue-badge">... Pending</span>
+      <button id="admin-refresh-identity-btn" type="button" class="inline-flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-semibold hover:bg-surface-container-low transition-colors">
+        <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+      </button>
+    </div>
+  </div>
+  <div class="table-container overflow-x-auto">
+    <table class="w-full text-left border-collapse min-w-[600px]">
+      <thead class="bg-surface-container-low border-b border-outline-variant">
+        <tr>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Broker</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Document</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Submitted At</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="admin-identity-queue-body" class="font-body-sm text-body-sm text-on-surface">
+        <tr class="border-b border-surface-variant bg-surface-bright">
+          <td colspan="4" class="py-8 text-center text-on-surface-variant text-sm">Loading pending verification requests...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <!-- Reported Issues Card -->
 <div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
   <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
@@ -295,6 +332,12 @@ Loading platform user profiles...
 
 <script type="module">
 import { supabase } from './lib/supabase.js';
+import {
+  getIdentityReviewQueue,
+  requestIdentityDocumentAccess,
+  approveBrokerIdentitySubmission,
+  rejectBrokerIdentitySubmission
+} from './lib/broker-identity-service.js';
 
 function showAdminToast(msg, isError = false) {
   let t = document.getElementById('admin-toast');
@@ -378,7 +421,7 @@ async function checkAuth() {
     }
 
     setupFilterTabs();
-    await Promise.all([loadStats(), loadUsers(), loadListingsModeration(), loadReports()]);
+    await Promise.all([loadStats(), loadUsers(), loadListingsModeration(), loadReports(), loadAdminBrokerVerificationQueue()]);
   } catch (error) {
     console.error('Admin page initialization failed:', error);
     showAdminDataError(error.message);
@@ -400,6 +443,130 @@ function setupFilterTabs() {
       loadListingsModeration();
     });
   });
+}
+
+async function loadAdminBrokerVerificationQueue() {
+  const badge = document.getElementById('admin-identity-queue-badge');
+  const tbody = document.getElementById('admin-identity-queue-body');
+  const refreshBtn = document.getElementById('admin-refresh-identity-btn');
+
+  if (refreshBtn && !refreshBtn.dataset.bound) {
+    refreshBtn.dataset.bound = '1';
+    refreshBtn.addEventListener('click', () => loadAdminBrokerVerificationQueue());
+  }
+
+  if (!tbody) return;
+
+  try {
+    const { queue: items, unsupported, message } = await getIdentityReviewQueue();
+
+    if (unsupported) {
+      if (badge) badge.textContent = 'Pending Migration';
+      tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-on-surface-variant text-sm">${escHtml(message || 'Broker identity verification RPCs awaiting database deployment.')}</td></tr>`;
+      return;
+    }
+
+    if (badge) badge.textContent = `${items.length} Pending`;
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-on-surface-variant text-sm">No pending broker identity submissions.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = items.map(item => {
+      const brokerName = item.broker_name || item.full_name || 'ProjectX Broker';
+      const docType = item.document_type || 'Identity Document';
+      const submittedAt = item.created_at
+        ? new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+        : 'Recently';
+
+      return `
+        <tr class="border-b border-surface-variant hover:bg-surface-bright transition-colors">
+          <td class="p-3 font-semibold text-on-surface">${escHtml(brokerName)}</td>
+          <td class="p-3"><span class="inline-flex items-center rounded bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">${escHtml(docType)}</span></td>
+          <td class="p-3 text-xs text-on-surface-variant">${escHtml(submittedAt)}</td>
+          <td class="p-3 text-right">
+            <div class="inline-flex items-center gap-1.5 justify-end">
+              <button type="button" class="admin-view-doc-btn rounded px-2.5 py-1 text-xs font-semibold border border-outline-variant hover:bg-surface-container-low transition-colors" data-id="${escHtml(item.id)}">
+                View
+              </button>
+              <button type="button" class="admin-approve-id-btn rounded px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors" data-id="${escHtml(item.id)}" data-name="${escHtml(brokerName)}">
+                Approve
+              </button>
+              <button type="button" class="admin-reject-id-btn rounded px-2.5 py-1 text-xs font-bold border border-rose-300 text-rose-700 hover:bg-rose-50 transition-colors" data-id="${escHtml(item.id)}" data-name="${escHtml(brokerName)}">
+                Reject
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Wire action buttons
+    tbody.querySelectorAll('.admin-view-doc-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Opening…';
+        try {
+          const docUrl = await requestIdentityDocumentAccess(id);
+          window.open(docUrl, '_blank', 'noopener,noreferrer');
+        } catch (err) {
+          showAdminToast('Could not open document: ' + err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = orig;
+        }
+      });
+    });
+
+    tbody.querySelectorAll('.admin-approve-id-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        if (!confirm(`Are you sure you want to approve broker identity verification for ${name}?`)) return;
+
+        btn.disabled = true;
+        try {
+          await approveBrokerIdentitySubmission(id);
+          showAdminToast(`✓ Identity verified for ${name}`);
+          await loadAdminBrokerVerificationQueue();
+        } catch (err) {
+          const isConflict = /conflict|already|stale/i.test(err.message || '');
+          showAdminToast(isConflict ? 'Submission was already processed. Refreshing queue...' : err.message, true);
+          await loadAdminBrokerVerificationQueue();
+        }
+      });
+    });
+
+    tbody.querySelectorAll('.admin-reject-id-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        const reason = prompt(`Enter the mandatory reason for rejecting ${name}'s verification submission:`);
+        if (reason === null) return;
+        if (!reason.trim()) {
+          showAdminToast('A non-empty rejection reason is required.', true);
+          return;
+        }
+
+        btn.disabled = true;
+        try {
+          await rejectBrokerIdentitySubmission(id, reason.trim());
+          showAdminToast(`Verification rejected for ${name}.`);
+          await loadAdminBrokerVerificationQueue();
+        } catch (err) {
+          const isConflict = /conflict|already|stale/i.test(err.message || '');
+          showAdminToast(isConflict ? 'Submission was already processed. Refreshing queue...' : err.message, true);
+          await loadAdminBrokerVerificationQueue();
+        }
+      });
+    });
+  } catch (err) {
+    console.error('Failed to load admin broker verification queue:', err);
+    tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-error text-sm">Failed to load verification queue: ${escHtml(err.message)}</td></tr>`;
+  }
 }
 
 // Logout handler

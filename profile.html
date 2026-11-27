@@ -95,6 +95,9 @@
             </a>
           </div>
         </div>
+
+        <a class="text-[13px] font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest pb-1"
+          href="/brokers.html">Top Brokers</a>
       </div>
       <!-- Trailing Actions -->
       <div class="flex items-center gap-4">
@@ -349,6 +352,62 @@
           </div>
         </div>
 
+        <!-- Broker Identity Verification (Broker specific) -->
+        <div id="broker-identity-card" class="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 hidden">
+          <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2.5">
+                <h3 class="heading-md">Broker Identity Verification</h3>
+                <span id="identity-status-pill" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-slate-100 text-slate-700">
+                  Not Submitted
+                </span>
+              </div>
+              <p class="text-sm text-slate-400 font-medium mt-0.5">Submit official government identification to earn the Verified Broker badge.</p>
+            </div>
+          </div>
+
+          <!-- Dynamic Status / Rejection Box -->
+          <div id="identity-status-box" class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-700">
+            Loading verification status…
+          </div>
+
+          <!-- Verification Upload Form -->
+          <form id="identity-upload-form" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="profile-label" for="identity-doc-type">Document Type</label>
+                <select id="identity-doc-type" class="profile-input">
+                  <option value="Aadhaar">Aadhaar Card</option>
+                  <option value="Passport">Passport</option>
+                </select>
+              </div>
+              <div>
+                <label class="profile-label" for="identity-file-input">Document File</label>
+                <input type="file" id="identity-file-input" accept=".pdf,.jpeg,.jpg,.png,application/pdf,image/jpeg,image/png" class="profile-input text-xs pt-2.5" />
+                <p class="mt-1 text-xs text-slate-400">Accepted: PDF, JPEG, PNG (max 10 MB). Stored securely in private document storage.</p>
+              </div>
+            </div>
+
+            <!-- Upload progress bar -->
+            <div id="identity-upload-progress" class="hidden space-y-1.5 pt-2">
+              <div class="flex justify-between text-xs font-semibold text-slate-600">
+                <span id="identity-progress-text">Uploading…</span>
+                <span id="identity-progress-pct">0%</span>
+              </div>
+              <div class="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div id="identity-progress-bar" class="h-full bg-indigo-600 transition-all duration-300 w-0"></div>
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <button id="btn-submit-identity" type="submit" class="btn-primary py-3 px-6 text-sm gap-2">
+                <span class="material-symbols-outlined text-[18px]">verified_user</span>
+                <span id="btn-submit-identity-text">Submit for Verification</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
 
         <!-- Broker Actions Placeholder -->
         <div id="broker-actions-container" class="space-y-6"></div>
@@ -361,6 +420,11 @@
     import { supabase } from './lib/supabase.js';
     import { getWishlistListings, setWishlistListing } from './lib/wishlist.js';
     import { listingAgeBadgeMarkup } from './lib/listing-card-presentation.js';
+    import {
+      getOwnVerificationStatus,
+      submitBrokerIdentityDocument,
+      validateIdentityFile
+    } from './lib/broker-identity-service.js';
 
     const STORAGE_KEY = 'buyerProfile';
     let currentProfile = null;
@@ -812,6 +876,7 @@
       // Toggle Preferences vs Professional Card
       const buyerPrefCard = document.getElementById('buyer-preferences-card');
       const brokerProfCard = document.getElementById('broker-professional-card');
+      const brokerIdentityCard = document.getElementById('broker-identity-card');
       
       if (profile.role === 'Broker') {
         if (buyerPrefCard) buyerPrefCard.classList.add('hidden');
@@ -827,9 +892,18 @@
             brokerProfCard.classList.add('hidden');
           }
         }
+        if (brokerIdentityCard) {
+          if (profile.isOwnProfile) {
+            brokerIdentityCard.classList.remove('hidden');
+            initBrokerIdentityVerificationUI();
+          } else {
+            brokerIdentityCard.classList.add('hidden');
+          }
+        }
       } else {
         if (buyerPrefCard) buyerPrefCard.classList.remove('hidden');
         if (brokerProfCard) brokerProfCard.classList.add('hidden');
+        if (brokerIdentityCard) brokerIdentityCard.classList.add('hidden');
 
         // Load preferences
         if (profile.prefs) {
@@ -1322,6 +1396,142 @@
         saveProfBtn.disabled = false;
         saveProfBtn.innerHTML = origContent;
       }
+    }
+
+    let identityVerificationInitialized = false;
+
+    async function initBrokerIdentityVerificationUI() {
+      const pill = document.getElementById('identity-status-pill');
+      const box = document.getElementById('identity-status-box');
+      const form = document.getElementById('identity-upload-form');
+      const docTypeSelect = document.getElementById('identity-doc-type');
+      const fileInput = document.getElementById('identity-file-input');
+      const submitBtn = document.getElementById('btn-submit-identity');
+      const submitText = document.getElementById('btn-submit-identity-text');
+      const progressContainer = document.getElementById('identity-upload-progress');
+      const progressBar = document.getElementById('identity-progress-bar');
+      const progressPct = document.getElementById('identity-progress-pct');
+      const progressText = document.getElementById('identity-progress-text');
+
+      if (!pill || !box || !form) return;
+
+      const escapeSafe = (str) => String(str || '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+
+      try {
+        const result = await getOwnVerificationStatus();
+        const status = result?.status || 'Not Submitted';
+        const isUnsupported = Boolean(result?.unsupported);
+        const rejectionReason = result?.rejection_reason || result?.reason || '';
+
+        // Reset pill and box classes
+        pill.className = 'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold';
+        box.className = 'mb-6 rounded-xl border p-4 text-sm font-medium';
+
+        if (status === 'Verified') {
+          pill.className += ' bg-emerald-50 text-emerald-700';
+          pill.innerHTML = '<span class="material-symbols-outlined text-[13px] text-emerald-600">verified</span> Verified';
+          box.className += ' border-emerald-200 bg-emerald-50 text-emerald-800';
+          box.innerHTML = `
+            <div class="flex items-start gap-2.5">
+              <span class="material-symbols-outlined text-lg text-emerald-600">check_circle</span>
+              <div>
+                <p class="font-bold">Your broker identity is verified!</p>
+                <p class="text-xs text-emerald-700 mt-0.5">Your profile and active property listings display the verified broker badge. You may submit updated credentials below if your documentation changes (your current verified status remains active while updates are reviewed).</p>
+              </div>
+            </div>`;
+          submitBtn.disabled = false;
+          submitText.textContent = 'Submit Updated Credentials';
+        } else if (status === 'Pending Verification' || status === 'Pending') {
+          pill.className += ' bg-amber-50 text-amber-700';
+          pill.innerHTML = '<span class="material-symbols-outlined text-[13px] text-amber-600">hourglass_top</span> Under Review';
+          box.className += ' border-amber-200 bg-amber-50 text-amber-800';
+          box.innerHTML = `
+            <div class="flex items-start gap-2.5">
+              <span class="material-symbols-outlined text-lg text-amber-600">pending</span>
+              <div>
+                <p class="font-bold">Verification Request Pending</p>
+                <p class="text-xs text-amber-700 mt-0.5">Your submitted document is currently in the review queue. Decisions are typically processed within 24–48 hours. Duplicate submissions are disabled while review is in progress.</p>
+              </div>
+            </div>`;
+          submitBtn.disabled = true;
+          submitText.textContent = 'Submission Under Review';
+          fileInput.disabled = true;
+          docTypeSelect.disabled = true;
+        } else if (status === 'Rejected') {
+          pill.className += ' bg-rose-50 text-rose-700';
+          pill.innerHTML = '<span class="material-symbols-outlined text-[13px] text-rose-600">cancel</span> Rejected';
+          box.className += ' border-rose-200 bg-rose-50 text-rose-800';
+          box.innerHTML = `
+            <div class="flex items-start gap-2.5">
+              <span class="material-symbols-outlined text-lg text-rose-600">error</span>
+              <div>
+                <p class="font-bold">Previous submission was rejected</p>
+                <p class="text-xs text-rose-700 mt-0.5">${rejectionReason ? `Reason: ${escapeSafe(rejectionReason)}` : 'Please ensure your uploaded document is clear, valid, and unexpired.'}</p>
+                <p class="text-xs text-rose-600 mt-1 font-semibold">You may resubmit a clear, valid document below.</p>
+              </div>
+            </div>`;
+          submitBtn.disabled = false;
+          submitText.textContent = 'Resubmit for Verification';
+          fileInput.disabled = false;
+          docTypeSelect.disabled = false;
+        } else {
+          // Not Submitted
+          pill.className += ' bg-slate-100 text-slate-700';
+          pill.textContent = 'Not Submitted';
+          box.className += ' border-slate-200 bg-slate-50 text-slate-700';
+          box.innerHTML = isUnsupported
+            ? `<div class="flex items-start gap-2.5"><span class="material-symbols-outlined text-lg text-slate-500">info</span><div><p class="font-bold">Verification System Status</p><p class="text-xs text-slate-600 mt-0.5">Backend verification infrastructure is awaiting database migration deployment. You can test form validation below.</p></div></div>`
+            : `<div class="flex items-start gap-2.5"><span class="material-symbols-outlined text-lg text-slate-500">shield</span><div><p class="font-bold">Earn Verified Broker Credibility</p><p class="text-xs text-slate-600 mt-0.5">Upload a clear government ID (Aadhaar or Passport in PDF, JPEG, or PNG up to 10 MB). Verified brokers gain higher client trust across ProjectX.</p></div></div>`;
+          submitBtn.disabled = false;
+          submitText.textContent = 'Submit for Verification';
+          fileInput.disabled = false;
+          docTypeSelect.disabled = false;
+        }
+      } catch (err) {
+        console.warn('Could not load broker verification status:', err);
+        box.innerHTML = `<p class="text-xs text-slate-500">Unable to check current verification status. Please refresh.</p>`;
+      }
+
+      if (identityVerificationInitialized) return;
+      identityVerificationInitialized = true;
+
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const file = fileInput.files?.[0];
+        const docType = docTypeSelect.value;
+
+        const validation = validateIdentityFile(file, docType);
+        if (!validation.valid) {
+          showToast(validation.error, true);
+          return;
+        }
+
+        submitBtn.disabled = true;
+        const originalBtnHtml = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span> Submitting...';
+        progressContainer.classList.remove('hidden');
+
+        try {
+          await submitBrokerIdentityDocument(file, docType, (pct, msg) => {
+            progressBar.style.width = `${pct}%`;
+            progressPct.textContent = `${pct}%`;
+            progressText.textContent = msg;
+          });
+
+          showToast('Identity document submitted successfully for verification!');
+          form.reset();
+          progressContainer.classList.add('hidden');
+          await initBrokerIdentityVerificationUI();
+        } catch (submitErr) {
+          console.error('Identity submission failed:', submitErr);
+          showToast(submitErr.message || 'Submission failed. Please try again.', true);
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml;
+          progressContainer.classList.add('hidden');
+        }
+      };
     }
 
     async function saveProfile() {

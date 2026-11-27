@@ -154,6 +154,11 @@
     .map-filter-actions { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 24px max(20px,env(safe-area-inset-bottom)); border-top:1px solid #e2e8f0; background:white; }
     .map-filter-chip { min-width:42px; padding:7px 12px; border:1px solid #e2e8f0; border-radius:10px; background:white; color:#0f172a; font-size:12px; font-weight:800; }
     .map-filter-chip[aria-pressed="true"] { border-color:#0f172a; background:#0f172a; color:white; }
+    .map-property-cluster-icon { background:transparent!important; border:0!important; }
+    .map-property-cluster { display:flex; align-items:center; justify-content:center; min-width:88px; height:40px; padding:0 12px; border:2px solid #fff; border-radius:999px; background:#0f172a; color:#fff; box-shadow:0 5px 16px rgba(15,23,42,.28); font:800 12px Outfit,sans-serif; white-space:nowrap; cursor:pointer; transition:transform .18s ease,box-shadow .18s ease; animation:map-cluster-enter .2s ease-out both; }
+    .map-property-cluster:hover { transform:scale(1.08); box-shadow:0 8px 22px rgba(15,23,42,.32); }
+    @keyframes map-cluster-enter { from { transform:scale(.82); } to { transform:scale(1); } }
+    @media(prefers-reduced-motion:reduce) { .map-property-cluster { animation:none; transition:none; } }
     #map-filters-open-mobile { display:none; }
     @media(max-width:1023px) {
       #map-filters-open-desktop { display:none; }
@@ -166,10 +171,10 @@
       .map-filter-actions { padding-bottom:max(20px,env(safe-area-inset-bottom)); }
     }
   </style>
-  <script type="module" crossorigin src="/assets/map-BKVIPG5y.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/auth-Ccq06AyR.js">
-  <link rel="modulepreload" crossorigin href="/assets/demo-data-_BmDzGrb.js">
-  <link rel="stylesheet" crossorigin href="/assets/style-B5qmhIPF.css">
+  <script type="module" crossorigin src="/assets/map-BDgXYzfV.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/auth-PEiDEKAd.js">
+  <link rel="modulepreload" crossorigin href="/assets/demo-data-DXcLt-g2.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-DgWIa-jW.css">
 </head>
 <body class="map-page bg-white text-slate-900 font-['Outfit'] antialiased h-screen overflow-hidden flex flex-col">
   <!-- Top Navigation -->
@@ -298,6 +303,8 @@
   <div class="map-filter-header"><h2 id="map-filter-title" class="text-lg font-bold text-slate-900">Filters</h2><button id="map-filter-close" type="button" class="map-filter-close" aria-label="Close filters"><span class="material-symbols-outlined">close</span></button></div>
   <div class="map-filter-content space-y-7">
     <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Sort by</h3><select id="map-sort" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"><option value="newest">Newest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></section>
+    <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Recently listed</h3><select id="map-recent-filter" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"><option value="0">Any time</option><option value="7">Past 7 days</option><option value="30">Past 30 days</option><option value="90">Past 90 days</option></select></section>
+    <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Available from</h3><input id="map-available-from" type="date" disabled class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm disabled:text-slate-400"><p id="map-availability-note" class="text-xs text-slate-500">Availability dates aren’t stored on listings yet.</p></section>
     <section class="space-y-3"><h3 class="text-xs font-bold text-slate-900">Property Type</h3><div class="space-y-2">
       <label class="flex items-center gap-2 text-sm text-slate-500"><input class="map-type-filter h-4 w-4 accent-slate-900" type="checkbox" value="Apartment/ High Rise">Apartment/ High Rise</label>
       <label class="flex items-center gap-2 text-sm text-slate-500"><input class="map-type-filter h-4 w-4 accent-slate-900" type="checkbox" value="Builder Floor/ Low Rise">Builder Floor/ Low Rise</label>
@@ -314,5 +321,12 @@
   <div class="map-filter-actions"><button id="map-filter-clear" type="button" class="px-3 py-3 text-sm font-bold text-slate-500 hover:text-slate-900">Clear filters</button><button id="map-filter-apply" type="button" class="min-h-12 rounded-xl bg-slate-900 px-7 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800">Apply filters</button></div>
 </aside>
 
+<footer class="border-t border-slate-200 bg-white px-4 py-6 sm:px-6">
+  <div class="mx-auto flex max-w-[1280px] flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+    <a href="/index.html" class="font-black tracking-tight text-slate-900">ProjectX</a>
+    <nav aria-label="Footer" class="flex flex-wrap gap-x-5 gap-y-2 font-semibold text-slate-500"><a href="/properties.html" class="hover:text-slate-900">Properties</a><a href="/brokers.html" class="hover:text-slate-900">Find a broker</a><a href="/#site-directory" class="hover:text-slate-900">Site directory</a><a href="/terms.html" class="hover:text-slate-900">Terms</a><a href="/privacy.html" class="hover:text-slate-900">Privacy</a><a href="/login.html" class="hover:text-slate-900">Support</a></nav>
+    <span class="text-xs text-slate-400">© 2026 ProjectX India</span>
+  </div>
+</footer>
 </body>
 </html>
