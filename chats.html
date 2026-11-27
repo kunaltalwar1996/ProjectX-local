@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Chats | ProjectX</title>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css"><script type="module" src="/auth.js"></script>
+  <style data-page-styles>
+    .buyer-chat-main{height:calc(100dvh - 64px);min-height:480px;display:flex;flex-direction:column}
+    .buyer-chat-shell{flex:1;min-height:400px;min-width:0}
+    .buyer-chat-layout{display:grid;grid-template-columns:minmax(230px,32%) minmax(0,1fr);min-height:0;min-width:0}
+    .buyer-chat-list,.buyer-chat-thread{min-width:0;min-height:0}
+    #buyer-chat-header,#buyer-chat-form{flex:none;min-width:0}
+    #buyer-chat-messages{min-width:0;overflow-wrap:anywhere;overscroll-behavior:contain;scrollbar-gutter:stable}
+    #buyer-conversation-list button[aria-current="true"]{background:#eef2ff;box-shadow:inset 3px 0 #4f46e5}
+    #buyer-conversation-list button[aria-current="true"] .buyer-conversation-name{color:#312e81}
+    @media(max-width:1023px){.buyer-chat-main{height:calc(100dvh - 64px);min-height:0;padding-top:10px;padding-bottom:10px}.buyer-chat-title{display:none}.buyer-chat-shell{height:auto;min-height:0}.buyer-chat-layout{display:block}.buyer-chat-list,.buyer-chat-thread{width:100%;height:100%}.buyer-chat-thread{display:none!important}.buyer-chat-layout.thread-open .buyer-chat-list{display:none!important}.buyer-chat-layout.thread-open .buyer-chat-thread{display:flex!important}.buyer-chat-back{display:flex}}
+    @media(max-width:639px){.buyer-chat-shell{border-radius:12px}.buyer-chat-thread header{padding-left:12px;padding-right:12px}.buyer-chat-thread form{padding:10px}.buyer-chat-thread form input{padding-left:12px;padding-right:12px}.buyer-chat-thread form button{min-width:44px;padding-left:12px;padding-right:12px}}
+  </style>
+</head>
+<body class="min-h-screen bg-[#f8f9fa] text-slate-900 font-['Outfit']">
+  <nav class="h-16 bg-white border-b border-slate-200 flex items-center"><div class="max-w-7xl w-full mx-auto px-3 sm:px-6 flex items-center justify-between"><div class="flex items-center gap-2"><a href="/index.html" class="flex items-center gap-1 text-slate-600 hover:text-slate-900" aria-label="Back to home" title="Back to home"><span class="material-symbols-outlined text-[22px]">arrow_back</span></a><a href="/index.html" class="text-lg sm:text-xl font-black tracking-tight">ProjectX</a></div><div class="flex items-center gap-3 sm:gap-5"><a href="/index.html" class="hidden sm:inline text-sm font-bold text-slate-600 hover:text-slate-900">Search homes</a><div class="flex items-center gap-3 sm:gap-4"><a href="/chats.html" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" aria-label="Chats" title="Chats"><span class="material-symbols-outlined text-[22px]">chat</span></a><button type="button" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" onclick="window.location.href=window.toAppUrl('profile.html')" aria-label="Profile" title="Profile"><span class="material-symbols-outlined text-[22px]">account_circle</span></button><button type="button" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center" onclick="window.logout()" aria-label="Sign out" title="Sign out"><span class="material-symbols-outlined text-[22px]">logout</span></button></div></div></div></nav>
+  <main class="buyer-chat-main max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
+    <div class="buyer-chat-title mb-4"><h1 class="text-2xl sm:text-3xl font-extrabold">Chats</h1><p class="text-slate-500 mt-1">Continue conversations with brokers about properties.</p></div>
+    <section class="buyer-chat-shell buyer-chat-layout overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" id="buyer-chat-layout">
+      <aside class="buyer-chat-list min-h-0 border-r border-slate-200 bg-slate-50 flex flex-col"><div class="px-4 py-3 border-b border-slate-200 bg-white font-semibold text-sm">Conversations</div><div id="buyer-conversation-list" class="min-h-0 flex-1 overflow-y-auto"><div class="p-5 text-sm text-slate-500">Loading chats…</div></div></aside>
+      <div class="buyer-chat-thread min-w-0 min-h-0 flex flex-col bg-white" id="buyer-chat-thread">
+        <header id="buyer-chat-header" class="min-h-[65px] px-4 py-3 border-b border-slate-200 flex items-center gap-3 font-bold">Select a conversation</header>
+        <div id="buyer-chat-messages" class="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 flex flex-col gap-3 bg-slate-50"><div class="text-center text-slate-400 mt-10">Choose a conversation to see messages.</div></div>
+        <form id="buyer-chat-form" class="p-3 sm:p-4 border-t border-slate-200 flex gap-2"><input id="buyer-chat-page-input" maxlength="4000" autocomplete="off" disabled class="min-w-0 flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-500 disabled:bg-slate-50" placeholder="Type a message…"><button id="buyer-chat-page-send" disabled class="rounded-xl bg-slate-900 text-white px-4 sm:px-5 font-bold disabled:opacity-40" aria-label="Send message"><span class="material-symbols-outlined align-middle">send</span></button></form>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

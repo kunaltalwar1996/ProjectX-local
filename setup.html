@@ -79,7 +79,7 @@
         .step-desc { font-size: 14px; color: #64748b; line-height: 1.6; }
 
         /* States */
-        #locked-state, #success-state { display: none; }
+        #setup-state, #success-state { display: none; }
 
         .locked-box {
             text-align: center; padding: 48px 32px;
@@ -240,86 +240,10 @@
 
     <div class="toast" id="toast"></div>
 
-    <script type="module">
-        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-        const SUPABASE_URL = 'https://xjpqxhbuuevaplvthvsf.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqcHF4aGJ1dWV2YXBsdnRodnNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjI4MDYsImV4cCI6MjA5NDUzODgwNn0.OUt6r65O0Lw4GwgO2Vc8r6dlBgDqtNpzaQaXQ0cElOk';
-        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        function showToast(msg, isError = false) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.className = 'toast show' + (isError ? ' error' : '');
-            setTimeout(() => t.className = 'toast', 3000);
-        }
-
-        // On load: check if any admin already exists
-        async function checkLocked() {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('role', 'Admin')
-                .limit(1);
-
-            if (!error && data && data.length > 0) {
-                document.getElementById('setup-state').style.display = 'none';
-                document.getElementById('locked-state').style.display = 'block';
-            }
-        }
-        checkLocked();
-
-        window.handleSetup = async function(e) {
+    <script>
+        window.handleSetup = function(e) {
             e.preventDefault();
-            const name     = document.getElementById('setup-name').value.trim();
-            const email    = document.getElementById('setup-email').value.trim();
-            const password = document.getElementById('setup-password').value;
-            const confirm  = document.getElementById('setup-confirm').value;
-            const btn      = document.getElementById('setup-btn');
-
-            if (password !== confirm) {
-                showToast('Passwords do not match.', true);
-                return;
-            }
-
-            // Re-check lock before submitting (race condition guard)
-            const { data: existing } = await supabase.from('profiles').select('id').eq('role', 'Admin').limit(1);
-            if (existing && existing.length > 0) {
-                document.getElementById('setup-state').style.display = 'none';
-                document.getElementById('locked-state').style.display = 'block';
-                return;
-            }
-
-            btn.disabled = true;
-            btn.textContent = 'Creating account...';
-
-            try {
-                // 1. Sign up the user
-                const { data, error } = await supabase.auth.signUp({ email, password });
-                if (error) throw error;
-
-                if (!data.user) throw new Error('User creation failed. Check if email confirmation is required.');
-
-                // 2. Insert profile with Admin role
-                const { error: profileError } = await supabase.from('profiles').insert({
-                    id: data.user.id,
-                    full_name: name,
-                    role: 'Admin'
-                });
-                if (profileError) throw profileError;
-
-                // 3. Sign out (they should log in properly via staff-login.html)
-                await supabase.auth.signOut();
-
-                // Show success
-                document.getElementById('setup-state').style.display = 'none';
-                document.getElementById('success-state').style.display = 'block';
-
-            } catch (err) {
-                showToast(err.message || 'Setup failed. Please try again.', true);
-                btn.disabled = false;
-                btn.textContent = 'Create Super Admin Account';
-            }
+            return false;
         };
     </script>
 </body>

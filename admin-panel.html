@@ -37,28 +37,24 @@
 <span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
                 Overview
             </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/properties.html">
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-listings.html">
 <span class="material-symbols-outlined text-[20px]" data-icon="domain">domain</span>
                 Listings
             </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/properties.html">
-<span class="material-symbols-outlined text-[20px]" data-icon="person_search">person_search</span>
-                Leads
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html#users">
+<span class="material-symbols-outlined text-[20px]" data-icon="group">group</span>
+                Users &amp; Brokers
             </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html">
-<span class="material-symbols-outlined text-[20px]" data-icon="insights">insights</span>
-                Analytics
-            </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out flex justify-between" href="/employee-panel.html">
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out flex justify-between" href="/admin-panel.html#listings-moderation-list">
 <div class="flex items-center gap-3">
 <span class="material-symbols-outlined text-[20px]" data-icon="support_agent">support_agent</span>
-                    Employee Panel
+                    Listing Workflow
                 </div>
 </a>
-<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html">
-<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
-                Settings
-            </a>
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ease-in-out" href="/admin-panel.html#broker-verification-card">
+<span class="material-symbols-outlined text-[20px]" data-icon="verified_user">verified_user</span>
+                Broker Verification
+</a>
 </nav>
 <!-- Footer Navigation -->
 <div class="mt-auto pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-1">
@@ -154,7 +150,7 @@
 </div>
 </div>
 <!-- Section 2: User Management Table -->
-<div class="col-span-12 mb-stack-lg">
+<div class="col-span-12 mb-stack-lg" id="users">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col h-full">
 <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
 <h3 class="font-h3 text-h3 text-on-background">User Management</h3>
@@ -164,7 +160,7 @@
 </button>
 <div class="relative w-56">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
-<input id="user-search" class="w-full pl-9 pr-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-md font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Search accounts by name..." type="text"/>
+<input id="user-search" class="w-full pl-9 pr-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-md font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Search accounts by name or email..." type="text"/>
 </div>
 </div>
 </div>
@@ -173,6 +169,7 @@
 <thead class="bg-surface-container-low border-b border-outline-variant">
 <tr>
 <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">User / ID</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">Email</th>
 <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">Role</th>
 <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">Status</th>
 <th class="py-3 px-4 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest sticky top-0">Last Active</th>
@@ -181,7 +178,7 @@
 </thead>
 <tbody id="user-table-body" class="font-body-sm text-body-sm text-on-surface">
 <tr class="border-b border-surface-variant bg-surface-bright">
-<td colspan="5" class="py-8 text-center text-on-surface-variant text-sm">
+<td colspan="6" class="py-8 text-center text-on-surface-variant text-sm">
 Loading platform user profiles...
 </td>
 </tr>
@@ -194,9 +191,9 @@ Loading platform user profiles...
 </div>
 </div>
 <!-- Section 3: Split View (Listings Moderation & Platform Breakdown) -->
-<div class="col-span-12 lg:col-span-7 flex flex-col gap-gutter">
+<div class="col-span-12 lg:col-span-7 flex min-w-0 flex-col gap-gutter">
 <!-- Listings Moderation Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col flex-1">
+<div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
 <div class="p-stack-md border-b border-outline-variant flex items-center justify-between">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface-variant">real_estate_agent</span>
@@ -210,10 +207,45 @@ Loading platform user profiles...
   <button class="status-filter-tab px-3 py-1.5 text-xs font-bold rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" data-status="Active">Active</button>
   <button class="status-filter-tab px-3 py-1.5 text-xs font-bold rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors" data-status="Flagged">Flagged</button>
 </div>
-<div class="p-stack-md flex flex-col gap-stack-sm flex-1" id="listings-moderation-list">
+<div class="p-stack-md grid min-w-0 grid-cols-1 gap-stack-sm" id="listings-moderation-list">
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading recent listings...</div>
+</div>
+</div>
+<!-- Broker Identity Verification Review Queue Card -->
+<div id="broker-verification-card" class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col mb-stack-lg">
+  <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-indigo-600">verified_user</span>
+      <h3 class="font-h3 text-h3 text-on-background">Broker Identity Verification Queue</h3>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="bg-indigo-50 text-indigo-700 font-label-caps text-[10px] px-2.5 py-1 rounded-full font-bold" id="admin-identity-queue-badge">... Pending</span>
+      <button id="admin-refresh-identity-btn" type="button" class="inline-flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-semibold hover:bg-surface-container-low transition-colors">
+        <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+      </button>
+    </div>
+  </div>
+  <div class="table-container overflow-x-auto">
+    <table class="w-full text-left border-collapse min-w-[600px]">
+      <thead class="bg-surface-container-low border-b border-outline-variant">
+        <tr>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Broker</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Document</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">Submitted At</th>
+          <th class="p-3 font-label-caps text-xs text-on-surface-variant uppercase tracking-widest text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="admin-identity-queue-body" class="font-body-sm text-body-sm text-on-surface">
+        <tr class="border-b border-surface-variant bg-surface-bright">
+          <td colspan="4" class="py-8 text-center text-on-surface-variant text-sm">Loading pending verification requests...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <!-- Reported Issues Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col flex-1 mt-6">
+<div class="min-w-0 overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
   <div class="p-stack-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
     <div class="flex items-center gap-2">
       <span class="material-symbols-outlined text-on-surface-variant">report</span>
@@ -241,12 +273,10 @@ Loading platform user profiles...
   </div>
 </div>
 </div>
-</div>
-</div>
 
-<div class="col-span-12 lg:col-span-5 flex flex-col gap-gutter">
+<div class="col-span-12 lg:col-span-5 flex min-w-0 flex-col items-start gap-gutter">
 <!-- Platform Breakdown Card -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col h-full">
+<div class="h-fit w-full self-start overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
 <div class="p-stack-md border-b border-outline-variant flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface-variant">analytics</span>
 <h3 class="font-h3 text-h3 text-on-background">Platform Breakdown</h3>
@@ -254,6 +284,7 @@ Loading platform user profiles...
 <div class="p-stack-md flex flex-col gap-stack-lg" id="platform-breakdown-container">
 <!-- Will be populated dynamically -->
 <div class="text-center py-8 text-on-surface-variant text-sm">Loading composition...</div>
+</div>
 </div>
 </div>
 </div>
@@ -283,7 +314,8 @@ Loading platform user profiles...
       <div>
         <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Role</label>
         <select id="staff-role" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:border-slate-900 transition-all">
-          <option value="Employee">Employee</option>
+          <option value="Employee 1">Employee 1 · Virtual Verifier</option>
+          <option value="Employee 2">Employee 2 · Field Agent</option>
           <option value="Admin">Admin</option>
         </select>
       </div>
@@ -300,6 +332,12 @@ Loading platform user profiles...
 
 <script type="module">
 import { supabase } from './lib/supabase.js';
+import {
+  getIdentityReviewQueue,
+  requestIdentityDocumentAccess,
+  approveBrokerIdentitySubmission,
+  rejectBrokerIdentitySubmission
+} from './lib/broker-identity-service.js';
 
 function showAdminToast(msg, isError = false) {
   let t = document.getElementById('admin-toast');
@@ -313,6 +351,32 @@ function showAdminToast(msg, isError = false) {
   t.style.background = isError ? '#ef4444' : '#0f172a';
   t.style.transform = 'translateX(-50%) translateY(0)';
   setTimeout(() => t.style.transform = 'translateX(-50%) translateY(80px)', 3000);
+}
+
+function withAdminDeadline(request, label, ms = 15000) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(request),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out. Check the connection and database access, then retry.`)), ms);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+
+function showAdminDataError(message) {
+  const safeMessage = escHtml(message || 'Unable to load admin data.');
+  const userBody = document.getElementById('user-table-body');
+  if (userBody) userBody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-error">${safeMessage}</td></tr>`;
+  const breakdown = document.getElementById('platform-breakdown-container');
+  if (breakdown) breakdown.innerHTML = `<p class="py-8 text-center text-error">${safeMessage}</p>`;
+  const listings = document.getElementById('listings-moderation-list');
+  if (listings) listings.innerHTML = `<div class="text-center py-8 text-error text-sm">${safeMessage}</div>`;
+  const reports = document.getElementById('reports-table-body');
+  if (reports) reports.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-error">${safeMessage}</td></tr>`;
+  ['stat-total-users', 'stat-active-listings', 'stat-total-brokers', 'stat-total-inquiries'].forEach(id => {
+    const metric = document.getElementById(id);
+    if (metric) metric.textContent = 'Unavailable';
+  });
 }
 
 // Global relative time helper
@@ -337,32 +401,31 @@ function getRelativeTime(isoString) {
 let session = null;
 let currentStatusFilter = 'All';
 async function checkAuth() {
-  const { data } = await supabase.auth.getSession();
-  session = data.session;
-  if (!session) {
-    window.navigateTo('login.html');
-    return;
-  }
-  
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', session.user.id)
-    .single();
+  try {
+    const { data, error: sessionError } = await withAdminDeadline(supabase.auth.getSession(), 'Session check');
+    if (sessionError) throw sessionError;
+    session = data.session;
+    if (!session) {
+      window.navigateTo('login.html');
+      return;
+    }
 
-  if (error || !profile || (profile.role !== 'Admin' && profile.role !== 'Employee')) {
-    alert('Access Denied. You must be an authorized Administrator or Employee.');
-    await supabase.auth.signOut();
-    window.navigateTo('login.html');
-    return;
-  }
+    const { data: profile, error } = await withAdminDeadline(supabase
+      .from('profiles').select('role').eq('id', session.user.id).single(), 'Admin access check');
+    if (error) throw error;
+    if (!profile || profile.role !== 'Admin') {
+      alert('Access Denied. You must be an authorized Administrator.');
+      await supabase.auth.signOut();
+      window.navigateTo('login.html');
+      return;
+    }
 
-  // Initialize page
-  loadStats();
-  loadUsers();
-  setupFilterTabs();
-  loadListingsModeration();
-  loadReports();
+    setupFilterTabs();
+    await Promise.all([loadStats(), loadUsers(), loadListingsModeration(), loadReports(), loadAdminBrokerVerificationQueue()]);
+  } catch (error) {
+    console.error('Admin page initialization failed:', error);
+    showAdminDataError(error.message);
+  }
 }
 
 function setupFilterTabs() {
@@ -382,6 +445,130 @@ function setupFilterTabs() {
   });
 }
 
+async function loadAdminBrokerVerificationQueue() {
+  const badge = document.getElementById('admin-identity-queue-badge');
+  const tbody = document.getElementById('admin-identity-queue-body');
+  const refreshBtn = document.getElementById('admin-refresh-identity-btn');
+
+  if (refreshBtn && !refreshBtn.dataset.bound) {
+    refreshBtn.dataset.bound = '1';
+    refreshBtn.addEventListener('click', () => loadAdminBrokerVerificationQueue());
+  }
+
+  if (!tbody) return;
+
+  try {
+    const { queue: items, unsupported, message } = await getIdentityReviewQueue();
+
+    if (unsupported) {
+      if (badge) badge.textContent = 'Pending Migration';
+      tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-on-surface-variant text-sm">${escHtml(message || 'Broker identity verification RPCs awaiting database deployment.')}</td></tr>`;
+      return;
+    }
+
+    if (badge) badge.textContent = `${items.length} Pending`;
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-on-surface-variant text-sm">No pending broker identity submissions.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = items.map(item => {
+      const brokerName = item.broker_name || item.full_name || 'ProjectX Broker';
+      const docType = item.document_type || 'Identity Document';
+      const submittedAt = item.created_at
+        ? new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+        : 'Recently';
+
+      return `
+        <tr class="border-b border-surface-variant hover:bg-surface-bright transition-colors">
+          <td class="p-3 font-semibold text-on-surface">${escHtml(brokerName)}</td>
+          <td class="p-3"><span class="inline-flex items-center rounded bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">${escHtml(docType)}</span></td>
+          <td class="p-3 text-xs text-on-surface-variant">${escHtml(submittedAt)}</td>
+          <td class="p-3 text-right">
+            <div class="inline-flex items-center gap-1.5 justify-end">
+              <button type="button" class="admin-view-doc-btn rounded px-2.5 py-1 text-xs font-semibold border border-outline-variant hover:bg-surface-container-low transition-colors" data-id="${escHtml(item.id)}">
+                View
+              </button>
+              <button type="button" class="admin-approve-id-btn rounded px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors" data-id="${escHtml(item.id)}" data-name="${escHtml(brokerName)}">
+                Approve
+              </button>
+              <button type="button" class="admin-reject-id-btn rounded px-2.5 py-1 text-xs font-bold border border-rose-300 text-rose-700 hover:bg-rose-50 transition-colors" data-id="${escHtml(item.id)}" data-name="${escHtml(brokerName)}">
+                Reject
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Wire action buttons
+    tbody.querySelectorAll('.admin-view-doc-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Opening…';
+        try {
+          const docUrl = await requestIdentityDocumentAccess(id);
+          window.open(docUrl, '_blank', 'noopener,noreferrer');
+        } catch (err) {
+          showAdminToast('Could not open document: ' + err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = orig;
+        }
+      });
+    });
+
+    tbody.querySelectorAll('.admin-approve-id-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        if (!confirm(`Are you sure you want to approve broker identity verification for ${name}?`)) return;
+
+        btn.disabled = true;
+        try {
+          await approveBrokerIdentitySubmission(id);
+          showAdminToast(`✓ Identity verified for ${name}`);
+          await loadAdminBrokerVerificationQueue();
+        } catch (err) {
+          const isConflict = /conflict|already|stale/i.test(err.message || '');
+          showAdminToast(isConflict ? 'Submission was already processed. Refreshing queue...' : err.message, true);
+          await loadAdminBrokerVerificationQueue();
+        }
+      });
+    });
+
+    tbody.querySelectorAll('.admin-reject-id-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        const reason = prompt(`Enter the mandatory reason for rejecting ${name}'s verification submission:`);
+        if (reason === null) return;
+        if (!reason.trim()) {
+          showAdminToast('A non-empty rejection reason is required.', true);
+          return;
+        }
+
+        btn.disabled = true;
+        try {
+          await rejectBrokerIdentitySubmission(id, reason.trim());
+          showAdminToast(`Verification rejected for ${name}.`);
+          await loadAdminBrokerVerificationQueue();
+        } catch (err) {
+          const isConflict = /conflict|already|stale/i.test(err.message || '');
+          showAdminToast(isConflict ? 'Submission was already processed. Refreshing queue...' : err.message, true);
+          await loadAdminBrokerVerificationQueue();
+        }
+      });
+    });
+  } catch (err) {
+    console.error('Failed to load admin broker verification queue:', err);
+    tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-error text-sm">Failed to load verification queue: ${escHtml(err.message)}</td></tr>`;
+  }
+}
+
 // Logout handler
 window.logout = async () => {
   if (confirm('Are you sure you want to log out?')) {
@@ -394,40 +581,42 @@ window.logout = async () => {
 
 // 1. Stats Loading
 async function loadStats() {
-  try {
-    const [
-      { count: totalUsers },
-      { count: activeListings },
-      { count: totalBrokers },
-      { count: totalInquiries }
-    ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('listings').select('*', { count: 'exact', head: true }),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'Broker'),
-      supabase.from('inquiries').select('*', { count: 'exact', head: true })
-    ]);
-
-    document.getElementById('stat-total-users').textContent = Number(totalUsers || 0).toLocaleString();
-    document.getElementById('stat-active-listings').textContent = Number(activeListings || 0).toLocaleString();
-    document.getElementById('stat-total-brokers').textContent = Number(totalBrokers || 0).toLocaleString();
-    document.getElementById('stat-total-inquiries').textContent = Number(totalInquiries || 0).toLocaleString();
-
-    document.getElementById('active-listings-badge').textContent = `${activeListings || 0} Active`;
-  } catch (err) {
-    console.error("Failed to load statistics:", err);
-  }
+  const specs = [
+    ['stat-total-users', supabase.from('profiles').select('id', { count: 'exact', head: true })],
+    ['stat-active-listings', supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'Active')],
+    ['stat-total-brokers', supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'Broker')],
+    ['stat-total-inquiries', supabase.from('inquiries').select('id', { count: 'exact', head: true })]
+  ];
+  const results = await Promise.allSettled(specs.map(([id, request]) => withAdminDeadline(request, id)));
+  results.forEach((result, index) => {
+    const [id] = specs[index];
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (result.status === 'fulfilled' && !result.value.error) {
+      el.textContent = Number(result.value.count || 0).toLocaleString();
+      if (id === 'stat-active-listings') document.getElementById('active-listings-badge').textContent = `${result.value.count || 0} Active`;
+    } else {
+      const error = result.status === 'rejected' ? result.reason : result.value.error;
+      console.error(`Failed to load ${id}:`, error);
+      el.textContent = 'Unavailable';
+    }
+  });
 }
 
 // 2. User Management Loading and Search
 let allUsers = [];
 async function loadUsers() {
-  const { data, error } = await supabase
+  const { data, error } = await withAdminDeadline(supabase
     .from('profiles')
-    .select('*')
-    .order('updated_at', { ascending: false });
+    .select('id, full_name, email, role, employee_type, updated_at')
+    .order('updated_at', { ascending: false }), 'User accounts').catch(error => ({ data: null, error }));
 
   if (error) {
     console.error(error);
+    const tbody = document.getElementById('user-table-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-error">Could not load user accounts: ${escHtml(error.message)}</td></tr>`;
+    const breakdown = document.getElementById('platform-breakdown-container');
+    if (breakdown) breakdown.innerHTML = `<p class="py-8 text-center text-error">Could not load platform composition.</p>`;
     return;
   }
 
@@ -441,7 +630,7 @@ function renderUserTable(users) {
   if (users.length === 0) {
     tbody.innerHTML = `
       <tr class="border-b border-surface-variant bg-surface-bright">
-        <td colspan="5" class="py-8 text-center text-on-surface-variant text-sm">
+        <td colspan="6" class="py-8 text-center text-on-surface-variant text-sm">
           No matching user accounts found.
         </td>
       </tr>`;
@@ -450,6 +639,7 @@ function renderUserTable(users) {
 
   tbody.innerHTML = users.map(u => {
     const initials = (u.full_name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    const roleLabel = u.role === 'Employee' ? (u.employee_type === 'Employee 1' ? 'Employee 1 · Virtual Verifier' : u.employee_type === 'Employee 2' ? 'Employee 2 · Field Agent' : 'Employee') : (u.role || 'Buyer');
     
     let bgClass = 'bg-primary-fixed text-on-primary-fixed-variant';
     if (u.role === 'Admin') bgClass = 'bg-error-container text-on-error-container';
@@ -473,7 +663,8 @@ function renderUserTable(users) {
             </div>
           </div>
         </td>
-        <td class="py-3 px-4 font-medium">${u.role || 'Buyer'}</td>
+        <td class="py-3 px-4 text-on-surface-variant">${escHtml(u.email || '—')}</td>
+        <td class="py-3 px-4 font-medium">${roleLabel}</td>
         <td class="py-3 px-4">${statusHTML}</td>
         <td class="py-3 px-4 text-on-surface-variant">${lastActiveStr}</td>
         <td class="py-3 px-4 text-right">
@@ -514,6 +705,7 @@ window.handleSearch = () => {
   } else {
     const filtered = allUsers.filter(u => 
       (u.full_name && u.full_name.toLowerCase().includes(query)) ||
+      (u.email && u.email.toLowerCase().includes(query)) ||
       (u.role && u.role.toLowerCase().includes(query)) ||
       u.id.toLowerCase().includes(query)
     );
@@ -525,9 +717,10 @@ document.getElementById('user-search').addEventListener('input', window.handleSe
 
 // 3. Platform Composition Breakdown
 function renderPlatformBreakdown(users) {
-  const counts = { Admin: 0, Employee: 0, Broker: 0, Buyer: 0 };
+    const counts = { Admin: 0, Employees: 0, Broker: 0, Buyer: 0 };
   users.forEach(u => {
-    if (counts[u.role] !== undefined) counts[u.role]++;
+    if (u.role === 'Employee') counts.Employees++;
+    else if (counts[u.role] !== undefined) counts[u.role]++;
     else counts.Buyer++;
   });
 
@@ -536,7 +729,7 @@ function renderPlatformBreakdown(users) {
 
   const roles = [
     { name: 'Admins', key: 'Admin', color: 'bg-error', text: 'text-error' },
-    { name: 'Employees', key: 'Employee', color: 'bg-tertiary', text: 'text-tertiary' },
+    { name: 'Employees', key: 'Employees', color: 'bg-tertiary', text: 'text-tertiary' },
     { name: 'Brokers', key: 'Broker', color: 'bg-secondary', text: 'text-secondary' },
     { name: 'Buyers', key: 'Buyer', color: 'bg-primary', text: 'text-primary' }
   ];
@@ -597,17 +790,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const remarksToSend = remarks || 'No remarks provided.';
-        const { error } = await supabase
-          .from('listings')
-          .update({ status: newStatus })
-          .eq('id', id);
+        const { error } = await supabase.rpc('admin_update_listing_status', {
+          p_listing_id: id,
+          p_new_status: newStatus,
+          p_reason: remarksToSend
+        });
 
         if (error) throw error;
-
-        // Log the change
-        if (window.logListingStatusChange) {
-          await window.logListingStatusChange(id, oldStatus, newStatus, remarksToSend);
-        }
 
         // Send notification
         if (window.sendBrokerNotification) {
@@ -635,12 +824,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 4. Property Listings Moderation Queue
 async function loadListingsModeration() {
-  const { data: staff, error: staffError } = await supabase
+  const container = document.getElementById('listings-moderation-list');
+  const { data: staff, error: staffError } = await withAdminDeadline(supabase
       .from('profiles')
-      .select('id, full_name, role')
-      .in('role', ['Employee', 'Admin'])
-      .order('full_name');
-  if (staffError) console.error("Failed to load staff list:", staffError.message);
+      .select('id, full_name, role, employee_type')
+    .in('role', ['Employee', 'Admin'])
+      .order('full_name'), 'Reviewer list').catch(error => ({ data: null, error }));
+  if (staffError) {
+    container.innerHTML = `<div class="text-center py-8 text-error text-sm">Could not load reviewers: ${escHtml(staffError.message)}</div>`;
+    return;
+  }
   const staffList = staff || [];
 
   let query = supabase.from('listings').select('*').order('created_at', { ascending: false });
@@ -648,10 +841,12 @@ async function loadListingsModeration() {
     query = query.eq('status', currentStatusFilter);
   }
 
-  const { data: listings, error } = await query.limit(20);
-
-  const container = document.getElementById('listings-moderation-list');
-  if (error || !listings || listings.length === 0) {
+  const { data: listings, error } = await withAdminDeadline(query.limit(20), 'Listing moderation queue').catch(error => ({ data: null, error }));
+  if (error) {
+    container.innerHTML = `<div class="text-center py-8 text-error text-sm">Could not load listings: ${escHtml(error.message)}</div>`;
+    return;
+  }
+  if (!listings || listings.length === 0) {
     container.innerHTML = `
       <div class="text-center py-8 text-on-surface-variant text-sm">
         No property listings available with status "${currentStatusFilter}".
@@ -667,6 +862,11 @@ async function loadListingsModeration() {
     }).format(lst.price);
 
     const imageSrc = lst.img || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=120&q=80';
+    const virtualVerifiers = staffList.filter(s => s.role === 'Employee' && s.employee_type === 'Employee 1');
+    const fieldAgents = staffList.filter(s => s.role === 'Employee' && s.employee_type === 'Employee 2');
+    const renderAssignees = (staffOptions, selectedId) => staffOptions.map(s =>
+      `<option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>${escHtml(s.full_name || 'Staff member')}</option>`
+    ).join('');
 
     let badgeClass = 'bg-surface-container-high text-on-surface-variant';
     let statusLabel = lst.status === 'Active' ? 'Approved' : lst.status;
@@ -676,71 +876,82 @@ async function loadListingsModeration() {
     else if (lst.status === 'Rejected') badgeClass = 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300';
     else if (lst.status === 'Suspended') badgeClass = 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
     else if (lst.status === 'Sold') badgeClass = 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+    else if (lst.status === 'Rented') badgeClass = 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300';
 
     return `
-      <div class="flex flex-col md:flex-row md:items-center justify-between p-4 border border-outline-variant rounded-xl hover:shadow-md transition-shadow bg-surface-bright gap-4">
+      <article class="grid min-w-0 gap-4 rounded-xl border border-outline-variant bg-surface-bright p-4 transition-shadow hover:shadow-md sm:p-5">
         <!-- Left section: Thumbnail + Title + Info -->
-        <div class="flex items-center gap-4 flex-1">
-          <img src="${imageSrc}" class="w-16 h-16 object-cover rounded-lg border border-outline-variant bg-surface-container" alt="Listing Image"/>
-          <div>
-            <div class="font-body-md font-bold text-on-background text-base line-clamp-1">${lst.title}</div>
-            <div class="font-body-sm text-on-surface-variant text-xs flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 font-medium">
+        <div class="flex min-w-0 items-center gap-3 sm:gap-4">
+          <img src="${imageSrc}" class="h-16 w-16 shrink-0 rounded-lg border border-outline-variant bg-surface-container object-cover sm:h-20 sm:w-20" alt="Listing image"/>
+          <div class="min-w-0 flex-1">
+            <h4 class="line-clamp-1 break-words font-body-md text-base font-bold text-on-background">${escHtml(lst.title || 'Untitled listing')}</h4>
+            <div class="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-body-sm text-xs font-medium text-on-surface-variant">
               <span>${lst.location}</span> • 
               <span class="font-semibold text-primary">${priceStr}</span> • 
               <span class="${badgeClass} px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">${statusLabel}</span>
             </div>
-            <div class="text-[10px] text-slate-400 mt-1 font-semibold">
-              Broker: <span class="font-mono">${lst.broker_id || 'System'}</span>
-            </div>
+            <div class="mt-1 max-w-full truncate text-[10px] font-semibold text-slate-400" title="Broker: ${escHtml(lst.broker_id || 'System')}">Broker: <span class="font-mono">${escHtml(lst.broker_id || 'System')}</span></div>
           </div>
         </div>
 
-        <!-- Right section: Assign Control & Status Control -->
-        <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full md:w-auto">
-          <!-- Assignee Dropdown -->
-          <div class="flex flex-col gap-1 w-full sm:w-44">
-            <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Assignee</label>
-            <select class="admin-assign-select bg-surface-container border border-outline-variant rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary font-medium text-slate-700 w-full" data-id="${lst.id}" data-title="${lst.title}">
-              <option value="">-- Unassigned --</option>
-              ${staffList.map(s => `<option value="${s.id}" ${lst.assigned_employee_id === s.id ? 'selected' : ''}>${s.full_name} (${s.role})</option>`).join('')}
-            </select>
+        <!-- Right section: Role-specific assignment & status controls -->
+        <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="contents">
+            <div class="flex min-w-0 flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Virtual Verifier</label>
+              <select class="admin-assignment-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-title="${escHtml(lst.title)}" data-field="assigned_virtual_verifier_id">
+                <option value="">-- Unassigned --</option>
+                ${renderAssignees(virtualVerifiers, lst.assigned_virtual_verifier_id)}
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Field Agent</label>
+              <select class="admin-assignment-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-title="${escHtml(lst.title)}" data-field="assigned_field_agent_id">
+                <option value="">-- Unassigned --</option>
+                ${renderAssignees(fieldAgents, lst.assigned_field_agent_id)}
+              </select>
+            </div>
           </div>
 
           <!-- Status Dropdown -->
-          <div class="flex flex-col gap-1 w-full sm:w-40">
-            <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Status</label>
-            <select class="admin-status-select bg-surface-container border border-outline-variant rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary font-medium text-slate-700 w-full" data-id="${lst.id}" data-current="${lst.status}" data-title="${lst.title}" data-broker="${lst.broker_id}">
-              ${['Draft', 'Pending', 'Under Review', 'Active', 'Rejected', 'Suspended', 'Sold'].map(st => `
-                <option value="${st}" ${lst.status === st ? 'selected' : ''}>${st === 'Active' ? 'Approved (Active)' : st}</option>
+          <div class="flex min-w-0 flex-col gap-1">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</label>
+            <select class="admin-status-select w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary" data-id="${lst.id}" data-current="${lst.status}" data-title="${escHtml(lst.title)}" data-broker="${escHtml(lst.broker_id)}">
+              ${['Draft', 'Pending', 'Under Review', 'Active', 'Rejected', 'Suspended', 'Sold', 'Rented'].map(st => `
+                <option value="${st}" ${lst.status === st ? 'selected' : ''} ${st === 'Active' && lst.status !== 'Active' ? 'disabled' : ''}>${st === 'Active' ? 'Approved by Employee 2 (Active)' : st}</option>
               `).join('')}
             </select>
           </div>
 
           <!-- Preview / Delete Buttons -->
-          <div class="flex gap-2 self-end sm:self-center pt-4 sm:pt-0">
-            <button class="preview-listing-btn w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200 transition-colors" data-id="${lst.id}" title="Preview Listing">
+          <div class="flex items-end gap-2 sm:justify-end">
+            <button class="preview-listing-btn flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200" data-id="${lst.id}" title="Preview listing" aria-label="Preview listing">
               <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             </button>
-            <button class="delete-listing-btn w-9 h-9 rounded-lg bg-error-container text-on-error-container flex items-center justify-center hover:bg-error hover:text-on-error transition-colors" data-id="${lst.id}" data-title="${lst.title}" title="Delete Listing">
+            <button class="delete-listing-btn flex h-10 w-10 items-center justify-center rounded-lg bg-error-container text-on-error-container transition-colors hover:bg-error hover:text-on-error" data-id="${lst.id}" data-title="${escHtml(lst.title)}" title="Delete listing" aria-label="Delete listing">
               <span class="material-symbols-outlined text-[18px]">delete</span>
             </button>
           </div>
         </div>
-      </div>
+      </article>
     `;
   }).join('');
 
   // Bind Assignment Change
-  document.querySelectorAll('.admin-assign-select').forEach(select => {
+  document.querySelectorAll('.admin-assignment-select').forEach(select => {
     select.onchange = async () => {
       const id = select.getAttribute('data-id');
       const title = select.getAttribute('data-title');
+      const field = select.getAttribute('data-field');
       const val = select.value || null;
+      const update = field === 'assigned_virtual_verifier_id'
+        ? { [field]: val, virtually_verified: false, virtually_verified_by: null }
+        : { [field]: val, field_verified: false, field_verified_by: null, field_verification_photo_url: null, field_verification_lat: null, field_verification_lng: null, field_verified_at: null };
 
       try {
         const { error } = await supabase
           .from('listings')
-          .update({ assigned_employee_id: val })
+          .update(update)
           .eq('id', id);
 
         if (error) throw error;
@@ -826,7 +1037,7 @@ function closeModal() {
   document.getElementById('staff-name').value = '';
   document.getElementById('staff-email').value = '';
   document.getElementById('staff-password').value = '';
-  document.getElementById('staff-role').value = 'Employee';
+  document.getElementById('staff-role').value = 'Employee 1';
 }
 
 document.getElementById('create-staff-btn')?.addEventListener('click', openModal);
@@ -845,6 +1056,8 @@ document.getElementById('submit-staff-btn')?.addEventListener('click', async () 
   const email     = document.getElementById('staff-email').value.trim();
   const password  = document.getElementById('staff-password').value;
   const role      = document.getElementById('staff-role').value;
+  const isEmployeeRole = ['Employee 1', 'Employee 2'].includes(role);
+  const edgeRole = isEmployeeRole ? 'Employee' : role;
   const btn       = document.getElementById('submit-staff-btn');
 
   if (!full_name || !email || !password) {
@@ -866,11 +1079,29 @@ document.getElementById('submit-staff-btn')?.addEventListener('click', async () 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`
       },
-      body: JSON.stringify({ full_name, email, password, role })
+      body: JSON.stringify({ full_name, email, password, role: edgeRole })
     });
 
     const result = await res.json();
-    if (!res.ok) throw new Error(result.error || 'Failed to create account.');
+    if (!res.ok) {
+      const duplicateAccount = /already (?:registered|exists)|user already|email.*in use/i.test(result.error || '');
+      if (isEmployeeRole && duplicateAccount) {
+        const { error: recoveryError } = await supabase.rpc('admin_assign_employee_type', { p_email: email, p_employee_type: role });
+        if (!recoveryError) {
+          showAdminToast(`Existing Employee account updated to ${role}.`);
+          closeModal();
+          loadUsers();
+          loadStats();
+          return;
+        }
+      }
+      throw new Error(result.error || 'Failed to create account.');
+    }
+
+    if (isEmployeeRole) {
+      const { error: roleError } = await supabase.rpc('admin_assign_employee_type', { p_email: email, p_employee_type: role });
+      if (roleError) throw new Error(`Account created, but employee type assignment failed: ${roleError.message}`);
+    }
 
     showAdminToast(`✓ ${role} account created for ${email}`);
     closeModal();
@@ -891,13 +1122,13 @@ function escHtml(str) {
 
 async function loadReports() {
   try {
-    const { data: reports, error } = await supabase
+    const { data: reports, error } = await withAdminDeadline(supabase
         .from('reports')
         .select(`
             *,
             profiles:reporter_id (full_name, role)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }), 'Reported issues');
 
     const tbody = document.getElementById('reports-table-body');
     const badge = document.getElementById('pending-reports-badge');
@@ -925,10 +1156,12 @@ async function loadReports() {
         return;
     }
 
-    const [{ data: listings }, { data: profiles }] = await Promise.all([
-        supabase.from('listings').select('id, title'),
-        supabase.from('profiles').select('id, full_name')
+    const [{ data: listings, error: listingsError }, { data: profiles, error: profilesError }] = await Promise.all([
+        withAdminDeadline(supabase.from('listings').select('id, title'), 'Reported listing names'),
+        withAdminDeadline(supabase.from('profiles').select('id, full_name'), 'Report profile names')
     ]);
+    if (listingsError) throw listingsError;
+    if (profilesError) throw profilesError;
 
     const listingsMap = {};
     if (listings) listings.forEach(l => listingsMap[l.id] = l.title);
@@ -1060,6 +1293,8 @@ async function loadReports() {
     });
   } catch (err) {
     console.error(err);
+    const tbody = document.getElementById('reports-table-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-error">Could not load reports: ${escHtml(err.message)}</td></tr>`;
   }
 }
 
